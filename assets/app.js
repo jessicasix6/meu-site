@@ -4,6 +4,24 @@ const results = document.getElementById("chat-results");
 const rankingList = document.getElementById("ranking-list");
 const rankingSort = document.getElementById("ranking-sort");
 
+function initials(name) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join("");
+}
+
+function starRow(rating) {
+  const filled = Math.round(rating);
+  let out = "";
+  for (let i = 1; i <= 5; i++) {
+    out += `<span class="star ${i <= filled ? "star--filled" : ""}">★</span>`;
+  }
+  return out;
+}
+
 async function loadRanking(sortBy) {
   try {
     const res = await fetch(`/api/ranking?sortBy=${encodeURIComponent(sortBy || rankingSort.value)}`);
@@ -12,15 +30,21 @@ async function loadRanking(sortBy) {
     rankingList.innerHTML = "";
     top3.forEach((p, index) => {
       const item = document.createElement("li");
-      item.className = `ranking-item rank-${index + 1}`;
+      item.className = `rank-card rank-card--${index + 1}`;
       item.innerHTML = `
-        <span class="rank-badge">#${index + 1}</span>
-        <span class="rank-info">
-          <strong>${escapeHtml(p.name)}</strong> — ${escapeHtml(p.service)}
-          ${p.fastReply ? '<span class="fast-reply-badge">resposta rápida</span>' : ""}
-          <br />
-          <span class="rank-meta">${escapeHtml(p.city)} · ${p.distanceKm.toFixed(1)} km · R$ ${p.price} · ${p.rating.toFixed(1)} ★</span>
-        </span>
+        <div class="rank-card-top">
+          <div class="rank-avatar">${escapeHtml(initials(p.name))}</div>
+          <span class="rank-pos">#${index + 1}</span>
+        </div>
+        <h3 class="rank-name">${escapeHtml(p.name)}</h3>
+        <p class="rank-service">${escapeHtml(p.service)} · ${escapeHtml(p.city)}</p>
+        <div class="rank-stars">${starRow(p.rating)}<span class="rank-rating-num">${p.rating.toFixed(1)}</span></div>
+        <div class="rank-chips">
+          <span class="chip">${p.distanceKm.toFixed(1)} km</span>
+          <span class="chip">R$ ${p.price}</span>
+          ${p.fastReply ? '<span class="chip chip--fast">resposta rápida</span>' : ""}
+        </div>
+        <button type="button" class="rank-cta" data-name="${escapeHtml(p.name)}">Chamar agora</button>
       `;
       rankingList.appendChild(item);
     });
@@ -31,6 +55,14 @@ async function loadRanking(sortBy) {
 
 loadRanking();
 rankingSort.addEventListener("change", () => loadRanking());
+
+rankingList.addEventListener("click", (event) => {
+  const button = event.target.closest(".rank-cta");
+  if (!button) return;
+  input.value = `quero chamar ${button.dataset.name}`;
+  document.getElementById("chat").scrollIntoView({ behavior: "smooth", block: "center" });
+  form.requestSubmit();
+});
 
 const requesterView = document.getElementById("requester-view");
 const providerView = document.getElementById("provider-view");
@@ -68,16 +100,23 @@ async function loadRequests() {
   }
 }
 
+const REQUEST_ICONS = {
+  corrida: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 17h14M5 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm14 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM5 17V9l2-5h10l2 5v8"/></svg>',
+  entrega: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 11h18M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+};
+
 function renderRequests(requests) {
   requestsList.innerHTML = "";
   requests.forEach((r) => {
     const item = document.createElement("li");
-    item.className = "request-item";
+    item.className = `request-item request-item--${r.type}`;
     item.dataset.id = r.id;
     const accepted = r.status === "aceito";
     item.innerHTML = `
-      <span class="request-badge request-badge--${r.type}">${r.type === "corrida" ? "corrida" : "entrega"}</span>
+      <span class="request-icon request-icon--${r.type}">${REQUEST_ICONS[r.type] || ""}</span>
       <span class="request-info">
+        <span class="request-badge request-badge--${r.type}">${r.type === "corrida" ? "corrida" : "entrega"}</span>
+        <br />
         <strong>${escapeHtml(r.title)}</strong>
         <br />
         <span class="request-meta">${escapeHtml(r.requester)} · ${r.distanceKm.toFixed(1)} km · R$ ${r.price}</span>
