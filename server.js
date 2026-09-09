@@ -12,7 +12,7 @@ const PROVIDERS = [
   { name: "Ricardo Nunes", service: "encanador", city: "Rio de Janeiro", time: "amanhã às 08h", rating: 4.4, distanceKm: 5.2, price: 100, fastReply: false },
 ];
 
-const SYSTEM_PROMPT = `Você é o assistente de busca do meu-site, um app que conecta pessoas a profissionais de serviços locais.
+const SYSTEM_PROMPT = `Você é o assistente de busca do Top3Profissional, um app que conecta pessoas a profissionais de serviços locais.
 Ajude o usuário a encontrar alguém na lista de profissionais disponíveis abaixo. Seja breve e direto (poucas frases).
 Ao recomendar alguém, cite nome, serviço, cidade, horário disponível, avaliação (rating de 0 a 5), distância (distanceKm),
 preço (price, em reais) e se responde rápido (fastReply). Se ninguém da lista atender ao pedido, diga isso com honestidade
@@ -79,5 +79,5 @@ app.get("/api/ranking", (req, res) => {
 
 const PORT = process.env.PORT || 8123;
 app.listen(PORT, () => {
-  console.log(`meu-site rodando em http://localhost:${PORT}`);
+  console.log(`Top3Profissional rodando em http://localhost:${PORT}`);
 });
