@@ -20,16 +20,17 @@ function findResults(query) {
 function renderResults(results) {
   const list = document.getElementById("results");
   list.innerHTML = "";
-  for (const r of results) {
+  results.forEach((r, index) => {
     const li = document.createElement("li");
     li.className = "result-card";
+    li.style.animationDelay = `${index * 0.08}s, ${0.5 + index * 0.08}s`;
     li.innerHTML = `
       <strong>${r.name}</strong> — ${r.service}
       <br />
       <span>${r.city} · ${r.time}</span>
     `;
     list.appendChild(li);
-  }
+  });
 }
 
 document.getElementById("search-form").addEventListener("submit", (event) => {
