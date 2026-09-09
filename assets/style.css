@@ -23,9 +23,9 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes border-pulse {
-  0%, 100% { box-shadow: 0 0 10px rgba(0, 255, 240, 0.15), 0 4px 18px rgba(0, 0, 0, 0.6); }
-  50% { box-shadow: 0 0 16px rgba(0, 255, 240, 0.35), 0 4px 18px rgba(0, 0, 0, 0.6); }
+@keyframes blink {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
 }
 
 body {
@@ -76,13 +76,57 @@ h1 {
   color: var(--text-dim);
 }
 
-#search-form {
+#chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 1.5rem 0;
+  min-height: 2rem;
+}
+
+.bubble {
+  max-width: 80%;
+  padding: 0.65rem 1rem;
+  border-radius: 12px;
+  line-height: 1.4;
+  opacity: 0;
+  animation: fade-in-up 0.35s ease forwards;
+  white-space: pre-wrap;
+}
+
+.bubble.user {
+  align-self: flex-end;
+  background: linear-gradient(135deg, var(--cyan), var(--turquoise));
+  color: #04211d;
+  font-weight: 500;
+  border-bottom-right-radius: 3px;
+}
+
+.bubble.agent {
+  align-self: flex-start;
+  background: var(--bg-card);
+  border: 1px solid rgba(45, 253, 200, 0.4);
+  box-shadow: 0 0 10px rgba(0, 255, 240, 0.12);
+  border-bottom-left-radius: 3px;
+}
+
+.bubble.agent.typing {
+  color: var(--text-dim);
+  animation: fade-in-up 0.2s ease forwards, blink 1.2s ease-in-out infinite;
+}
+
+.bubble.agent.error {
+  border-color: #ff5d7a;
+  color: #ffb4c2;
+}
+
+#chat-form {
   display: flex;
   gap: 0.5rem;
   margin: 1.5rem 0;
 }
 
-#search-input {
+#chat-input {
   flex: 1;
   padding: 0.75rem;
   font-size: 1rem;
@@ -94,17 +138,21 @@ h1 {
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
-#search-input::placeholder {
+#chat-input::placeholder {
   color: #4f8c86;
 }
 
-#search-input:focus {
+#chat-input:focus {
   outline: none;
   border-color: var(--cyan);
   box-shadow: var(--glow);
 }
 
-#search-form button {
+#chat-input:disabled {
+  opacity: 0.6;
+}
+
+#chat-form button {
   padding: 0.75rem 1.25rem;
   font-size: 1rem;
   border: 1px solid var(--cyan);
@@ -118,49 +166,14 @@ h1 {
   transition: transform 0.15s ease, box-shadow 0.15s ease, background-position 0.6s ease;
 }
 
-#search-form button:hover {
+#chat-form button:hover {
   transform: translateY(-2px);
   background-position: 100% 100%;
   box-shadow: 0 0 14px rgba(0, 255, 240, 0.85), 0 0 36px rgba(45, 253, 200, 0.55);
 }
 
-#search-form button:active {
+#chat-form button:active {
   transform: translateY(0);
-}
-
-#status {
-  color: var(--text-dim);
-  font-size: 0.9rem;
-}
-
-#results {
-  list-style: none;
-  padding: 0;
-  display: grid;
-  gap: 0.75rem;
-}
-
-.result-card {
-  background: var(--bg-card);
-  border: 1px solid rgba(45, 253, 200, 0.4);
-  border-radius: 8px;
-  padding: 1rem;
-  opacity: 0;
-  animation: fade-in-up 0.45s ease forwards, border-pulse 4s ease-in-out 0.5s infinite;
-  transition: transform 0.15s ease, border-color 0.15s ease;
-}
-
-.result-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--cyan);
-}
-
-.result-card strong {
-  color: var(--cyan);
-}
-
-.result-card span {
-  color: var(--text-dim);
 }
 
 @media (prefers-reduced-motion: reduce) {

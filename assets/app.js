@@ -1,50 +1,58 @@
-const PROVIDERS = [
-  { name: "Ana Souza", service: "manicure", city: "Belo Horizonte", time: "amanhã às 14h" },
-  { name: "Carla Lima", service: "manicure", city: "Belo Horizonte", time: "hoje às 17h30" },
-  { name: "Fernanda Reis", service: "manicure", city: "Belo Horizonte", time: "amanhã às 09h" },
-  { name: "João Pedro", service: "eletricista", city: "Curitiba", time: "hoje às 15h" },
-  { name: "Marcos Vieira", service: "eletricista", city: "Curitiba", time: "amanhã às 10h" },
-  { name: "Beatriz Alves", service: "cabeleireiro", city: "São Paulo", time: "hoje às 18h" },
-  { name: "Ricardo Nunes", service: "encanador", city: "Rio de Janeiro", time: "amanhã às 08h" },
-];
+const log = document.getElementById("chat-log");
+const form = document.getElementById("chat-form");
+const input = document.getElementById("chat-input");
 
-function findResults(query) {
-  const q = query.toLowerCase();
-  const matched = PROVIDERS.filter(
-    (p) => q.includes(p.service.toLowerCase()) || q.includes(p.city.toLowerCase())
-  );
-  const pool = matched.length > 0 ? matched : PROVIDERS;
-  return pool.slice(0, 5);
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
 }
 
-function renderResults(results) {
-  const list = document.getElementById("results");
-  list.innerHTML = "";
-  results.forEach((r, index) => {
-    const li = document.createElement("li");
-    li.className = "result-card";
-    li.style.animationDelay = `${index * 0.08}s, ${0.5 + index * 0.08}s`;
-    li.innerHTML = `
-      <strong>${r.name}</strong> — ${r.service}
-      <br />
-      <span>${r.city} · ${r.time}</span>
-    `;
-    list.appendChild(li);
-  });
+function formatMessage(text) {
+  return escapeHtml(text)
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\n/g, "<br>");
 }
 
-document.getElementById("search-form").addEventListener("submit", (event) => {
+function appendMessage(role, text) {
+  const bubble = document.createElement("div");
+  bubble.className = `bubble ${role}`;
+  bubble.innerHTML = formatMessage(text);
+  log.appendChild(bubble);
+  log.scrollTop = log.scrollHeight;
+  return bubble;
+}
+
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const query = document.getElementById("search-input").value.trim();
-  const status = document.getElementById("status");
+  const message = input.value.trim();
+  if (!message) return;
 
-  if (!query) {
-    status.textContent = "";
-    renderResults([]);
-    return;
+  appendMessage("user", message);
+  input.value = "";
+  input.disabled = true;
+
+  const typing = appendMessage("agent typing", "digitando...");
+
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    });
+    const data = await res.json();
+    typing.remove();
+
+    if (!res.ok) {
+      appendMessage("agent error", data.error || "Algo deu errado.");
+    } else {
+      appendMessage("agent", data.reply);
+    }
+  } catch (err) {
+    typing.remove();
+    appendMessage("agent error", "Não consegui falar com o servidor.");
+  } finally {
+    input.disabled = false;
+    input.focus();
   }
-
-  const results = findResults(query);
-  status.textContent = `${results.length} resultado(s) para "${query}"`;
-  renderResults(results);
 });
