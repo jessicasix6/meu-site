@@ -32,6 +32,88 @@ async function loadRanking(sortBy) {
 loadRanking();
 rankingSort.addEventListener("change", () => loadRanking());
 
+const requesterView = document.getElementById("requester-view");
+const providerView = document.getElementById("provider-view");
+const requestsList = document.getElementById("requests-list");
+const modeButtons = document.querySelectorAll(".mode-btn");
+let requestsLoaded = false;
+
+function setMode(mode) {
+  const isProvider = mode === "provider";
+  requesterView.hidden = isProvider;
+  providerView.hidden = !isProvider;
+  modeButtons.forEach((btn) => {
+    const active = btn.dataset.mode === mode;
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-selected", String(active));
+  });
+  if (isProvider && !requestsLoaded) {
+    requestsLoaded = true;
+    loadRequests();
+  }
+}
+
+modeButtons.forEach((btn) => {
+  btn.addEventListener("click", () => setMode(btn.dataset.mode));
+});
+
+async function loadRequests() {
+  try {
+    const res = await fetch("/api/requests");
+    if (!res.ok) return;
+    const { requests } = await res.json();
+    renderRequests(requests);
+  } catch (err) {
+    requestsList.innerHTML = '<li class="requests-error">Não consegui carregar os pedidos agora.</li>';
+  }
+}
+
+function renderRequests(requests) {
+  requestsList.innerHTML = "";
+  requests.forEach((r) => {
+    const item = document.createElement("li");
+    item.className = "request-item";
+    item.dataset.id = r.id;
+    const accepted = r.status === "aceito";
+    item.innerHTML = `
+      <span class="request-badge request-badge--${r.type}">${r.type === "corrida" ? "corrida" : "entrega"}</span>
+      <span class="request-info">
+        <strong>${escapeHtml(r.title)}</strong>
+        <br />
+        <span class="request-meta">${escapeHtml(r.requester)} · ${r.distanceKm.toFixed(1)} km · R$ ${r.price}</span>
+      </span>
+      <button type="button" class="accept-btn" ${accepted ? "disabled" : ""}>${accepted ? "aceito" : "aceitar"}</button>
+    `;
+    requestsList.appendChild(item);
+  });
+}
+
+requestsList.addEventListener("click", async (event) => {
+  const button = event.target.closest(".accept-btn");
+  if (!button || button.disabled) return;
+
+  const item = button.closest(".request-item");
+  const id = item.dataset.id;
+  button.disabled = true;
+  button.textContent = "aceitando...";
+
+  try {
+    const res = await fetch(`/api/requests/${encodeURIComponent(id)}/accept`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) {
+      button.disabled = false;
+      button.textContent = "aceitar";
+      alert(data.error || "Não consegui aceitar este pedido.");
+      return;
+    }
+    button.textContent = "aceito";
+  } catch (err) {
+    button.disabled = false;
+    button.textContent = "aceitar";
+    alert("Falha de conexão ao aceitar o pedido.");
+  }
+});
+
 function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = text;

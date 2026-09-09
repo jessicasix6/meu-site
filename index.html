@@ -21,7 +21,17 @@
     </div>
   </header>
 
+  <div class="mode-switch-bar">
+    <div class="container">
+      <div class="mode-switch" role="tablist" aria-label="Escolher tipo de uso">
+        <button type="button" class="mode-btn is-active" data-mode="requester" role="tab" aria-selected="true">Preciso de um serviço</button>
+        <button type="button" class="mode-btn" data-mode="provider" role="tab" aria-selected="false">Sou motoboy ou motorista</button>
+      </div>
+    </div>
+  </div>
+
   <main>
+    <div id="requester-view">
     <section id="top" class="hero">
       <div class="container hero-grid">
         <div class="hero-copy">
@@ -115,6 +125,18 @@
         </div>
       </div>
     </section>
+    </div>
+
+    <div id="provider-view" hidden>
+      <section id="provider" class="provider-section">
+        <div class="container">
+          <p class="eyebrow">Pedidos perto de você</p>
+          <h2 class="section-title">Aceite corridas e entregas em aberto</h2>
+          <p class="provider-subtitle">Passageiros pedindo corrida e farmácias pedindo motoboy caem na mesma lista — aceite o que fizer sentido pra sua rota.</p>
+          <ol id="requests-list" class="requests-list"></ol>
+        </div>
+      </section>
+    </div>
   </main>
 
   <footer class="site-footer">

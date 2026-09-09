@@ -114,6 +114,138 @@ a {
   color: var(--text);
 }
 
+/* mode switch */
+
+.mode-switch-bar {
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raised);
+}
+
+.mode-switch {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.6rem 0;
+}
+
+.mode-btn {
+  padding: 0.45rem 0.9rem;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.mode-btn:hover {
+  color: var(--text);
+}
+
+.mode-btn.is-active {
+  color: var(--accent-ink);
+  background: var(--accent);
+}
+
+/* provider view */
+
+.provider-section {
+  padding: 3.5rem 0 4.5rem;
+}
+
+.provider-subtitle {
+  color: var(--text-dim);
+  max-width: 56ch;
+  margin: 0.75rem 0 2rem;
+}
+
+.requests-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.request-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  opacity: 0;
+  animation: fade-up 0.3s ease forwards;
+}
+
+.request-badge {
+  flex-shrink: 0;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  color: var(--text-dim);
+}
+
+.request-badge--corrida {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.request-badge--entrega {
+  color: var(--gold);
+  border-color: var(--gold);
+  background: rgba(232, 182, 76, 0.1);
+}
+
+.request-info {
+  flex: 1;
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.request-meta {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.accept-btn {
+  flex-shrink: 0;
+  padding: 0.5rem 1rem;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.accept-btn:hover:not(:disabled) {
+  background: #3df2cd;
+}
+
+.accept-btn:disabled {
+  background: var(--bg-raised);
+  color: var(--text-faint);
+  cursor: default;
+}
+
+.requests-error {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
 /* hero */
 
 .hero {

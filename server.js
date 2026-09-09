@@ -12,6 +12,45 @@ const PROVIDERS = [
   { name: "Ricardo Nunes", service: "encanador", city: "Rio de Janeiro", time: "amanhã às 08h", rating: 4.4, distanceKm: 5.2, price: 100, fastReply: false },
 ];
 
+const REQUESTS = [
+  {
+    id: "r1",
+    type: "corrida",
+    title: "Rua Bahia, 500 → Aeroporto de Confins",
+    requester: "Juliana M.",
+    distanceKm: 3.2,
+    price: 28,
+    status: "aberto",
+  },
+  {
+    id: "r2",
+    type: "entrega",
+    title: "Farmácia Popular → Rua dos Ipês, 120 (Savassi)",
+    requester: "Farmácia Popular",
+    distanceKm: 1.8,
+    price: 12,
+    status: "aberto",
+  },
+  {
+    id: "r3",
+    type: "corrida",
+    title: "Praça da Liberdade → Shopping Cidade",
+    requester: "Marcos T.",
+    distanceKm: 5.6,
+    price: 22,
+    status: "aberto",
+  },
+  {
+    id: "r4",
+    type: "entrega",
+    title: "Drogaria São Paulo → Av. Contorno, 890",
+    requester: "Drogaria São Paulo",
+    distanceKm: 2.4,
+    price: 15,
+    status: "aberto",
+  },
+];
+
 const SYSTEM_PROMPT = `Você é o assistente de busca do Top3Profissional, um app que conecta pessoas a profissionais de serviços locais.
 Ajude o usuário a encontrar alguém na lista de profissionais disponíveis abaixo. Seja breve e direto (poucas frases).
 Ao recomendar alguém, cite nome, serviço, cidade, horário disponível, avaliação (rating de 0 a 5), distância (distanceKm),
@@ -75,6 +114,22 @@ app.get("/api/ranking", (req, res) => {
       fastReply,
     }));
   res.json({ top3, sortBy });
+});
+
+app.get("/api/requests", (req, res) => {
+  res.json({ requests: REQUESTS });
+});
+
+app.post("/api/requests/:id/accept", (req, res) => {
+  const request = REQUESTS.find((r) => r.id === req.params.id);
+  if (!request) {
+    return res.status(404).json({ error: "pedido não encontrado" });
+  }
+  if (request.status === "aceito") {
+    return res.status(409).json({ error: "este pedido já foi aceito" });
+  }
+  request.status = "aceito";
+  res.json({ request });
 });
 
 const PORT = process.env.PORT || 8123;
