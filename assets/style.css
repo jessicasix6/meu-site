@@ -689,6 +689,95 @@ a {
   color: var(--text-dim);
 }
 
+/* post a request */
+
+.post-section {
+  padding: 4rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.post-subtitle {
+  color: var(--text-dim);
+  max-width: 60ch;
+  margin: 0.75rem 0 2rem;
+}
+
+.post-form {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  max-width: 760px;
+  align-items: end;
+}
+
+.post-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.post-field--wide {
+  grid-column: span 2;
+}
+
+.post-field label {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.post-field input,
+.post-field select {
+  padding: 0.6rem 0.75rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+}
+
+.post-field input:focus,
+.post-field select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.post-submit {
+  grid-column: 1 / -1;
+  justify-self: start;
+  padding: 0.7rem 1.5rem;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.post-submit:hover {
+  background: #3df2cd;
+}
+
+.post-status {
+  margin: 1rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  min-height: 1.2em;
+}
+
+.post-status--ok {
+  color: var(--accent);
+}
+
+.post-status--error {
+  color: #ff9aa6;
+}
+
 /* how it works */
 
 .steps {
@@ -768,6 +857,14 @@ a {
 
   .hero {
     padding: 3.5rem 0 3rem;
+  }
+
+  .post-form {
+    grid-template-columns: 1fr;
+  }
+
+  .post-field--wide {
+    grid-column: auto;
   }
 }
 

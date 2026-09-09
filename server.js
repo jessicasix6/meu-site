@@ -18,6 +18,7 @@ const REQUESTS = [
     type: "corrida",
     title: "Rua Bahia, 500 → Aeroporto de Confins",
     requester: "Juliana M.",
+    when: "hoje às 19h",
     distanceKm: 3.2,
     price: 28,
     status: "aberto",
@@ -27,6 +28,7 @@ const REQUESTS = [
     type: "entrega",
     title: "Farmácia Popular → Rua dos Ipês, 120 (Savassi)",
     requester: "Farmácia Popular",
+    when: "hoje às 16h30",
     distanceKm: 1.8,
     price: 12,
     status: "aberto",
@@ -36,6 +38,7 @@ const REQUESTS = [
     type: "corrida",
     title: "Praça da Liberdade → Shopping Cidade",
     requester: "Marcos T.",
+    when: "amanhã às 09h",
     distanceKm: 5.6,
     price: 22,
     status: "aberto",
@@ -45,11 +48,15 @@ const REQUESTS = [
     type: "entrega",
     title: "Drogaria São Paulo → Av. Contorno, 890",
     requester: "Drogaria São Paulo",
+    when: "hoje às 20h",
     distanceKm: 2.4,
     price: 15,
     status: "aberto",
   },
 ];
+
+let nextRequestId = REQUESTS.length + 1;
+const REQUEST_TYPES = new Set(["corrida", "entrega", "profissional"]);
 
 const SYSTEM_PROMPT = `Você é o assistente de busca do Top3Profissional, um app que conecta pessoas a profissionais de serviços locais.
 Ajude o usuário a encontrar alguém na lista de profissionais disponíveis abaixo. Seja breve e direto (poucas frases).
@@ -118,6 +125,34 @@ app.get("/api/ranking", (req, res) => {
 
 app.get("/api/requests", (req, res) => {
   res.json({ requests: REQUESTS });
+});
+
+app.post("/api/requests", (req, res) => {
+  const { type, title, requester, when, price } = req.body;
+
+  if (!REQUEST_TYPES.has(type)) {
+    return res.status(400).json({ error: "tipo inválido (use corrida, entrega ou profissional)" });
+  }
+  if (!title || typeof title !== "string" || !title.trim()) {
+    return res.status(400).json({ error: "descreva o que você precisa" });
+  }
+  const priceNum = Number(price);
+  if (!Number.isFinite(priceNum) || priceNum < 0) {
+    return res.status(400).json({ error: "valor inválido" });
+  }
+
+  const request = {
+    id: `r${nextRequestId++}`,
+    type,
+    title: title.trim(),
+    requester: (requester && requester.trim()) || "Você",
+    when: (when && when.trim()) || "a combinar",
+    distanceKm: null,
+    price: priceNum,
+    status: "aberto",
+  };
+  REQUESTS.unshift(request);
+  res.status(201).json({ request });
 });
 
 app.post("/api/requests/:id/accept", (req, res) => {

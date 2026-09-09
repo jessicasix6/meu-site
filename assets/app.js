@@ -103,7 +103,10 @@ async function loadRequests() {
 const REQUEST_ICONS = {
   corrida: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 17h14M5 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm14 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM5 17V9l2-5h10l2 5v8"/></svg>',
   entrega: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 11h18M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  profissional: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a4 4 0 1 1-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 0 1 5.4-5.4l-2.6 2.6-2-2 2.6-2.6z"/></svg>',
 };
+
+const REQUEST_LABELS = { corrida: "corrida", entrega: "entrega", profissional: "profissional" };
 
 function renderRequests(requests) {
   requestsList.innerHTML = "";
@@ -112,14 +115,15 @@ function renderRequests(requests) {
     item.className = `request-item request-item--${r.type}`;
     item.dataset.id = r.id;
     const accepted = r.status === "aceito";
+    const distanceChip = typeof r.distanceKm === "number" ? `${r.distanceKm.toFixed(1)} km · ` : "";
     item.innerHTML = `
       <span class="request-icon request-icon--${r.type}">${REQUEST_ICONS[r.type] || ""}</span>
       <span class="request-info">
-        <span class="request-badge request-badge--${r.type}">${r.type === "corrida" ? "corrida" : "entrega"}</span>
+        <span class="request-badge request-badge--${r.type}">${REQUEST_LABELS[r.type] || r.type}</span>
         <br />
         <strong>${escapeHtml(r.title)}</strong>
         <br />
-        <span class="request-meta">${escapeHtml(r.requester)} · ${r.distanceKm.toFixed(1)} km · R$ ${r.price}</span>
+        <span class="request-meta">${escapeHtml(r.requester)} · ${escapeHtml(r.when || "a combinar")} · ${distanceChip}R$ ${r.price}</span>
       </span>
       <button type="button" class="accept-btn" ${accepted ? "disabled" : ""}>${accepted ? "aceito" : "aceitar"}</button>
     `;
@@ -173,6 +177,48 @@ function renderResult(query, state, text) {
     </div>
   `;
 }
+
+const postForm = document.getElementById("post-form");
+const postStatus = document.getElementById("post-status");
+
+postForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const data = new FormData(postForm);
+  const payload = {
+    type: data.get("type"),
+    title: data.get("title"),
+    when: data.get("when"),
+    price: data.get("price"),
+    requester: data.get("requester"),
+  };
+
+  postStatus.textContent = "publicando…";
+  postStatus.className = "post-status";
+
+  try {
+    const res = await fetch("/api/requests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const result = await res.json();
+
+    if (!res.ok) {
+      postStatus.textContent = result.error || "Não consegui publicar.";
+      postStatus.className = "post-status post-status--error";
+      return;
+    }
+
+    postStatus.textContent = "Publicado! Já aparece pra quem presta serviço.";
+    postStatus.className = "post-status post-status--ok";
+    postForm.reset();
+    requestsLoaded = false;
+    if (!providerView.hidden) loadRequests();
+  } catch (err) {
+    postStatus.textContent = "Falha de conexão ao publicar.";
+    postStatus.className = "post-status post-status--error";
+  }
+});
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
