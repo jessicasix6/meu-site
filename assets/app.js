@@ -2,10 +2,11 @@ const log = document.getElementById("chat-log");
 const form = document.getElementById("chat-form");
 const input = document.getElementById("chat-input");
 const rankingList = document.getElementById("ranking-list");
+const rankingSort = document.getElementById("ranking-sort");
 
-async function loadRanking() {
+async function loadRanking(sortBy) {
   try {
-    const res = await fetch("/api/ranking");
+    const res = await fetch(`/api/ranking?sortBy=${encodeURIComponent(sortBy || rankingSort.value)}`);
     if (!res.ok) return;
     const { top3 } = await res.json();
     rankingList.innerHTML = "";
@@ -16,8 +17,9 @@ async function loadRanking() {
         <span class="rank-badge">#${index + 1}</span>
         <span class="rank-info">
           <strong>${escapeHtml(p.name)}</strong> — ${escapeHtml(p.service)}
+          ${p.fastReply ? '<span class="fast-reply-badge">resposta rápida</span>' : ""}
           <br />
-          <span class="rank-meta">${escapeHtml(p.city)} · ${p.rating.toFixed(1)} ★</span>
+          <span class="rank-meta">${escapeHtml(p.city)} · ${p.distanceKm.toFixed(1)} km · R$ ${p.price} · ${p.rating.toFixed(1)} ★</span>
         </span>
       `;
       rankingList.appendChild(item);
@@ -28,6 +30,7 @@ async function loadRanking() {
 }
 
 loadRanking();
+rankingSort.addEventListener("change", () => loadRanking());
 
 function escapeHtml(text) {
   const div = document.createElement("div");

@@ -3,20 +3,20 @@ const express = require("express");
 const Anthropic = require("@anthropic-ai/sdk").default;
 
 const PROVIDERS = [
-  { name: "Ana Souza", service: "manicure", city: "Belo Horizonte", time: "amanhã às 14h", rating: 4.9 },
-  { name: "Carla Lima", service: "manicure", city: "Belo Horizonte", time: "hoje às 17h30", rating: 4.6 },
-  { name: "Fernanda Reis", service: "manicure", city: "Belo Horizonte", time: "amanhã às 09h", rating: 4.8 },
-  { name: "João Pedro", service: "eletricista", city: "Curitiba", time: "hoje às 15h", rating: 4.7 },
-  { name: "Marcos Vieira", service: "eletricista", city: "Curitiba", time: "amanhã às 10h", rating: 4.5 },
-  { name: "Beatriz Alves", service: "cabeleireiro", city: "São Paulo", time: "hoje às 18h", rating: 5.0 },
-  { name: "Ricardo Nunes", service: "encanador", city: "Rio de Janeiro", time: "amanhã às 08h", rating: 4.4 },
+  { name: "Ana Souza", service: "manicure", city: "Belo Horizonte", time: "amanhã às 14h", rating: 4.9, distanceKm: 1.2, price: 45, fastReply: true },
+  { name: "Carla Lima", service: "manicure", city: "Belo Horizonte", time: "hoje às 17h30", rating: 4.6, distanceKm: 3.8, price: 35, fastReply: false },
+  { name: "Fernanda Reis", service: "manicure", city: "Belo Horizonte", time: "amanhã às 09h", rating: 4.8, distanceKm: 2.1, price: 40, fastReply: true },
+  { name: "João Pedro", service: "eletricista", city: "Curitiba", time: "hoje às 15h", rating: 4.7, distanceKm: 4.5, price: 90, fastReply: true },
+  { name: "Marcos Vieira", service: "eletricista", city: "Curitiba", time: "amanhã às 10h", rating: 4.5, distanceKm: 6.0, price: 80, fastReply: false },
+  { name: "Beatriz Alves", service: "cabeleireiro", city: "São Paulo", time: "hoje às 18h", rating: 5.0, distanceKm: 0.8, price: 120, fastReply: true },
+  { name: "Ricardo Nunes", service: "encanador", city: "Rio de Janeiro", time: "amanhã às 08h", rating: 4.4, distanceKm: 5.2, price: 100, fastReply: false },
 ];
 
 const SYSTEM_PROMPT = `Você é o assistente de busca do meu-site, um app que conecta pessoas a profissionais de serviços locais.
 Ajude o usuário a encontrar alguém na lista de profissionais disponíveis abaixo. Seja breve e direto (poucas frases).
-Ao recomendar alguém, cite nome, serviço, cidade, horário disponível e avaliação (rating de 0 a 5).
-Se ninguém da lista atender ao pedido, diga isso com honestidade e sugira a opção mais próxima disponível.
-Responda sempre em português do Brasil.
+Ao recomendar alguém, cite nome, serviço, cidade, horário disponível, avaliação (rating de 0 a 5), distância (distanceKm),
+preço (price, em reais) e se responde rápido (fastReply). Se ninguém da lista atender ao pedido, diga isso com honestidade
+e sugira a opção mais próxima disponível. Responda sempre em português do Brasil.
 
 Profissionais disponíveis (mock, para fins de protótipo):
 ${JSON.stringify(PROVIDERS, null, 2)}`;
@@ -54,12 +54,27 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
+const SORTERS = {
+  rating: (a, b) => b.rating - a.rating,
+  price: (a, b) => a.price - b.price,
+  distance: (a, b) => a.distanceKm - b.distanceKm,
+};
+
 app.get("/api/ranking", (req, res) => {
+  const sortBy = SORTERS[req.query.sortBy] ? req.query.sortBy : "rating";
   const top3 = [...PROVIDERS]
-    .sort((a, b) => b.rating - a.rating)
+    .sort(SORTERS[sortBy])
     .slice(0, 3)
-    .map(({ name, service, city, rating }) => ({ name, service, city, rating }));
-  res.json({ top3 });
+    .map(({ name, service, city, rating, distanceKm, price, fastReply }) => ({
+      name,
+      service,
+      city,
+      rating,
+      distanceKm,
+      price,
+      fastReply,
+    }));
+  res.json({ top3, sortBy });
 });
 
 const PORT = process.env.PORT || 8123;

@@ -7,31 +7,93 @@
   <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
-  <main>
-    <h1>Encontre um profissional agora</h1>
-    <p class="subtitle">Pergunte algo como "manicure amanhã em BH" — um agente de IA responde de verdade.</p>
+  <header class="site-header">
+    <div class="container nav-inner">
+      <a href="#top" class="logo">meu<span class="logo-accent">site</span></a>
+      <nav class="site-nav">
+        <a href="#top3">Top profissionais</a>
+        <a href="#chat">Fale com o agente</a>
+        <a href="#como-funciona">Como funciona</a>
+      </nav>
+    </div>
+  </header>
 
-    <section id="ranking" class="ranking" aria-label="Top 3 profissionais mais bem avaliados">
-      <h2 class="ranking-title">Top 3 mais bem avaliados</h2>
-      <ol id="ranking-list" class="ranking-list"></ol>
+  <main>
+    <section id="top" class="hero">
+      <div class="container">
+        <h1>Encontre um profissional agora</h1>
+        <p class="subtitle">Pergunte algo como "manicure amanhã em BH" — um agente de IA responde de verdade, com base nos profissionais disponíveis perto de você.</p>
+        <a href="#chat" class="cta-button">Falar com o agente</a>
+      </div>
     </section>
 
-    <div class="terminal">
-      <div id="chat-log" class="terminal-log" aria-live="polite"></div>
-      <form id="chat-form" class="terminal-input-row" autocomplete="off">
-        <span class="prompt-sym" aria-hidden="true">visitante@meu-site:~$</span>
-        <input
-          id="chat-input"
-          type="text"
-          name="q"
-          placeholder="digite e aperte enter..."
-          aria-label="Mensagem para o agente"
-          required
-        />
-        <button type="submit" class="sr-only">Enviar</button>
-      </form>
-    </div>
+    <section id="top3" class="ranking-section">
+      <div class="container">
+        <div class="ranking-header">
+          <h2 class="section-title">Top 3 profissionais</h2>
+          <label class="ranking-sort-label">
+            ordenar por
+            <select id="ranking-sort">
+              <option value="rating">melhor avaliação</option>
+              <option value="price">menor preço</option>
+              <option value="distance">mais perto</option>
+            </select>
+          </label>
+        </div>
+        <ol id="ranking-list" class="ranking-list"></ol>
+      </div>
+    </section>
+
+    <section id="chat" class="chat-section">
+      <div class="container">
+        <h2 class="section-title">Fale com o agente</h2>
+        <div class="terminal">
+          <div id="chat-log" class="terminal-log" aria-live="polite"></div>
+          <form id="chat-form" class="terminal-input-row" autocomplete="off">
+            <span class="prompt-sym" aria-hidden="true">visitante@meu-site:~$</span>
+            <input
+              id="chat-input"
+              type="text"
+              name="q"
+              placeholder="digite e aperte enter..."
+              aria-label="Mensagem para o agente"
+              required
+            />
+            <button type="submit" class="sr-only">Enviar</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section id="como-funciona" class="how-section">
+      <div class="container">
+        <h2 class="section-title">Como funciona</h2>
+        <div class="steps">
+          <article class="step">
+            <span class="step-number">1</span>
+            <h3>Diga o que precisa</h3>
+            <p>Escreva em texto livre o serviço, a cidade e o horário — sem formulário, sem filtro manual.</p>
+          </article>
+          <article class="step">
+            <span class="step-number">2</span>
+            <h3>O agente busca por você</h3>
+            <p>Uma IA analisa os profissionais disponíveis e responde com as melhores opções, na hora.</p>
+          </article>
+          <article class="step">
+            <span class="step-number">3</span>
+            <h3>Escolha e confirme</h3>
+            <p>Veja avaliação, distância e preço lado a lado antes de decidir quem chamar.</p>
+          </article>
+        </div>
+      </div>
+    </section>
   </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>meu-site — protótipo experimental. Dados de profissionais são fictícios.</p>
+    </div>
+  </footer>
 
   <script src="assets/app.js"></script>
 </body>

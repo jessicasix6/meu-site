@@ -38,15 +38,181 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+* {
+  box-sizing: border-box;
+}
+
 body {
   position: relative;
   font-family: system-ui, sans-serif;
-  max-width: 720px;
-  margin: 4rem auto;
-  padding: 0 1rem;
+  margin: 0;
   background: var(--bg);
   color: var(--text);
   overflow-x: hidden;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(3, 4, 4, 0.85);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(45, 253, 200, 0.25);
+}
+
+.nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+}
+
+.logo {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--text);
+  text-decoration: none;
+  letter-spacing: 0.5px;
+}
+
+.logo-accent {
+  color: var(--cyan);
+  text-shadow: 0 0 8px rgba(0, 255, 240, 0.6);
+}
+
+.site-nav {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.site-nav a {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: color 0.15s ease;
+}
+
+.site-nav a:hover {
+  color: var(--cyan);
+}
+
+.hero {
+  padding: 4.5rem 0 3.5rem;
+  text-align: center;
+}
+
+.hero .subtitle {
+  max-width: 560px;
+  margin: 0.75rem auto 1.75rem;
+}
+
+.cta-button {
+  display: inline-block;
+  padding: 0.8rem 1.75rem;
+  background: linear-gradient(135deg, var(--cyan), var(--turquoise));
+  color: #04211d;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 999px;
+  box-shadow: var(--glow);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cta-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 16px rgba(0, 255, 240, 0.85), 0 0 40px rgba(45, 253, 200, 0.5);
+}
+
+.ranking-section,
+.chat-section,
+.how-section {
+  padding: 3rem 0;
+}
+
+.chat-section {
+  border-top: 1px solid rgba(45, 253, 200, 0.12);
+}
+
+.how-section {
+  border-top: 1px solid rgba(45, 253, 200, 0.12);
+}
+
+.section-title {
+  font-size: 1.4rem;
+  color: var(--text);
+  margin: 0 0 1.25rem;
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+
+.step {
+  background: var(--bg-card);
+  border: 1px solid rgba(45, 253, 200, 0.3);
+  border-radius: 10px;
+  padding: 1.25rem;
+}
+
+.step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: rgba(45, 253, 200, 0.12);
+  border: 1px solid var(--turquoise);
+  color: var(--cyan);
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+}
+
+.step h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.step p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.site-footer {
+  border-top: 1px solid rgba(45, 253, 200, 0.2);
+  padding: 1.5rem 0;
+}
+
+.site-footer p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .site-nav {
+    display: none;
+  }
+
+  .steps {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    padding: 3rem 0 2.5rem;
+  }
 }
 
 body::before,
@@ -86,16 +252,35 @@ h1 {
   color: var(--text-dim);
 }
 
-.ranking {
-  margin: 1.5rem 0;
+.ranking-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 0 0.6rem;
 }
 
-.ranking-title {
-  font-size: 0.95rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+.ranking-sort-label {
+  font-size: 0.8rem;
   color: var(--text-dim);
-  margin: 0 0 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+#ranking-sort {
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid rgba(45, 253, 200, 0.4);
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+#ranking-sort:focus {
+  outline: none;
+  border-color: var(--cyan);
+  box-shadow: var(--glow);
 }
 
 .ranking-list {
@@ -157,6 +342,19 @@ h1 {
 .rank-info {
   color: var(--text);
   line-height: 1.4;
+}
+
+.fast-reply-badge {
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #04211d;
+  background: linear-gradient(135deg, var(--cyan), var(--turquoise));
+  border-radius: 999px;
+  vertical-align: middle;
 }
 
 .rank-meta {
