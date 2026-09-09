@@ -1,6 +1,6 @@
-const log = document.getElementById("chat-log");
 const form = document.getElementById("chat-form");
 const input = document.getElementById("chat-input");
+const results = document.getElementById("chat-results");
 const rankingList = document.getElementById("ranking-list");
 const rankingSort = document.getElementById("ranking-sort");
 
@@ -126,36 +126,22 @@ function formatMessage(text) {
     .replace(/\n/g, "<br>");
 }
 
-function appendLine(role, prefix, text) {
-  const line = document.createElement("div");
-  line.className = `term-line ${role}`;
-  line.innerHTML = prefix
-    ? `<span class="line-prefix">${prefix}</span><span class="line-text">${formatMessage(text)}</span>`
-    : `<span class="line-text">${formatMessage(text)}</span>`;
-  log.appendChild(line);
-  log.scrollTop = log.scrollHeight;
-  return line;
+function renderResult(query, state, text) {
+  results.innerHTML = `
+    <p class="result-query">Resultados para "${escapeHtml(query)}"</p>
+    <div class="result-answer ${state === "error" ? "result-answer--error" : ""}">
+      ${state === "loading" ? '<span class="result-loading">buscando…</span>' : formatMessage(text)}
+    </div>
+  `;
 }
-
-appendLine("system", "", 'sistema pronto. pergunte algo como "manicure amanhã em BH".');
-
-input.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    form.requestSubmit();
-  }
-});
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const message = input.value.trim();
   if (!message) return;
 
-  appendLine("user", "$", message);
-  input.value = "";
   input.disabled = true;
-
-  const typing = appendLine("agent typing", ">", "digitando...");
+  renderResult(message, "loading");
 
   try {
     const res = await fetch("/api/chat", {
@@ -164,16 +150,14 @@ form.addEventListener("submit", async (event) => {
       body: JSON.stringify({ message }),
     });
     const data = await res.json();
-    typing.remove();
 
     if (!res.ok) {
-      appendLine("agent error", "erro:", data.error || "Algo deu errado.");
+      renderResult(message, "error", data.error || "Algo deu errado.");
     } else {
-      appendLine("agent", ">", data.reply);
+      renderResult(message, "ok", data.reply);
     }
   } catch (err) {
-    typing.remove();
-    appendLine("agent error", "erro:", "Não consegui falar com o servidor.");
+    renderResult(message, "error", "Não consegui falar com o servidor.");
   } finally {
     input.disabled = false;
     input.focus();

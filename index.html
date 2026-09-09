@@ -45,16 +45,11 @@
         </div>
         <div class="hero-preview" aria-hidden="true">
           <div class="preview-window">
-            <div class="preview-titlebar">
-              <span class="preview-dot"></span>
-              <span class="preview-dot"></span>
-              <span class="preview-dot"></span>
+            <div class="preview-search-bar">
+              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <span>manicure amanhã em BH</span>
             </div>
-            <div class="preview-body">
-              <p class="preview-line preview-line--user">manicure amanhã em BH</p>
-              <p class="preview-line preview-line--agent">Ana Souza — 4.9★, 1,2 km, R$ 45, amanhã às 14h.</p>
-              <p class="preview-line preview-line--agent">Fernanda Reis — 4.8★, 2,1 km, R$ 40, amanhã às 09h.</p>
-            </div>
+            <p class="preview-answer">Ana Souza — 4.9★, 1,2 km, R$ 45, amanhã às 14h. Fernanda Reis — 4.8★, 2,1 km, R$ 40, amanhã às 09h.</p>
           </div>
         </div>
       </div>
@@ -80,25 +75,23 @@
       </div>
     </section>
 
-    <section id="chat" class="chat-section">
+    <section id="chat" class="search-section">
       <div class="container">
         <p class="eyebrow">Sem formulário</p>
         <h2 class="section-title">Descreva o que precisa</h2>
-        <div class="terminal">
-          <div id="chat-log" class="terminal-log" aria-live="polite"></div>
-          <form id="chat-form" class="terminal-input-row" autocomplete="off">
-            <span class="prompt-sym" aria-hidden="true">visitante@top3profissional:~$</span>
-            <input
-              id="chat-input"
-              type="text"
-              name="q"
-              placeholder="ex: preciso de um eletricista hoje à noite"
-              aria-label="Mensagem para o agente"
-              required
-            />
-            <button type="submit" class="sr-only">Enviar</button>
-          </form>
-        </div>
+        <form id="chat-form" class="search-bar" autocomplete="off">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input
+            id="chat-input"
+            type="text"
+            name="q"
+            placeholder="ex: preciso de um eletricista hoje à noite"
+            aria-label="Pesquisar profissional"
+            required
+          />
+          <button type="submit" class="sr-only">Pesquisar</button>
+        </form>
+        <div id="chat-results" class="search-results" aria-live="polite"></div>
       </div>
     </section>
 
