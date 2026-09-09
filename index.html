@@ -3,12 +3,30 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>meu-site</title>
+  <title>meu-site — busca de serviços</title>
   <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
-  <h1>meu-site</h1>
-  <p>Projeto inicial da esteira segura (main protegida, sandbox → agent → review → verifier).</p>
+  <main>
+    <h1>Encontre um profissional agora</h1>
+    <p class="subtitle">Ex: "manicure amanhã em BH" ou "eletricista hoje em Curitiba"</p>
+
+    <form id="search-form" autocomplete="off">
+      <input
+        id="search-input"
+        type="text"
+        name="q"
+        placeholder="O que você precisa e onde?"
+        aria-label="Buscar serviço"
+        required
+      />
+      <button type="submit">Buscar</button>
+    </form>
+
+    <p id="status" role="status" aria-live="polite"></p>
+    <ul id="results" aria-label="Resultados da busca"></ul>
+  </main>
+
   <script src="assets/app.js"></script>
 </body>
 </html>
