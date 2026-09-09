@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const Anthropic = require("@anthropic-ai/sdk").default;
+const { registerWhatsAppRoutes, isConfigured: isWhatsAppConfigured } = require("./whatsapp");
 
 const PROVIDERS = [
   { name: "Ana Souza", service: "manicure", city: "Belo Horizonte", time: "amanhã às 14h", rating: 4.9, distanceKm: 1.2, price: 45, fastReply: true },
@@ -77,6 +78,30 @@ const app = express();
 app.use(express.json());
 app.use(express.static(__dirname));
 
+async function askAgent(message) {
+  const response = await anthropic.messages.create({
+    model: "claude-opus-5",
+    max_tokens: 1024,
+    system: SYSTEM_PROMPT,
+    output_config: { effort: "low" },
+    messages: [{ role: "user", content: message }],
+  });
+  const textBlock = response.content.find((b) => b.type === "text");
+  return textBlock ? textBlock.text : "";
+}
+
+function acceptRequest(id) {
+  const request = REQUESTS.find((r) => r.id === id);
+  if (!request) {
+    return { ok: false, error: "pedido não encontrado" };
+  }
+  if (request.status === "aceito") {
+    return { ok: false, error: "este pedido já foi aceito" };
+  }
+  request.status = "aceito";
+  return { ok: true, request };
+}
+
 app.post("/api/chat", async (req, res) => {
   const { message } = req.body;
   if (!message || typeof message !== "string") {
@@ -84,16 +109,8 @@ app.post("/api/chat", async (req, res) => {
   }
 
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-opus-5",
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      output_config: { effort: "low" },
-      messages: [{ role: "user", content: message }],
-    });
-
-    const textBlock = response.content.find((b) => b.type === "text");
-    res.json({ reply: textBlock ? textBlock.text : "" });
+    const reply = await askAgent(message);
+    res.json({ reply });
   } catch (err) {
     console.error("Erro ao chamar a Claude API:", err.message);
     res.status(500).json({ error: "Falha ao consultar o agente. Tente novamente." });
@@ -156,18 +173,22 @@ app.post("/api/requests", (req, res) => {
 });
 
 app.post("/api/requests/:id/accept", (req, res) => {
-  const request = REQUESTS.find((r) => r.id === req.params.id);
-  if (!request) {
-    return res.status(404).json({ error: "pedido não encontrado" });
+  const result = acceptRequest(req.params.id);
+  if (!result.ok) {
+    const status = result.error === "pedido não encontrado" ? 404 : 409;
+    return res.status(status).json({ error: result.error });
   }
-  if (request.status === "aceito") {
-    return res.status(409).json({ error: "este pedido já foi aceito" });
-  }
-  request.status = "aceito";
-  res.json({ request });
+  res.json({ request: result.request });
 });
+
+registerWhatsAppRoutes(app, { askAgent, acceptRequest });
 
 const PORT = process.env.PORT || 8123;
 app.listen(PORT, () => {
   console.log(`Top3Profissional rodando em http://localhost:${PORT}`);
+  console.log(
+    isWhatsAppConfigured()
+      ? "[whatsapp] credenciais configuradas — webhook ativo em /webhook/whatsapp"
+      : "[whatsapp] credenciais ausentes — webhook registrado mas não vai enviar mensagens (veja whatsapp.js)"
+  );
 });
