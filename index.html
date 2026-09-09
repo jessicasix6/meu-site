@@ -4,15 +4,18 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>meu-site — agente de busca</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
   <header class="site-header">
     <div class="container nav-inner">
-      <a href="#top" class="logo">meu<span class="logo-accent">site</span></a>
+      <a href="#top" class="logo">meu-site</a>
       <nav class="site-nav">
-        <a href="#top3">Top profissionais</a>
-        <a href="#chat">Fale com o agente</a>
+        <a href="#top3">Profissionais</a>
+        <a href="#chat">Perguntar</a>
         <a href="#como-funciona">Como funciona</a>
       </nav>
     </div>
@@ -20,17 +23,40 @@
 
   <main>
     <section id="top" class="hero">
-      <div class="container">
-        <h1>Encontre um profissional agora</h1>
-        <p class="subtitle">Pergunte algo como "manicure amanhã em BH" — um agente de IA responde de verdade, com base nos profissionais disponíveis perto de você.</p>
-        <a href="#chat" class="cta-button">Falar com o agente</a>
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow">Busca por conversa, não por formulário</p>
+          <h1>Pare de rolar lista. Comece a perguntar.</h1>
+          <p class="subtitle">Descreva o serviço, a cidade e o horário em uma frase. Um agente de IA cruza isso com quem está disponível agora e responde com preço, distância e avaliação — sem filtro, sem catálogo infinito.</p>
+          <div class="hero-actions">
+            <a href="#chat" class="cta-button">Perguntar agora</a>
+            <a href="#top3" class="cta-secondary">Ver quem está bem avaliado</a>
+          </div>
+        </div>
+        <div class="hero-preview" aria-hidden="true">
+          <div class="preview-window">
+            <div class="preview-titlebar">
+              <span class="preview-dot"></span>
+              <span class="preview-dot"></span>
+              <span class="preview-dot"></span>
+            </div>
+            <div class="preview-body">
+              <p class="preview-line preview-line--user">manicure amanhã em BH</p>
+              <p class="preview-line preview-line--agent">Ana Souza — 4.9★, 1,2 km, R$ 45, amanhã às 14h.</p>
+              <p class="preview-line preview-line--agent">Fernanda Reis — 4.8★, 2,1 km, R$ 40, amanhã às 09h.</p>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
     <section id="top3" class="ranking-section">
       <div class="container">
         <div class="ranking-header">
-          <h2 class="section-title">Top 3 profissionais</h2>
+          <div>
+            <p class="eyebrow">Agora, perto de você</p>
+            <h2 class="section-title">Os 3 mais bem avaliados</h2>
+          </div>
           <label class="ranking-sort-label">
             ordenar por
             <select id="ranking-sort">
@@ -46,7 +72,8 @@
 
     <section id="chat" class="chat-section">
       <div class="container">
-        <h2 class="section-title">Fale com o agente</h2>
+        <p class="eyebrow">Sem formulário</p>
+        <h2 class="section-title">Descreva o que precisa</h2>
         <div class="terminal">
           <div id="chat-log" class="terminal-log" aria-live="polite"></div>
           <form id="chat-form" class="terminal-input-row" autocomplete="off">
@@ -55,7 +82,7 @@
               id="chat-input"
               type="text"
               name="q"
-              placeholder="digite e aperte enter..."
+              placeholder="ex: preciso de um eletricista hoje à noite"
               aria-label="Mensagem para o agente"
               required
             />
@@ -67,22 +94,23 @@
 
     <section id="como-funciona" class="how-section">
       <div class="container">
+        <p class="eyebrow">Sem mistério</p>
         <h2 class="section-title">Como funciona</h2>
         <div class="steps">
           <article class="step">
-            <span class="step-number">1</span>
+            <span class="step-number">01</span>
             <h3>Diga o que precisa</h3>
-            <p>Escreva em texto livre o serviço, a cidade e o horário — sem formulário, sem filtro manual.</p>
+            <p>Uma frase, do jeito que você falaria com uma pessoa. Sem categorias pra escolher, sem campos obrigatórios.</p>
           </article>
           <article class="step">
-            <span class="step-number">2</span>
-            <h3>O agente busca por você</h3>
-            <p>Uma IA analisa os profissionais disponíveis e responde com as melhores opções, na hora.</p>
+            <span class="step-number">02</span>
+            <h3>O agente cruza os dados</h3>
+            <p>Disponibilidade, distância, preço e avaliação — tudo comparado na hora, sem você abrir dez abas.</p>
           </article>
           <article class="step">
-            <span class="step-number">3</span>
-            <h3>Escolha e confirme</h3>
-            <p>Veja avaliação, distância e preço lado a lado antes de decidir quem chamar.</p>
+            <span class="step-number">03</span>
+            <h3>Você decide com contexto</h3>
+            <p>A resposta já vem com o que importa pra escolher: quem, quando, quanto custa e o quão perto está.</p>
           </article>
         </div>
       </div>
@@ -90,8 +118,9 @@
   </main>
 
   <footer class="site-footer">
-    <div class="container">
-      <p>meu-site — protótipo experimental. Dados de profissionais são fictícios.</p>
+    <div class="container footer-grid">
+      <span class="logo">meu-site</span>
+      <p>Protótipo experimental — profissionais e avaliações são dados fictícios, usados para testar a busca por IA.</p>
     </div>
   </footer>
 
