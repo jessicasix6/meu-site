@@ -14,25 +14,36 @@ function formatMessage(text) {
     .replace(/\n/g, "<br>");
 }
 
-function appendMessage(role, text) {
-  const bubble = document.createElement("div");
-  bubble.className = `bubble ${role}`;
-  bubble.innerHTML = formatMessage(text);
-  log.appendChild(bubble);
+function appendLine(role, prefix, text) {
+  const line = document.createElement("div");
+  line.className = `term-line ${role}`;
+  line.innerHTML = prefix
+    ? `<span class="line-prefix">${prefix}</span><span class="line-text">${formatMessage(text)}</span>`
+    : `<span class="line-text">${formatMessage(text)}</span>`;
+  log.appendChild(line);
   log.scrollTop = log.scrollHeight;
-  return bubble;
+  return line;
 }
+
+appendLine("system", "", 'sistema pronto. pergunte algo como "manicure amanhã em BH".');
+
+input.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    form.requestSubmit();
+  }
+});
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const message = input.value.trim();
   if (!message) return;
 
-  appendMessage("user", message);
+  appendLine("user", "$", message);
   input.value = "";
   input.disabled = true;
 
-  const typing = appendMessage("agent typing", "digitando...");
+  const typing = appendLine("agent typing", ">", "digitando...");
 
   try {
     const res = await fetch("/api/chat", {
@@ -44,13 +55,13 @@ form.addEventListener("submit", async (event) => {
     typing.remove();
 
     if (!res.ok) {
-      appendMessage("agent error", data.error || "Algo deu errado.");
+      appendLine("agent error", "erro:", data.error || "Algo deu errado.");
     } else {
-      appendMessage("agent", data.reply);
+      appendLine("agent", ">", data.reply);
     }
   } catch (err) {
     typing.remove();
-    appendMessage("agent error", "Não consegui falar com o servidor.");
+    appendLine("agent error", "erro:", "Não consegui falar com o servidor.");
   } finally {
     input.disabled = false;
     input.focus();

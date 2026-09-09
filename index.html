@@ -11,19 +11,21 @@
     <h1>Encontre um profissional agora</h1>
     <p class="subtitle">Pergunte algo como "manicure amanhã em BH" — um agente de IA responde de verdade.</p>
 
-    <div id="chat-log" aria-live="polite"></div>
-
-    <form id="chat-form" autocomplete="off">
-      <input
-        id="chat-input"
-        type="text"
-        name="q"
-        placeholder="O que você precisa e onde?"
-        aria-label="Mensagem para o agente"
-        required
-      />
-      <button type="submit">Enviar</button>
-    </form>
+    <div class="terminal">
+      <div id="chat-log" class="terminal-log" aria-live="polite"></div>
+      <form id="chat-form" class="terminal-input-row" autocomplete="off">
+        <span class="prompt-sym" aria-hidden="true">visitante@meu-site:~$</span>
+        <input
+          id="chat-input"
+          type="text"
+          name="q"
+          placeholder="digite e aperte enter..."
+          aria-label="Mensagem para o agente"
+          required
+        />
+        <button type="submit" class="sr-only">Enviar</button>
+      </form>
+    </div>
   </main>
 
   <script src="assets/app.js"></script>
