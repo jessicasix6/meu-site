@@ -86,6 +86,84 @@ h1 {
   color: var(--text-dim);
 }
 
+.ranking {
+  margin: 1.5rem 0;
+}
+
+.ranking-title {
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  margin: 0 0 0.6rem;
+}
+
+.ranking-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.ranking-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--bg-card);
+  border: 1px solid rgba(45, 253, 200, 0.35);
+  border-radius: 8px;
+  opacity: 0;
+  animation: line-in 0.3s ease forwards;
+}
+
+.rank-badge {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 0.8rem;
+  background: rgba(45, 253, 200, 0.1);
+  border: 1px solid var(--turquoise);
+  color: var(--text);
+}
+
+.ranking-item.rank-1 {
+  border-color: #ffd166;
+  box-shadow: 0 0 12px rgba(255, 209, 102, 0.25);
+}
+
+.ranking-item.rank-1 .rank-badge {
+  border-color: #ffd166;
+  color: #ffd166;
+  box-shadow: 0 0 8px rgba(255, 209, 102, 0.5);
+}
+
+.ranking-item.rank-2 .rank-badge {
+  border-color: #cfd8dc;
+  color: #cfd8dc;
+}
+
+.ranking-item.rank-3 .rank-badge {
+  border-color: #d99a63;
+  color: #d99a63;
+}
+
+.rank-info {
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.rank-meta {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
