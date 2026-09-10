@@ -153,7 +153,7 @@ Essas são conclusões a que já chegamos discutindo a ideia. Vale reler antes d
 *(Resolvidas em 2026-09-10, removidas daqui e incorporadas nas seções acima: orçamento da API de busca, ponto de partida do painel de benefícios (Terabox), aprovação de contato do WhatsApp, e a estratégia geral anti-golpe.)*
 
 - **Por qual pilar começar a implementação?** A Jéssica pediu explicitamente pra eu decidir e justificar (2026-09-10) — ver a recomendação na seção 8, abaixo.
-- **Grok vs Claude, alternância automática**: pesquisar se realmente compensa (custo, e se o acesso a busca em tempo real do Grok reduziria a necessidade da Brave Search API), antes de decidir se entra na arquitetura.
+- ~~Grok vs Claude, alternância automática~~ — **resolvido (2026-09-10): não compensa.** O "Web Search" da própria API do Grok custa exatamente o mesmo que a Brave Search API (US$5 por 1.000 chamadas) — trocar de provedor não reduz esse custo específico, só adiciona a complexidade de manter dois provedores de IA diferentes sem ganho real. Decisão: seguir só com Claude + Brave Search API.
 - **Assinatura premium (seção 3.8)**: quanto custa, o que muda visualmente pra quem é destaque, se tem um nível só ou vários.
 - **Agendamento e lucros via WhatsApp (seção 3.9)**: fica tudo exclusivo de quem paga o premium, ou uma versão básica (ex: agendamento simples) fica de graça pra todo prestador e só "ver lucros" é premium?
 - **Pagamento na plataforma / retenção estilo Mercado Livre (seção 3.10)**: qual gateway usar (Mercado Pago, Asaas, Stripe, etc.), como funciona a liberação/devolução do valor retido, e como isso se conecta com as regras do Banco Central pra intermediação de pagamento no Brasil. Fica pra tratar como projeto à parte quando chegarmos nele.
