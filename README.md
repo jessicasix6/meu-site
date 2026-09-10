@@ -7,19 +7,17 @@ Fonte da verdade em `main`. Fluxo de trabalho:
 ```
 IDEIA
 ↓
-Replit experimenta (sandbox/replit/task-NNN)
-↓
-decisão: vale a pena?
+issue no GitHub (label top3-task) ou implementação direta
 ↓
 Claude implementa (agent/claude/task-NNN)
 ↓
-Cursor revisa (review/cursor/task-NNN se precisar editar)
+CodeRabbit revisa o PR automaticamente + auto-revisão do Claude
 ↓
 Verifier testa (GitHub Actions + Playwright)
 ↓
 main
 ↓
-staging → produção
+deploy automático no VPS (rollback automático se o /health falhar)
 ```
 
 `main` é protegida: sem push direto, PR obrigatório, testes precisam passar antes do merge.
