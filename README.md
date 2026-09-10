@@ -38,6 +38,7 @@ npm start
 | `WHATSAPP_VERIFY_TOKEN` | não | Ver seção WhatsApp abaixo. |
 | `WHATSAPP_ACCESS_TOKEN` | não | Ver seção WhatsApp abaixo. |
 | `WHATSAPP_PHONE_NUMBER_ID` | não | Ver seção WhatsApp abaixo. |
+| `BRAVE_SEARCH_API_KEY` | não | Chave da [Brave Search API](https://api-dashboard.search.brave.com/register). Sem ela, o agente responde só com o catálogo interno de profissionais (mock) — com ela, também busca na web de verdade pra pedidos fora desse catálogo (terreno, carro, etc.). Tem um limite mensal de segurança no código (`BRAVE_SEARCH_MONTHLY_LIMIT` em `server.js`) pra não estourar orçamento. |
 
 ## Integração com WhatsApp
 

@@ -59,14 +59,82 @@ const REQUESTS = [
 let nextRequestId = REQUESTS.length + 1;
 const REQUEST_TYPE_MAX_LENGTH = 30;
 
-const SYSTEM_PROMPT = `Você é o assistente de busca do Top3Profissional, um app que conecta pessoas a profissionais de serviços locais.
-Ajude o usuário a encontrar alguém na lista de profissionais disponíveis abaixo. Seja breve e direto (poucas frases).
-Ao recomendar alguém, cite nome, serviço, cidade, horário disponível, avaliação (rating de 0 a 5), distância (distanceKm),
-preço (price, em reais) e se responde rápido (fastReply). Se ninguém da lista atender ao pedido, diga isso com honestidade
-e sugira a opção mais próxima disponível. Responda sempre em português do Brasil.
+const SYSTEM_PROMPT = `Você é o assistente de busca do Top3Profissional, um app que conecta pessoas a profissionais de serviços locais, produtos, imóveis, veículos e qualquer outro tipo de pedido.
+Ajude o usuário a encontrar o que precisa. Seja breve e direto (poucas frases). Responda sempre em português do Brasil.
 
-Profissionais disponíveis (mock, para fins de protótipo):
+Primeiro cheque a lista de profissionais cadastrados abaixo. Se o pedido for sobre um desses serviços (manicure, eletricista,
+cabeleireiro, encanador) e a lista tiver alguém compatível, recomende citando nome, serviço, cidade, horário disponível,
+avaliação (rating de 0 a 5), distância (distanceKm), preço (price, em reais) e se responde rápido (fastReply).
+
+Se o pedido for sobre qualquer outra coisa fora dessa lista (terreno, carro, produto, ou um serviço que a lista não cobre),
+use a ferramenta de busca na web pra achar opções reais na internet antes de responder — não invente informação. Cite a
+fonte (site) de cada resultado que usar. Se mesmo assim não achar nada útil, diga isso com honestidade e sugira a pessoa
+publicar um pedido no próprio site.
+
+Profissionais cadastrados (mock, para fins de protótipo):
 ${JSON.stringify(PROVIDERS, null, 2)}`;
+
+const WEB_SEARCH_TOOL = {
+  name: "web_search",
+  description:
+    "Busca na internet de verdade. Use pra qualquer pedido que não seja um dos profissionais cadastrados " +
+    "(manicure, eletricista, cabeleireiro, encanador) — por exemplo terreno, carro, produto, ou um serviço " +
+    "que a lista interna não cobre.",
+  input_schema: {
+    type: "object",
+    properties: {
+      query: { type: "string", description: "Termos de busca, em português, incluindo cidade/região se relevante" },
+    },
+    required: ["query"],
+  },
+};
+
+// Teto de segurança pro orçamento (R$50/mês combinado com a Jéssica — ver
+// docs/visao-produto.md seção 6). Brave Search cobra US$5/1000 buscas; esse
+// número fica com margem confortável abaixo do que o orçamento cobre.
+const BRAVE_SEARCH_MONTHLY_LIMIT = 1500;
+let braveSearchCount = 0;
+let braveSearchMonth = null;
+
+function currentMonthKey() {
+  const now = new Date();
+  return `${now.getFullYear()}-${now.getMonth()}`;
+}
+
+async function searchWeb(query) {
+  if (!process.env.BRAVE_SEARCH_API_KEY) {
+    return "Busca na web não configurada neste servidor.";
+  }
+  const monthKey = currentMonthKey();
+  if (braveSearchMonth !== monthKey) {
+    braveSearchMonth = monthKey;
+    braveSearchCount = 0;
+  }
+  if (braveSearchCount >= BRAVE_SEARCH_MONTHLY_LIMIT) {
+    return "Limite mensal de buscas na web atingido. Responda só com os dados internos disponíveis.";
+  }
+  braveSearchCount++;
+
+  const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=5`;
+  const res = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      "X-Subscription-Token": process.env.BRAVE_SEARCH_API_KEY,
+    },
+  });
+  if (!res.ok) {
+    return `Busca na web falhou (status ${res.status}).`;
+  }
+  const data = await res.json();
+  const results = (data.web && data.web.results) || [];
+  if (results.length === 0) {
+    return "Nenhum resultado encontrado na web pra essa busca.";
+  }
+  return results
+    .slice(0, 5)
+    .map((r) => `- ${r.title}\n  ${r.url}\n  ${r.description || ""}`)
+    .join("\n");
+}
 
 let anthropic = null;
 if (process.env.ANTHROPIC_API_KEY) {
@@ -75,6 +143,11 @@ if (process.env.ANTHROPIC_API_KEY) {
   console.warn(
     "ANTHROPIC_API_KEY não definida — o servidor sobe, mas /api/chat e o WhatsApp vão responder com erro. " +
       "Crie um .env com ANTHROPIC_API_KEY=sk-ant-... pra ativar o agente."
+  );
+}
+if (!process.env.BRAVE_SEARCH_API_KEY) {
+  console.warn(
+    "BRAVE_SEARCH_API_KEY não definida — o agente responde só com o catálogo interno, sem buscar na web."
   );
 }
 
@@ -86,15 +159,40 @@ async function askAgent(message) {
   if (!anthropic) {
     throw new Error("ANTHROPIC_API_KEY não configurada neste ambiente");
   }
-  const response = await anthropic.messages.create({
-    model: "claude-opus-5",
-    max_tokens: 1024,
-    system: SYSTEM_PROMPT,
-    output_config: { effort: "low" },
-    messages: [{ role: "user", content: message }],
-  });
-  const textBlock = response.content.find((b) => b.type === "text");
-  return textBlock ? textBlock.text : "";
+
+  const messages = [{ role: "user", content: message }];
+  const MAX_TOOL_ROUNDS = 3;
+
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    const response = await anthropic.messages.create({
+      model: "claude-opus-5",
+      max_tokens: 1024,
+      system: SYSTEM_PROMPT,
+      output_config: { effort: "low" },
+      tools: [WEB_SEARCH_TOOL],
+      messages,
+    });
+
+    if (response.stop_reason !== "tool_use") {
+      const textBlock = response.content.find((b) => b.type === "text");
+      return textBlock ? textBlock.text : "";
+    }
+
+    messages.push({ role: "assistant", content: response.content });
+
+    const toolResults = await Promise.all(
+      response.content
+        .filter((b) => b.type === "tool_use")
+        .map(async (toolUse) => ({
+          type: "tool_result",
+          tool_use_id: toolUse.id,
+          content: await searchWeb(toolUse.input.query),
+        }))
+    );
+    messages.push({ role: "user", content: toolResults });
+  }
+
+  return "Não consegui terminar a busca a tempo. Tente de novo com uma pergunta mais específica.";
 }
 
 function acceptRequest(id) {
@@ -211,6 +309,7 @@ app.get("/health", (req, res) => {
     status: "ok",
     anthropicConfigured: Boolean(anthropic),
     whatsappConfigured: isWhatsAppConfigured(),
+    braveSearchConfigured: Boolean(process.env.BRAVE_SEARCH_API_KEY),
     uptimeSeconds: Math.round(process.uptime()),
   });
 });
