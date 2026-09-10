@@ -26,6 +26,18 @@ test.describe("Top3Profissional - fluxo básico", () => {
     await expect(cards).toHaveCount(3);
   });
 
+  test("painel de benefícios mostra TeraBox em destaque e MEGA, com links pra conectar", async ({ page }) => {
+    await page.goto("/");
+    const featured = page.locator(".benefit-card--featured");
+    await expect(featured).toContainText("TeraBox");
+    await expect(page.locator(".benefit-card")).toHaveCount(2);
+    for (const link of await page.locator(".benefit-connect").all()) {
+      await expect(link).toHaveAttribute("href", /^https:\/\//);
+      await expect(link).toHaveAttribute("target", "_blank");
+      await expect(link).toHaveAttribute("rel", /noopener/);
+    }
+  });
+
   test('alternar para "presto um serviço" mostra pedidos em aberto', async ({ page }) => {
     await page.goto("/");
     await page.getByRole("tab", { name: /presto um serviço/i }).click();
