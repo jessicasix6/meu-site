@@ -46,3 +46,39 @@ test.describe("Top3Profissional - fluxo básico", () => {
     await expect(answer).not.toHaveClass(/result-answer--error/);
   });
 });
+
+test.describe("Top3Profissional - mobile", () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
+  test("funciona em viewport mobile: menu, busca e alternância de modo", async ({ page }) => {
+    const consoleErrors = [];
+    page.on("console", (msg) => {
+      if (msg.type() === "error") consoleErrors.push(msg.text());
+    });
+
+    await page.goto("/");
+    await expect(page.getByLabel("Pesquisar profissional")).toBeVisible();
+
+    await page.getByRole("tab", { name: /presto um serviço/i }).click();
+    await expect(page.locator(".request-item").first()).toBeVisible();
+
+    expect(consoleErrors).toEqual([]);
+  });
+});
+
+test.describe("Top3Profissional - segurança básica", () => {
+  test("nenhum segredo (chave da API) aparece no HTML/JS/CSS servido", async ({ page, request }) => {
+    const paths = ["/", "/assets/app.js", "/assets/style.css"];
+    const secretPattern = /sk-ant-[a-zA-Z0-9_-]+/;
+
+    for (const path of paths) {
+      const res = await request.get(path);
+      const body = await res.text();
+      expect(body, `segredo encontrado em ${path}`).not.toMatch(secretPattern);
+      expect(body, `variável ANTHROPIC_API_KEY vazou em ${path}`).not.toContain("ANTHROPIC_API_KEY");
+      if (process.env.WHATSAPP_ACCESS_TOKEN) {
+        expect(body, `token do WhatsApp vazou em ${path}`).not.toContain(process.env.WHATSAPP_ACCESS_TOKEN);
+      }
+    }
+  });
+});

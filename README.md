@@ -36,7 +36,7 @@ npm start
 
 | Variável | Obrigatória | Descrição |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | sim | Chave da Claude API (console.anthropic.com/settings/keys). Sem ela o servidor não sobe. |
+| `ANTHROPIC_API_KEY` | recomendada | Chave da Claude API (console.anthropic.com/settings/keys). Sem ela o servidor sobe normalmente, mas `/api/chat` e as respostas via WhatsApp retornam erro. |
 | `WHATSAPP_VERIFY_TOKEN` | não | Ver seção WhatsApp abaixo. |
 | `WHATSAPP_ACCESS_TOKEN` | não | Ver seção WhatsApp abaixo. |
 | `WHATSAPP_PHONE_NUMBER_ID` | não | Ver seção WhatsApp abaixo. |
