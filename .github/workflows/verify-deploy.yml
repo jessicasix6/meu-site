@@ -1,0 +1,58 @@
+name: Verify production deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  smoke-test:
+    name: smoke-test
+    runs-on: ubuntu-latest
+    env:
+      # Atualize aqui se/quando o domínio próprio (top3profissional.com.br)
+      # estiver configurado e apontando pra esse deploy.
+      PROD_URL: https://meu-site-production-6ca1.up.railway.app
+    steps:
+      - name: Aguarda o Railway terminar o deploy
+        run: sleep 60
+
+      - name: Checa /health (com retentativas)
+        run: |
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /tmp/health.json -w "%{http_code}" "$PROD_URL/health" || echo "000")
+            if [ "$code" = "200" ] && grep -q '"status":"ok"' /tmp/health.json; then
+              echo "health ok na tentativa $i"
+              cat /tmp/health.json
+              exit 0
+            fi
+            echo "tentativa $i: HTTP $code, tentando de novo em 15s..."
+            sleep 15
+          done
+          echo "health check falhou depois de 10 tentativas"
+          cat /tmp/health.json 2>/dev/null || true
+          exit 1
+
+      - name: Checa se a home carrega
+        run: |
+          code=$(curl -s -o /tmp/home.html -w "%{http_code}" "$PROD_URL/")
+          if [ "$code" != "200" ]; then
+            echo "home retornou HTTP $code"
+            exit 1
+          fi
+          if ! grep -q "Top3Profissional" /tmp/home.html; then
+            echo "home carregou mas o conteúdo esperado não apareceu"
+            exit 1
+          fi
+          echo "home ok"
+
+      - name: Checa a busca por IA de ponta a ponta
+        run: |
+          code=$(curl -s -o /tmp/chat.json -w "%{http_code}" -X POST "$PROD_URL/api/chat" \
+            -H "Content-Type: application/json" \
+            -d '{"message":"preciso de manicure amanha em BH"}')
+          if [ "$code" != "200" ]; then
+            echo "busca por IA retornou HTTP $code"
+            cat /tmp/chat.json 2>/dev/null || true
+            exit 1
+          fi
+          echo "busca por IA ok"
