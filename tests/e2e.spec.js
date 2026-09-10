@@ -79,12 +79,6 @@ test.describe("Top3Profissional - segurança básica", () => {
       if (process.env.WHATSAPP_ACCESS_TOKEN) {
         expect(body, `token do WhatsApp vazou em ${path}`).not.toContain(process.env.WHATSAPP_ACCESS_TOKEN);
       }
-      if (process.env.SUPABASE_SECRET_KEY) {
-        expect(body, `chave secreta do Supabase vazou em ${path}`).not.toContain(process.env.SUPABASE_SECRET_KEY);
-      }
-      if (process.env.WORKER_TOKEN) {
-        expect(body, `WORKER_TOKEN vazou em ${path}`).not.toContain(process.env.WORKER_TOKEN);
-      }
     }
   });
 });
@@ -95,22 +89,5 @@ test.describe("Top3Profissional - infra", () => {
     expect(res.status()).toBe(200);
     const body = await res.json();
     expect(body.status).toBe("ok");
-  });
-
-  test("/internal/db recusa requisição sem o WORKER_TOKEN certo", async ({ request }) => {
-    const res = await request.post("/internal/db", {
-      headers: { Authorization: "Bearer token-errado" },
-      data: { method: "GET", path: "/rest/v1/tasks?select=id&limit=1" },
-    });
-    expect(res.status()).toBe(401);
-  });
-
-  test("/internal/db aceita o WORKER_TOKEN certo (só roda se configurado)", async ({ request }) => {
-    test.skip(!process.env.WORKER_TOKEN, "precisa de WORKER_TOKEN pra testar o proxy de verdade");
-    const res = await request.post("/internal/db", {
-      headers: { Authorization: `Bearer ${process.env.WORKER_TOKEN}` },
-      data: { method: "GET", path: "/rest/v1/tasks?select=id&limit=1" },
-    });
-    expect(res.status()).toBe(200);
   });
 });

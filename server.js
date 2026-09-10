@@ -2,7 +2,6 @@ require("dotenv").config();
 const express = require("express");
 const Anthropic = require("@anthropic-ai/sdk").default;
 const { registerWhatsAppRoutes, isConfigured: isWhatsAppConfigured } = require("./whatsapp");
-const { registerWorkerRoutes, isConfigured: isWorkerApiConfigured } = require("./worker-api");
 
 const PROVIDERS = [
   { name: "Ana Souza", service: "manicure", city: "Belo Horizonte", time: "amanhã às 14h", rating: 4.9, distanceKm: 1.2, price: 45, fastReply: true },
@@ -208,13 +207,11 @@ app.get("/health", (req, res) => {
     status: "ok",
     anthropicConfigured: Boolean(anthropic),
     whatsappConfigured: isWhatsAppConfigured(),
-    workerApiConfigured: isWorkerApiConfigured(),
     uptimeSeconds: Math.round(process.uptime()),
   });
 });
 
 registerWhatsAppRoutes(app, { askAgent, acceptRequest });
-registerWorkerRoutes(app);
 
 const PORT = process.env.PORT || 8123;
 app.listen(PORT, () => {
@@ -223,10 +220,5 @@ app.listen(PORT, () => {
     isWhatsAppConfigured()
       ? "[whatsapp] credenciais configuradas — webhook ativo em /webhook/whatsapp"
       : "[whatsapp] credenciais ausentes — webhook registrado mas não vai enviar mensagens (veja whatsapp.js)"
-  );
-  console.log(
-    isWorkerApiConfigured()
-      ? "[worker-api] configurado — /internal/db ativo pro worker do TOP3"
-      : "[worker-api] credenciais ausentes — /internal/db vai recusar todo pedido (veja worker-api.js)"
   );
 });

@@ -40,9 +40,6 @@ npm start
 | `WHATSAPP_VERIFY_TOKEN` | não | Ver seção WhatsApp abaixo. |
 | `WHATSAPP_ACCESS_TOKEN` | não | Ver seção WhatsApp abaixo. |
 | `WHATSAPP_PHONE_NUMBER_ID` | não | Ver seção WhatsApp abaixo. |
-| `SUPABASE_URL` | não | Ver seção "Worker do TOP3" abaixo. |
-| `SUPABASE_SECRET_KEY` | não | Ver seção "Worker do TOP3" abaixo. Nunca é a chave "publishable" — precisa ser a "secret". |
-| `WORKER_TOKEN` | não | Ver seção "Worker do TOP3" abaixo. |
 
 ## Integração com WhatsApp
 
@@ -58,12 +55,10 @@ Depois de configurado: qualquer mensagem de texto recebida vira uma pergunta pro
 
 ## Worker do TOP3 (Passo 12)
 
-Pipeline de automação: tarefas ficam numa fila no Supabase (`supabase/schema.sql` cria as tabelas `tasks`, `agent_runs`, `branches`, `reviews`, `verifications`, `deployments`, `evidence`), e uma rotina agendada na nuvem (Claude Code) processa uma tarefa `pending` por vez — implementa, testa, se aprovar abre PR; só faz merge automático se `risk = "low"`, senão para em `status = "review"` esperando aprovação manual.
+Pipeline de automação: tarefas ficam numa fila de **GitHub Issues** (label `top3-task`), e uma rotina agendada na nuvem (Claude Code, dispara toda hora) processa uma tarefa `status:pending` por vez — implementa, testa, se aprovar abre PR; só faz merge automático se a issue tiver a label `risk:low`, senão troca pra `status:review` e para, esperando aprovação manual. Todo o histórico do processamento (branch, resultado dos testes, auto-revisão, link do PR, confirmação de deploy) fica registrado como comentários na própria issue.
 
-Como o worker roda na nuvem (sem acesso a arquivos/variáveis locais), ele não fala direto com o Supabase — ele chama `POST /internal/db` neste servidor, autenticado com `WORKER_TOKEN`, que encaminha a chamada usando a chave secreta do Supabase (que fica só aqui, nunca no prompt da rotina). Configuração:
+Como o worker roda na nuvem (sem acesso a arquivos/variáveis locais), usar o GitHub como fila evita precisar embutir nenhuma credencial de banco de dados no prompt da rotina — ele já tem acesso ao repo via `gh`, que é o suficiente.
 
-1. Rode `supabase/schema.sql` uma vez no SQL Editor do projeto Supabase (com RLS habilitado nas tabelas).
-2. Pegue `SUPABASE_URL` e a chave **secret** (não a publishable) em Project Settings → API.
-3. Gere um `WORKER_TOKEN` aleatório (ex: `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`).
-4. Coloque as três variáveis no `.env` local e nas variáveis do serviço no Railway.
-5. Insira uma linha em `tasks` (via SQL Editor ou `POST /internal/db`) pra colocar uma tarefa na fila; `type` é `experiment`, `implementation` ou `review`, `risk` é `low`, `medium` ou `high`.
+Labels usadas: `top3-task` (marca a issue como tarefa da fila), `status:pending` / `status:in-progress` / `status:review` / `status:done` / `status:failed`, `risk:low` / `risk:medium` / `risk:high`.
+
+Pra colocar uma tarefa na fila: abra uma issue no repo com a label `top3-task` + `status:pending` + o nível de risco (`risk:low`, `risk:medium` ou `risk:high`), título curto e a descrição do que deve ser feito no corpo.
