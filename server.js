@@ -57,7 +57,7 @@ const REQUESTS = [
 ];
 
 let nextRequestId = REQUESTS.length + 1;
-const REQUEST_TYPES = new Set(["corrida", "entrega", "profissional"]);
+const REQUEST_TYPE_MAX_LENGTH = 30;
 
 const SYSTEM_PROMPT = `Você é o assistente de busca do Top3Profissional, um app que conecta pessoas a profissionais de serviços locais.
 Ajude o usuário a encontrar alguém na lista de profissionais disponíveis abaixo. Seja breve e direto (poucas frases).
@@ -158,8 +158,12 @@ app.get("/api/requests", (req, res) => {
 app.post("/api/requests", (req, res) => {
   const { type, title, requester, when, price } = req.body;
 
-  if (!REQUEST_TYPES.has(type)) {
-    return res.status(400).json({ error: "tipo inválido (use corrida, entrega ou profissional)" });
+  if (!type || typeof type !== "string" || !type.trim()) {
+    return res.status(400).json({ error: "diga o tipo do que você precisa (ex: corrida, terreno, carro...)" });
+  }
+  const normalizedType = type.trim().toLowerCase();
+  if (normalizedType.length > REQUEST_TYPE_MAX_LENGTH) {
+    return res.status(400).json({ error: `tipo muito longo (máximo ${REQUEST_TYPE_MAX_LENGTH} caracteres)` });
   }
   if (!title || typeof title !== "string" || !title.trim()) {
     return res.status(400).json({ error: "descreva o que você precisa" });
@@ -177,7 +181,7 @@ app.post("/api/requests", (req, res) => {
 
   const request = {
     id: `r${nextRequestId++}`,
-    type,
+    type: normalizedType,
     title: title.trim(),
     requester: (requester && requester.trim()) || "Você",
     when: (when && when.trim()) || "a combinar",
