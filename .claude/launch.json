@@ -5,7 +5,8 @@
       "name": "static-site",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["start"],
-      "port": 8123
+      "port": 8123,
+      "autoPort": true
     }
   ]
 }
