@@ -1,6 +1,6 @@
 # Top3Profissional
 
-Domínio: top3profissional.com.br (registrado no registro.br).
+Marketplace de serviços locais com busca por IA. Domínio: top3profissional.com.br (registrado no registro.br).
 
 Fonte da verdade em `main`. Fluxo de trabalho:
 
@@ -60,3 +60,4 @@ Como o worker roda na nuvem (sem acesso a arquivos/variáveis locais), usar o Gi
 Labels usadas: `top3-task` (marca a issue como tarefa da fila), `status:pending` / `status:in-progress` / `status:review` / `status:done` / `status:failed`, `risk:low` / `risk:medium` / `risk:high`.
 
 Pra colocar uma tarefa na fila: abra uma issue no repo com a label `top3-task` + `status:pending` + o nível de risco (`risk:low`, `risk:medium` ou `risk:high`), título curto e a descrição do que deve ser feito no corpo.
+
