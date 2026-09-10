@@ -198,6 +198,19 @@ app.post("/api/requests/:id/accept", (req, res) => {
   res.json({ request: result.request });
 });
 
+// Health check pro host (Railway, etc.) saber se o processo está de pé.
+// De propósito não depende da Claude API nem de nada externo — só confirma
+// que o servidor Express está respondendo, pra não marcar "unhealthy" por
+// um problema de terceiro que não impede o site de carregar.
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    anthropicConfigured: Boolean(anthropic),
+    whatsappConfigured: isWhatsAppConfigured(),
+    uptimeSeconds: Math.round(process.uptime()),
+  });
+});
+
 registerWhatsAppRoutes(app, { askAgent, acceptRequest });
 
 const PORT = process.env.PORT || 8123;
