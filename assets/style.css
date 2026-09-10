@@ -13,6 +13,8 @@
   --gold: #e8b64c;
   --silver: #c3ccd1;
   --bronze: #cd8c5c;
+  --violet: #b490f0;
+  --violet-dim: rgba(180, 144, 240, 0.14);
   --font-display: "Space Grotesk", system-ui, sans-serif;
   --font-body: "Inter", system-ui, sans-serif;
   --radius: 10px;
@@ -223,6 +225,11 @@ a {
   color: var(--gold);
 }
 
+.request-icon--profissional {
+  background: var(--violet-dim);
+  color: var(--violet);
+}
+
 .request-badge {
   display: inline-block;
   flex-shrink: 0;
@@ -247,6 +254,12 @@ a {
   color: var(--gold);
   border-color: var(--gold);
   background: rgba(232, 182, 76, 0.1);
+}
+
+.request-badge--profissional {
+  color: var(--violet);
+  border-color: var(--violet);
+  background: var(--violet-dim);
 }
 
 .request-info {
@@ -285,7 +298,8 @@ a {
   cursor: default;
 }
 
-.requests-error {
+.requests-error,
+.ranking-error {
   color: var(--text-dim);
   font-size: 0.9rem;
 }

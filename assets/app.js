@@ -49,7 +49,8 @@ async function loadRanking(sortBy) {
       rankingList.appendChild(item);
     });
   } catch (err) {
-    // painel de ranking é decorativo; falha aqui não deve travar o chat
+    console.error("Falha ao carregar o ranking:", err);
+    rankingList.innerHTML = '<li class="ranking-error">Não consegui carregar o ranking agora.</li>';
   }
 }
 
@@ -58,7 +59,7 @@ rankingSort.addEventListener("change", () => loadRanking());
 
 rankingList.addEventListener("click", (event) => {
   const button = event.target.closest(".rank-cta");
-  if (!button) return;
+  if (!button || input.disabled) return;
   input.value = `quero chamar ${button.dataset.name}`;
   document.getElementById("chat").scrollIntoView({ behavior: "smooth", block: "center" });
   form.requestSubmit();
@@ -212,8 +213,11 @@ postForm.addEventListener("submit", async (event) => {
     postStatus.textContent = "Publicado! Já aparece pra quem presta serviço.";
     postStatus.className = "post-status post-status--ok";
     postForm.reset();
+    // A view do prestador vive escondida enquanto este formulário está
+    // visível (são mutuamente exclusivas), então não tem como recarregar
+    // a lista "ao vivo" aqui — só marcamos como desatualizada, e ela
+    // recarrega sozinha na próxima vez que o modo prestador for aberto.
     requestsLoaded = false;
-    if (!providerView.hidden) loadRequests();
   } catch (err) {
     postStatus.textContent = "Falha de conexão ao publicar.";
     postStatus.className = "post-status post-status--error";

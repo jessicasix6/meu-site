@@ -98,7 +98,11 @@ async function askAgent(message) {
 }
 
 function acceptRequest(id) {
-  const request = REQUESTS.find((r) => r.id === id);
+  // Normalizado aqui (não só no lado do WhatsApp) pra cobrir qualquer
+  // chamador que receba o id com espaços, maiúsculas ou pontuação solta
+  // (ex: "aceitar R1." digitado no WhatsApp).
+  const normalized = String(id).trim().replace(/[.,!?;:]+$/, "").toLowerCase();
+  const request = REQUESTS.find((r) => r.id.toLowerCase() === normalized);
   if (!request) {
     return { ok: false, error: "pedido não encontrado" };
   }
@@ -159,6 +163,12 @@ app.post("/api/requests", (req, res) => {
   }
   if (!title || typeof title !== "string" || !title.trim()) {
     return res.status(400).json({ error: "descreva o que você precisa" });
+  }
+  if (requester !== undefined && typeof requester !== "string") {
+    return res.status(400).json({ error: "nome inválido" });
+  }
+  if (when !== undefined && typeof when !== "string") {
+    return res.status(400).json({ error: "campo 'quando' inválido" });
   }
   const priceNum = Number(price);
   if (!Number.isFinite(priceNum) || priceNum < 0) {

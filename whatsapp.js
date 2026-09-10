@@ -95,8 +95,13 @@ function registerWhatsAppRoutes(app, { askAgent, acceptRequest }) {
       }
 
       // Qualquer outra mensagem vira uma pergunta pro mesmo agente do site.
-      const reply = await askAgent(text);
-      await sendWhatsAppMessage(from, reply);
+      try {
+        const reply = await askAgent(text);
+        await sendWhatsAppMessage(from, reply);
+      } catch (agentErr) {
+        console.error("[whatsapp] falha ao consultar o agente:", agentErr.message);
+        await sendWhatsAppMessage(from, "Não consegui consultar o agente agora. Tenta de novo em instantes.");
+      }
     } catch (err) {
       console.error("[whatsapp] erro processando mensagem recebida:", err.message);
     }
