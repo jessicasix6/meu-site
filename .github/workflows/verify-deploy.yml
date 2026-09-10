@@ -9,9 +9,11 @@ jobs:
     name: smoke-test
     runs-on: ubuntu-latest
     env:
-      # Atualize aqui se/quando o domínio próprio (top3profissional.com.br)
-      # estiver configurado e apontando pra esse deploy.
-      PROD_URL: https://meu-site-production-6ca1.up.railway.app
+      # Domínio próprio (configurado 2026-09-10). A URL antiga gerada pelo
+      # Railway (*.up.railway.app) parou de responder depois que o domínio
+      # customizado foi adicionado — o Railway free tier substitui/limita
+      # os domínios ativos, não deixa os dois no ar ao mesmo tempo.
+      PROD_URL: https://www.top3profissional.com.br
     steps:
       - name: Aguarda o Railway terminar o deploy
         run: sleep 60
