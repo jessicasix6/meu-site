@@ -33,6 +33,41 @@ test.describe("Top3Profissional - fluxo básico", () => {
     await expect(requests.first()).toBeVisible();
   });
 
+  test("publicar pedido com categoria livre (não só corrida/entrega/profissional)", async ({ page, request }) => {
+    const res = await request.post("/api/requests", {
+      data: { type: "Terreno", title: "terreno barato em Contagem", price: 50000 },
+    });
+    expect(res.status()).toBe(201);
+    const { request: created } = await res.json();
+    expect(created.type).toBe("terreno");
+
+    await page.goto("/");
+    await page.getByRole("tab", { name: /presto um serviço/i }).click();
+    await expect(page.locator(".request-badge", { hasText: "terreno" }).first()).toBeVisible();
+  });
+
+  test("categoria com HTML/script não é injetada na página (sanitização de classe CSS)", async ({ page, request }) => {
+    const maliciousType = '"><img src=x onerror=alert(1)>';
+    const res = await request.post("/api/requests", {
+      data: { type: maliciousType, title: "teste de segurança", price: 10 },
+    });
+    expect(res.status()).toBe(201);
+
+    const alerts = [];
+    page.on("dialog", (dialog) => {
+      alerts.push(dialog.message());
+      dialog.dismiss();
+    });
+
+    await page.goto("/");
+    await page.getByRole("tab", { name: /presto um serviço/i }).click();
+    await expect(page.locator(".request-item").first()).toBeVisible();
+
+    const html = await page.locator("#requests-list").innerHTML();
+    expect(html).not.toContain("<img");
+    expect(alerts).toEqual([]);
+  });
+
   test("busca via agente responde de verdade (só roda com ANTHROPIC_API_KEY configurada)", async ({ page }) => {
     test.skip(!process.env.ANTHROPIC_API_KEY, "precisa de ANTHROPIC_API_KEY pra testar o agente de verdade");
 

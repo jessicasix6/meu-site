@@ -105,6 +105,10 @@
           <button type="submit" class="sr-only">Pesquisar</button>
         </form>
         <div id="chat-results" class="search-results" aria-live="polite"></div>
+        <p class="search-hint">
+          Não achou o que procurava?
+          <a href="#publicar" id="publish-interest-link">Publique um interesse</a> e deixe quem pode te atender ver seu pedido.
+        </p>
       </div>
     </section>
 
@@ -112,15 +116,20 @@
       <div class="container">
         <p class="eyebrow">Prefere publicar do que conversar?</p>
         <h2 class="section-title">Publique o que você precisa</h2>
-        <p class="post-subtitle">Corrida, entrega de farmácia ou um profissional — publique com dia, hora e valor e entra direto na lista de quem presta serviço.</p>
+        <p class="post-subtitle">Corrida, entrega, um profissional, um terreno, um carro — qualquer coisa. Publique com dia, hora e valor e entra direto na lista de quem pode te atender.</p>
         <form id="post-form" class="post-form">
           <div class="post-field">
             <label for="post-type">Tipo</label>
-            <select id="post-type" name="type" required>
-              <option value="corrida">Corrida</option>
-              <option value="entrega">Entrega</option>
-              <option value="profissional">Profissional</option>
-            </select>
+            <input id="post-type" name="type" type="text" list="post-type-options" placeholder="ex: corrida, terreno, carro..." required />
+            <datalist id="post-type-options">
+              <option value="corrida"></option>
+              <option value="entrega"></option>
+              <option value="profissional"></option>
+              <option value="terreno"></option>
+              <option value="carro"></option>
+              <option value="produto"></option>
+              <option value="outro"></option>
+            </datalist>
           </div>
           <div class="post-field post-field--wide">
             <label for="post-title">O que você precisa</label>

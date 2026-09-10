@@ -692,6 +692,23 @@ a {
   margin-top: 0;
 }
 
+.search-hint {
+  max-width: 620px;
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.search-hint a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.search-hint a:hover {
+  text-decoration: underline;
+}
+
 .result-query {
   font-size: 0.82rem;
   color: var(--text-faint);

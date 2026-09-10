@@ -106,21 +106,36 @@ const REQUEST_ICONS = {
   entrega: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 11h18M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
   profissional: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a4 4 0 1 1-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 0 1 5.4-5.4l-2.6 2.6-2-2 2.6-2.6z"/></svg>',
 };
+// Categoria fora dessas três (ex: "terreno", "carro") cai nesse ícone genérico.
+const REQUEST_ICON_DEFAULT =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.2H22l-6 4.6 2.3 7.2L12 16.4l-6.3 4.6 2.3-7.2-6-4.6h7.6z"/></svg>';
 
 const REQUEST_LABELS = { corrida: "corrida", entrega: "entrega", profissional: "profissional" };
+
+// r.type agora é texto livre (ex: "terreno", "carro usado") — nunca interpolar
+// direto num nome de classe CSS nem em innerHTML sem passar por aqui antes.
+function slugifyType(type) {
+  return String(type)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "outro";
+}
 
 function renderRequests(requests) {
   requestsList.innerHTML = "";
   requests.forEach((r) => {
+    const typeSlug = slugifyType(r.type);
     const item = document.createElement("li");
-    item.className = `request-item request-item--${r.type}`;
+    item.className = `request-item request-item--${typeSlug}`;
     item.dataset.id = r.id;
     const accepted = r.status === "aceito";
     const distanceChip = typeof r.distanceKm === "number" ? `${r.distanceKm.toFixed(1)} km · ` : "";
     item.innerHTML = `
-      <span class="request-icon request-icon--${r.type}">${REQUEST_ICONS[r.type] || ""}</span>
+      <span class="request-icon request-icon--${typeSlug}">${REQUEST_ICONS[r.type] || REQUEST_ICON_DEFAULT}</span>
       <span class="request-info">
-        <span class="request-badge request-badge--${r.type}">${REQUEST_LABELS[r.type] || r.type}</span>
+        <span class="request-badge request-badge--${typeSlug}">${escapeHtml(REQUEST_LABELS[r.type] || r.type)}</span>
         <br />
         <strong>${escapeHtml(r.title)}</strong>
         <br />
@@ -181,6 +196,14 @@ function renderResult(query, state, text) {
 
 const postForm = document.getElementById("post-form");
 const postStatus = document.getElementById("post-status");
+const publishInterestLink = document.getElementById("publish-interest-link");
+let lastSearchQuery = "";
+
+publishInterestLink.addEventListener("click", () => {
+  if (!lastSearchQuery) return;
+  document.getElementById("post-title").value = lastSearchQuery;
+  document.getElementById("post-type").focus();
+});
 
 postForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -229,6 +252,7 @@ form.addEventListener("submit", async (event) => {
   const message = input.value.trim();
   if (!message) return;
 
+  lastSearchQuery = message;
   input.disabled = true;
   renderResult(message, "loading");
 
