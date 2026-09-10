@@ -68,17 +68,24 @@ e sugira a opção mais próxima disponível. Responda sempre em português do B
 Profissionais disponíveis (mock, para fins de protótipo):
 ${JSON.stringify(PROVIDERS, null, 2)}`;
 
-if (!process.env.ANTHROPIC_API_KEY) {
-  console.error("ANTHROPIC_API_KEY não definida. Crie um arquivo .env com ANTHROPIC_API_KEY=sk-ant-...");
-  process.exit(1);
+let anthropic = null;
+if (process.env.ANTHROPIC_API_KEY) {
+  anthropic = new Anthropic();
+} else {
+  console.warn(
+    "ANTHROPIC_API_KEY não definida — o servidor sobe, mas /api/chat e o WhatsApp vão responder com erro. " +
+      "Crie um .env com ANTHROPIC_API_KEY=sk-ant-... pra ativar o agente."
+  );
 }
 
-const anthropic = new Anthropic();
 const app = express();
 app.use(express.json());
 app.use(express.static(__dirname));
 
 async function askAgent(message) {
+  if (!anthropic) {
+    throw new Error("ANTHROPIC_API_KEY não configurada neste ambiente");
+  }
   const response = await anthropic.messages.create({
     model: "claude-opus-5",
     max_tokens: 1024,

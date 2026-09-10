@@ -4,11 +4,14 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
-    "test": "echo \"no tests yet\" && exit 0"
+    "test": "playwright test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
   }
 }
