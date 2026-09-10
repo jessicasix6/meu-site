@@ -82,3 +82,12 @@ test.describe("Top3Profissional - segurança básica", () => {
     }
   });
 });
+
+test.describe("Top3Profissional - infra", () => {
+  test("/health responde 200 (usado pelo host pra saber se o processo está de pé)", async ({ request }) => {
+    const res = await request.get("/health");
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe("ok");
+  });
+});
