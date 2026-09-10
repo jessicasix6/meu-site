@@ -80,6 +80,22 @@ test.describe("Top3Profissional - fluxo básico", () => {
     await expect(answer).toBeVisible({ timeout: 15000 });
     await expect(answer).not.toHaveClass(/result-answer--error/);
   });
+
+  test("busca fora do catálogo interno aciona a busca na web (só roda com as duas chaves configuradas)", async ({ page }) => {
+    test.skip(
+      !process.env.ANTHROPIC_API_KEY || !process.env.BRAVE_SEARCH_API_KEY,
+      "precisa de ANTHROPIC_API_KEY e BRAVE_SEARCH_API_KEY pra testar a busca na web de verdade"
+    );
+
+    await page.goto("/");
+    const searchInput = page.getByLabel("Pesquisar profissional");
+    await searchInput.fill("terreno barato em Contagem");
+    await searchInput.press("Enter");
+
+    const answer = page.locator(".result-answer");
+    await expect(answer).toBeVisible({ timeout: 20000 });
+    await expect(answer).not.toHaveClass(/result-answer--error/);
+  });
 });
 
 test.describe("Top3Profissional - mobile", () => {
@@ -113,6 +129,9 @@ test.describe("Top3Profissional - segurança básica", () => {
       expect(body, `variável ANTHROPIC_API_KEY vazou em ${path}`).not.toContain("ANTHROPIC_API_KEY");
       if (process.env.WHATSAPP_ACCESS_TOKEN) {
         expect(body, `token do WhatsApp vazou em ${path}`).not.toContain(process.env.WHATSAPP_ACCESS_TOKEN);
+      }
+      if (process.env.BRAVE_SEARCH_API_KEY) {
+        expect(body, `chave da Brave Search vazou em ${path}`).not.toContain(process.env.BRAVE_SEARCH_API_KEY);
       }
     }
   });
