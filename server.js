@@ -311,6 +311,27 @@ async function writeBio(name, service, rawDescription) {
   }
 }
 
+// O multer só filtra pelo mimetype que o próprio cliente declarou no
+// multipart — um cliente malicioso pode mandar qualquer conteúdo com
+// "Content-Type: image/png". Confere a assinatura binária de verdade do
+// arquivo antes de salvar, não só o cabeçalho.
+function matchesImageSignature(buffer, mimetype) {
+  if (mimetype === "image/png") {
+    return buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  }
+  if (mimetype === "image/jpeg") {
+    return buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  }
+  if (mimetype === "image/webp") {
+    return (
+      buffer.length >= 12 &&
+      buffer.subarray(0, 4).toString("ascii") === "RIFF" &&
+      buffer.subarray(8, 12).toString("ascii") === "WEBP"
+    );
+  }
+  return false;
+}
+
 const UPLOADS_DIR = path.join(__dirname, "uploads");
 fs.mkdirSync(path.join(UPLOADS_DIR, "providers"), { recursive: true });
 const upload = multer({
@@ -695,6 +716,9 @@ app.post("/api/providers", (req, res, next) => {
   }
   if (!req.files || req.files.length === 0) {
     return res.status(400).json({ error: "envie pelo menos uma foto" });
+  }
+  if (!req.files.every((file) => matchesImageSignature(file.buffer, file.mimetype))) {
+    return res.status(400).json({ error: "um dos arquivos enviados não é uma imagem válida" });
   }
 
   const id = `pf${nextProviderId++}`;

@@ -564,6 +564,27 @@ test.describe("Top3Profissional - perfil profissional (pilar 4.12)", () => {
     expect(body.error).toMatch(/8MB/i);
   });
 
+  test("arquivo que não é imagem de verdade é rejeitado, mesmo declarando Content-Type de imagem", async ({
+    request,
+  }) => {
+    // O cliente pode mentir o mimetype no multipart — o servidor precisa
+    // conferir a assinatura binária real do arquivo, não só confiar nesse
+    // cabeçalho (achado do CodeRabbit no PR #43).
+    const fakeImage = Buffer.from("<script>alert(1)</script>");
+    const res = await request.post("/api/providers", {
+      multipart: {
+        name: "Teste",
+        service: "eletricista",
+        description: "conserto qualquer instalação elétrica",
+        location: "Belo Horizonte",
+        whatsapp: "31999990000",
+        photos: { name: "nao-e-foto.png", mimeType: "image/png", buffer: fakeImage },
+      },
+    });
+    expect(res.status()).toBe(400);
+    expect((await res.json()).error).toMatch(/imagem/i);
+  });
+
   test("nome/bio maliciosos não são injetados na página pública (XSS)", async ({ request }) => {
     const maliciousName = '<img src=x onerror=alert(1)>';
     const res = await request.post("/api/providers", {
