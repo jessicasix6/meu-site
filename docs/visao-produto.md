@@ -41,7 +41,7 @@ A Jéssica sugeriu usar "A Arte da Guerra" (Sun Tzu) como parte da fonte da verd
 - A pessoa digita em linguagem natural ("manicure amanhã em BH", "terreno barato em Contagem", "corrida de Betim pra BH hoje à noite", "carro modelo Civic 2018").
 - O agente de IA identifica o tipo de pedido e **muda a forma de apresentar o resultado** de acordo com a categoria — não é uma lista genérica sempre igual. Exemplos:
   - Serviço/profissional (manicure, eletricista): cards estilo o que já existe hoje no site, com nota, preço, distância.
-  - Corrida (pessoa querendo ir de um lugar a outro): interface estilo BlaBlaCar — um mini-formulário de "de onde → pra onde", mostrando opções (carona, ônibus, moto, o que houver disponível).
+  - Corrida (pessoa querendo ir de um lugar a outro): interface de corrida/carona compartilhada — um mini-formulário de "de onde → pra onde", mostrando opções (carona, ônibus, moto, o que houver disponível).
   - Produto/imóvel (terreno, carro): cards com foto, preço, localização, link de origem.
 - Resultado inicial: **as 3 melhores recomendações** (o "Top 3" que já é o nome do produto), com um botão "mostrar mais" pra expandir.
 - **Filtros**: mais barato, mais perto (usa geolocalização do navegador, com permissão explícita da pessoa).
@@ -74,10 +74,10 @@ Esse é o coração diferencial da ideia, mais importante que qualquer integraç
 - **Proposta de valor invertida, mas real:** em vez do Top3Profissional "puxar" anúncios de lá, a pessoa que publica algo no Top3Profissional pode **autorizar (via OAuth) que o mesmo anúncio seja publicado automaticamente também no Mercado Livre e/ou OLX** — publica uma vez, aparece em vários lugares. Isso é um baita incentivo pra quem anuncia usar o Top3Profissional como o ponto de partida.
 - Facebook Marketplace **não tem** API pública equivalente — não há caminho oficial de integração com ele, nem pra ler nem pra publicar automaticamente. Fica de fora dessa parte por ora.
 
-### 4.5 Módulo de corridas — "Uber/BlaBlaCar virtual"
+### 4.5 Módulo de corridas — mini-app de corrida/carona compartilhada
 
 - Pensado pra situações reais como: pessoa precisando de uma corrida, farmácia sem motoboy disponível, alguém oferecendo carona.
-- Interface dedicada estilo BlaBlaCar: a pessoa só informa de onde → pra onde, e vê as opções disponíveis (carona de alguém, moto/motoboy, ônibus, etc.).
+- Interface dedicada de corrida/carona compartilhada: a pessoa só informa de onde → pra onde, e vê as opções disponíveis (carona de alguém, moto/motoboy, ônibus, etc.).
 - Já existe uma primeira versão disso no site hoje (quadro de pedidos tipo "corrida"/"entrega" com aceitar) — a visão é expandir e dar uma cara própria de mini-app pra esse fluxo especificamente, incluindo a possibilidade de simular uma corrida mesmo que ela já exista publicada, e de farmácias/comércios postarem demanda de entregador ali junto com pessoas comuns.
 
 ### 4.6 Integração com WhatsApp — o site "dentro" do chat
@@ -121,7 +121,7 @@ Esse é o coração diferencial da ideia, mais importante que qualquer integraç
 ### 4.11 Segurança contra golpes (enquanto não existe pagamento na plataforma)
 
 - **Decidido em 2026-09-10:** orientar as pessoas a se encontrarem em **local público e movimentado** pra negociações presenciais, e sugerir (não ainda obrigar, já que o pagamento na plataforma — seção 4.10 — não existe ainda) que o pagamento aconteça dentro da plataforma quando possível.
-- **Avaliação e indicação pós-serviço (2026-09-10), referência: sistema de avaliação do BlaBlaCar** — depois que um serviço é **realmente concluído** (não uma avaliação solta, sem transação de verdade por trás), quem contratou pode avaliar e indicar o prestador. Isso constrói reputação real ao longo do tempo — um prestador com várias avaliações genuínas de serviços concluídos passa confiança muito maior que um anúncio novo sem histórico, e ajuda a combater golpe (perfil golpista não acumula avaliação real).
+- **Avaliação e indicação pós-serviço (2026-09-10), referência: sistemas de avaliação pós-transação de apps de caronas/serviços** — depois que um serviço é **realmente concluído** (não uma avaliação solta, sem transação de verdade por trás), quem contratou pode avaliar e indicar o prestador. Isso constrói reputação real ao longo do tempo — um prestador com várias avaliações genuínas de serviços concluídos passa confiança muito maior que um anúncio novo sem histórico, e ajuda a combater golpe (perfil golpista não acumula avaliação real).
   - Em aberto: como o site confirma que o serviço foi "de verdade" concluído antes de liberar a avaliação (ex: as duas partes confirmam, ou fica vinculado ao pagamento na plataforma quando esse pilar existir — seção 4.10)? Ver seção 8.
 - Outras ideias de segurança (verificação de identidade, denúncia de anúncio suspeito) ainda não foram detalhadas — ficam como ponto a desenvolver mais.
 
@@ -188,6 +188,21 @@ A Jéssica pediu explicitamente pra eu decidir por qual pilar começar, já com 
 8. **Pagamento na plataforma com retenção (pilar 4.10) e avaliação pós-serviço amarrada a ele (pilar 4.11).** De propósito por último — é o pilar mais regulado e caro de errar (envolve dinheiro de verdade e regras do Banco Central), então só faz sentido investir nisso quando o site já tiver volume real de transações acontecendo por fora, provando que vale a pena trazer pra dentro.
 
 **Resumindo o critério usado:** primeiro o que não custa nada e prova a ideia central; depois o que custa pouco e já expande valor; monetização só depois de ter audiência real; e o que envolve dinheiro/regulação de verdade por último, com calma.
+
+## 10. Princípios de UI/UX (Jéssica, 2026-09-11 — reler antes de mexer na interface)
+
+A Jéssica apontou, mais de uma vez na mesma sessão, o mesmo tipo de erro: eu construindo uma peça de interface nova sem checar se ela já existia (de outro jeito) em outro lugar do site. Isso não pode se repetir — os princípios abaixo existem pra evitar isso de novo.
+
+- **Um controle por ação, nunca dois fazendo a mesma coisa.** Antes de adicionar um botão/aba/seção nova, procurar no site inteiro se já existe algo cobrindo a mesma ação. Se existir, decidir e unificar — não perguntar pra Jéssica resolver duplicação óbvia.
+- **A busca roteia por intenção, não devolve sempre a mesma coisa.** O app não é um chat genérico com histórico de mensagens — é um app de serviços com uma barra de busca sempre visível embaixo (estilo app de transporte/entrega por celular). Quando a pessoa descreve o que precisa:
+  - Se for sobre um **serviço/profissional cadastrado**, mostrar o **ranking** ("Os 3 mais bem avaliados"), não um parágrafo de texto.
+  - Se for sobre **corrida/carona/agendamento**, mostrar o **painel de corridas** (corrida/carona compartilhada — assume hoje por padrão pra facilitar, só pede de/pra), com o que já foi publicado nesse trajeto.
+  - Só cair no texto livre de IA (com busca na web) pro que sobrar — terreno, carro, produto, ou qualquer coisa fora dessas duas categorias estruturadas.
+  - Resultado esperado: menos chamada de IA/Brave Search pros casos estruturados (mais rápido e mais barato), e uma resposta que já é a própria ação (ver ranking, ver corridas publicadas), não um texto que ainda precisa virar ação.
+- **"Mostrar resultado" e "pedir mais dados" são coisas diferentes, mas nunca duas telas separadas pra mesma decisão.** Ex: publicar um pedido pode acontecer por conversa OU por formulário (decisão explícita da Jéssica, 2026-09-11: manter os dois, mas o formulário tem que ficar o mais enxuto possível) — mas nunca dois formulários, ou um formulário e uma tela paralela fazendo a mesma coisa de outro jeito.
+- **Antes de entregar uma mudança de UI, andar pelo site inteiro mentalmente** (topo → ranking → corridas → publicar → barra fixa embaixo) e perguntar: alguma dessas telas ficou redundante ou incoerente com a que acabei de mudar? Se sim, resolver antes de reportar como pronto — não deixar pra Jéssica notar depois.
+
+Ver também [[feedback_product_coherence_top3]] (memória entre sessões com o mesmo princípio, incluindo a citação original da Jéssica).
 
 ---
 

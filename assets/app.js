@@ -1,8 +1,40 @@
 const chatSection = document.getElementById("chat");
 const results = document.getElementById("chat-results");
+const rankingSection = document.getElementById("top3");
 const rankingList = document.getElementById("ranking-list");
 const rankingSort = document.getElementById("ranking-sort");
+const rankingTitle = document.getElementById("ranking-title");
+const rankingFilterHint = document.getElementById("ranking-filter-hint");
 const locationHint = document.getElementById("location-hint");
+
+// Rola até a seção e dá um destaque rápido — sinal visual de que a busca
+// virou aquele resultado ali, não um texto perdido em algum lugar da página.
+function highlightSection(section) {
+  section.scrollIntoView({ behavior: "smooth", block: "start" });
+  section.classList.add("section-highlight");
+  setTimeout(() => section.classList.remove("section-highlight"), 1600);
+}
+
+// Serviços dos prestadores mock (mantido em sincronia manual com os
+// "service" de PROVIDERS em server.js — mesma lista citada no SYSTEM_PROMPT
+// de lá). Se a busca citar um desses, mostra o ranking filtrado em vez de
+// cair no texto de IA. Palavras de corrida/carona também roteiam direto pro
+// painel de corridas, sem gastar uma chamada de IA à toa.
+const KNOWN_SERVICES = ["manicure", "eletricista", "cabeleireiro", "encanador"];
+const RIDE_KEYWORDS = ["corrida", "carona", "ônibus", "onibus", "busão", "busao"];
+
+function classifyIntent(message) {
+  const lower = message.toLowerCase();
+  // "de/do/da/dos/das X pra/para Y" — cobre as contrações mais comuns de
+  // "de" + artigo no português falado (ex: "corrida do Centro pra Rodoviária").
+  const routeMatch = message.match(/\bd[eoa]s?\s+(.+?)\s+(?:pra|para)\s+(.+)/i);
+  if (RIDE_KEYWORDS.some((k) => lower.includes(k)) || message.includes("→") || routeMatch) {
+    return { type: "ride", from: routeMatch && routeMatch[1].trim(), to: routeMatch && routeMatch[2].trim() };
+  }
+  const service = KNOWN_SERVICES.find((s) => lower.includes(s));
+  if (service) return { type: "service", service };
+  return { type: "other" };
+}
 
 // Pede a localização real do navegador (com permissão explícita da pessoa)
 // só quando faz sentido — ordenando por distância. Se negar ou não tiver
@@ -40,12 +72,20 @@ function starRow(rating) {
 // de filtro de novo antes disso resolver, essa chamada antiga não pode
 // sobrescrever uma mais recente quando finalmente responder.
 let loadRankingCallId = 0;
+// Quando a busca identifica um serviço cadastrado (ex: "eletricista"), o
+// ranking fica filtrado pra esse serviço até a pessoa limpar o filtro ou
+// buscar outra coisa — inclusive ao trocar a ordenação.
+let currentRankingService = "";
 
-async function loadRanking(sortBy) {
+async function loadRanking(sortBy, service) {
+  if (service !== undefined) currentRankingService = service;
   const callId = ++loadRankingCallId;
   try {
     const effectiveSortBy = sortBy || rankingSort.value;
     let url = `/api/ranking?sortBy=${encodeURIComponent(effectiveSortBy)}`;
+    if (currentRankingService) {
+      url += `&service=${encodeURIComponent(currentRankingService)}`;
+    }
 
     locationHint.hidden = true;
     if (effectiveSortBy === "distance") {
@@ -64,6 +104,14 @@ async function loadRanking(sortBy) {
     if (!res.ok) return;
     const { top3, usedRealLocation } = await res.json();
     if (callId !== loadRankingCallId) return;
+    if (currentRankingService) {
+      rankingTitle.textContent = `Os 3 mais bem avaliados — ${currentRankingService}`;
+      rankingFilterHint.hidden = false;
+      rankingFilterHint.innerHTML = `Mostrando só quem faz "${escapeHtml(currentRankingService)}". <a href="#" id="ranking-clear-filter">Ver todos</a>`;
+    } else {
+      rankingTitle.textContent = "Os 3 mais bem avaliados";
+      rankingFilterHint.hidden = true;
+    }
     if (usedRealLocation) {
       locationHint.hidden = false;
       locationHint.textContent = "Mostrando distância real a partir da sua localização.";
@@ -97,6 +145,12 @@ async function loadRanking(sortBy) {
 
 loadRanking();
 rankingSort.addEventListener("change", () => loadRanking());
+
+rankingFilterHint.addEventListener("click", (event) => {
+  if (!event.target.closest("#ranking-clear-filter")) return;
+  event.preventDefault();
+  loadRanking(undefined, "");
+});
 
 rankingList.addEventListener("click", (event) => {
   const button = event.target.closest(".rank-cta");
@@ -323,12 +377,19 @@ results.addEventListener("click", (event) => {
   if (event.target.closest("#result-solicitar-btn")) goToPublish();
 });
 
-// Módulo de corridas (pilar 4.5) — mini-app "de onde → pra onde" estilo
-// BlaBlaCar, separado do formulário genérico de qualquer categoria.
+// Módulo de corridas (pilar 4.5) — mini-app "de onde → pra onde" de
+// corrida/carona compartilhada, separado do formulário genérico de
+// qualquer categoria.
 const rideForm = document.getElementById("ride-form");
 const rideFrom = document.getElementById("ride-from");
 const rideTo = document.getElementById("ride-to");
 const rideResults = document.getElementById("ride-results");
+const ridesSection = document.getElementById("corridas");
+
+// Painel assume "hoje" por padrão (nada pra pessoa escolher) — só mostra a
+// data pra dar contexto, igual um app de caronas de verdade.
+document.getElementById("rides-today").textContent =
+  `Hoje, ${new Date().toLocaleDateString("pt-BR", { day: "numeric", month: "long" })} · corrida ou carona compartilhada`;
 
 function renderRideResults(matches) {
   const matchesHtml = matches.length
@@ -389,6 +450,12 @@ const publishInterestLink = document.getElementById("publish-interest-link");
 let lastSearchQuery = "";
 
 publishInterestLink.addEventListener("click", (event) => {
+  if (!lastSearchQuery) return;
+  event.preventDefault();
+  goToPublish();
+});
+
+document.getElementById("ranking-publish-link").addEventListener("click", (event) => {
   if (!lastSearchQuery) return;
   event.preventDefault();
   goToPublish();
@@ -488,6 +555,28 @@ bottomSearchForm.addEventListener("submit", (event) => {
   // buscar estando no modo "presto um serviço".
   if (providerView.hidden === false) setMode("requester");
   bottomSearchInput.value = "";
+
+  // Busca roteia por intenção: serviço cadastrado mostra o ranking,
+  // corrida/carona mostra o painel de corridas — só cai no texto de IA
+  // (runSearch) pro que sobrar (terreno, carro, produto etc). Ver seção 10
+  // de docs/visao-produto.md.
+  const intent = classifyIntent(message);
+  if (intent.type === "ride") {
+    if (intent.from && intent.to) {
+      rideFrom.value = intent.from;
+      rideTo.value = intent.to;
+      rideForm.requestSubmit();
+    } else {
+      rideFrom.focus();
+    }
+    highlightSection(ridesSection);
+    return;
+  }
+  if (intent.type === "service") {
+    loadRanking(undefined, intent.service);
+    highlightSection(rankingSection);
+    return;
+  }
   runSearch(message);
 });
 
