@@ -58,6 +58,10 @@ Depois de configurado: qualquer mensagem de texto recebida vira uma pergunta pro
 - `concluir r1` — marca um pedido aceito como concluído
 - `avaliar r1 5 Ótimo atendimento!` — avalia (1-5) um pedido concluído, comentário opcional
 
+## Publicar por conversa (sem formulário)
+
+Além do formulário, o agente (`/api/chat`, e por consequência o WhatsApp também) consegue publicar um pedido direto pela conversa — a pessoa só precisa confirmar a intenção ("quero publicar uma corrida do Centro pra Rodoviária hoje às 20h, pago R$25"). O agente nunca publica sozinho só porque alguém descreveu o que procura — sempre espera confirmação explícita, e confirma de volta o que foi publicado.
+
 ## Ciclo de vida de um pedido
 
 `POST /api/requests` cria um pedido em qualquer categoria (`type` é texto livre — corrida, terreno, carro, o que for), sempre começando em `status: "aberto"`. Depois disso:
