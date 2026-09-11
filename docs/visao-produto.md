@@ -189,6 +189,21 @@ A Jéssica pediu explicitamente pra eu decidir por qual pilar começar, já com 
 
 **Resumindo o critério usado:** primeiro o que não custa nada e prova a ideia central; depois o que custa pouco e já expande valor; monetização só depois de ter audiência real; e o que envolve dinheiro/regulação de verdade por último, com calma.
 
+## 10. Princípios de UI/UX (Jéssica, 2026-09-11 — reler antes de mexer na interface)
+
+A Jéssica apontou, mais de uma vez na mesma sessão, o mesmo tipo de erro: eu construindo uma peça de interface nova sem checar se ela já existia (de outro jeito) em outro lugar do site. Isso não pode se repetir — os princípios abaixo existem pra evitar isso de novo.
+
+- **Um controle por ação, nunca dois fazendo a mesma coisa.** Antes de adicionar um botão/aba/seção nova, procurar no site inteiro se já existe algo cobrindo a mesma ação. Se existir, decidir e unificar — não perguntar pra Jéssica resolver duplicação óbvia.
+- **A busca roteia por intenção, não devolve sempre a mesma coisa.** O app não é um chat genérico com histórico de mensagens — é um app de serviços com uma barra de busca sempre visível embaixo (estilo Uber/99/iFood). Quando a pessoa descreve o que precisa:
+  - Se for sobre um **serviço/profissional cadastrado**, mostrar o **ranking** ("Os 3 mais bem avaliados"), não um parágrafo de texto.
+  - Se for sobre **corrida/carona/agendamento**, mostrar o **painel de corridas** (estilo BlaBlaCar — assume hoje por padrão pra facilitar, só pede de/pra), com o que já foi publicado nesse trajeto.
+  - Só cair no texto livre de IA (com busca na web) pro que sobrar — terreno, carro, produto, ou qualquer coisa fora dessas duas categorias estruturadas.
+  - Resultado esperado: menos chamada de IA/Brave Search pros casos estruturados (mais rápido e mais barato), e uma resposta que já é a própria ação (ver ranking, ver corridas publicadas), não um texto que ainda precisa virar ação.
+- **"Mostrar resultado" e "pedir mais dados" são coisas diferentes, mas nunca duas telas separadas pra mesma decisão.** Ex: publicar um pedido pode acontecer por conversa OU por formulário (decisão explícita da Jéssica, 2026-09-11: manter os dois, mas o formulário tem que ficar o mais enxuto possível) — mas nunca dois formulários, ou um formulário e uma tela paralela fazendo a mesma coisa de outro jeito.
+- **Antes de entregar uma mudança de UI, andar pelo site inteiro mentalmente** (topo → ranking → corridas → publicar → barra fixa embaixo) e perguntar: alguma dessas telas ficou redundante ou incoerente com a que acabei de mudar? Se sim, resolver antes de reportar como pronto — não deixar pra Jéssica notar depois.
+
+Ver também [[feedback_product_coherence_top3]] (memória entre sessões com o mesmo princípio, incluindo a citação original da Jéssica).
+
 ---
 
 *Este arquivo deve crescer com o tempo. Qualquer ideia nova, ajuste de direção, ou decisão tomada numa conversa deve ser adicionada aqui antes de virar código.*

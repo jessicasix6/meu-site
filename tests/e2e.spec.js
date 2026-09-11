@@ -227,12 +227,49 @@ test.describe("Top3Profissional - fluxo básico", () => {
 
     await page.goto("/");
     const searchInput = page.getByPlaceholder("O que você precisa?");
-    await searchInput.fill("manicure amanhã em BH");
+    // Fora dos serviços cadastrados e sem palavra de corrida/carona — cai no
+    // texto de IA (ranking e corridas são testados à parte, sem gastar
+    // chamada de IA pra isso).
+    await searchInput.fill("conserto de geladeira hoje");
     await searchInput.press("Enter");
 
     const answer = page.locator(".result-answer");
     await expect(answer).toBeVisible({ timeout: 15000 });
     await expect(answer).not.toHaveClass(/result-answer--error/);
+  });
+
+  test("busca por serviço cadastrado mostra o ranking filtrado — sem gastar chamada de IA", async ({ page }) => {
+    await page.goto("/");
+    const searchInput = page.getByPlaceholder("O que você precisa?");
+    await searchInput.fill("preciso de um eletricista hoje");
+    await searchInput.press("Enter");
+
+    await expect(page.locator("#ranking-title")).toContainText("eletricista");
+    const cards = page.locator(".rank-card");
+    await expect(cards).toHaveCount(2);
+    await expect(page.locator(".rank-service").first()).toContainText("eletricista");
+    await expect(page.locator("#ranking-filter-hint")).toBeVisible();
+
+    // Não foi pro texto de IA nem gastou uma chamada de /api/chat.
+    await expect(page.locator(".result-answer")).not.toBeVisible();
+
+    await page.locator("#ranking-clear-filter").click();
+    await expect(page.locator("#ranking-title")).toHaveText("Os 3 mais bem avaliados");
+    await expect(cards).toHaveCount(3);
+  });
+
+  test("busca por corrida/carona mostra o painel de corridas pré-preenchido — sem gastar chamada de IA", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const searchInput = page.getByPlaceholder("O que você precisa?");
+    await searchInput.fill("corrida do Centro pra Rodoviária");
+    await searchInput.press("Enter");
+
+    await expect(page.locator("#ride-from")).toHaveValue("Centro");
+    await expect(page.locator("#ride-to")).toHaveValue("Rodoviária");
+    await expect(page.locator("#ride-results")).not.toBeEmpty();
+    await expect(page.locator(".result-answer")).not.toBeVisible();
   });
 
   test("busca fora do catálogo interno aciona a busca na web (só roda com as duas chaves configuradas)", async ({ page }) => {

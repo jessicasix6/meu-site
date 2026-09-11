@@ -353,7 +353,14 @@ app.get("/api/ranking", (req, res) => {
   const lng = Number(req.query.lng);
   const hasRealLocation = sortBy === "distance" && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
 
-  const withDistance = PROVIDERS.map((p) => ({
+  // ?service= filtra pra uma categoria (ex: "eletricista") — usado quando a
+  // busca da pessoa já identificou um serviço cadastrado, pra mostrar o
+  // ranking de quem realmente atende aquilo, não o top 3 geral do site.
+  const serviceFilter = typeof req.query.service === "string" ? req.query.service.trim().toLowerCase() : "";
+  const matchesService = serviceFilter && PROVIDERS.some((p) => p.service.toLowerCase() === serviceFilter);
+  const pool = matchesService ? PROVIDERS.filter((p) => p.service.toLowerCase() === serviceFilter) : PROVIDERS;
+
+  const withDistance = pool.map((p) => ({
     ...p,
     distanceKm: hasRealLocation ? haversineKm(lat, lng, p.lat, p.lng) : p.distanceKm,
   }));

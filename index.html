@@ -82,7 +82,7 @@
         <div class="ranking-header">
           <div>
             <p class="eyebrow">Agora, perto de você</p>
-            <h2 class="section-title">Os 3 mais bem avaliados</h2>
+            <h2 class="section-title" id="ranking-title">Os 3 mais bem avaliados</h2>
           </div>
           <label class="ranking-sort-label">
             ordenar por
@@ -93,8 +93,13 @@
             </select>
           </label>
         </div>
+        <p id="ranking-filter-hint" class="location-hint" hidden></p>
         <p id="location-hint" class="location-hint" hidden></p>
         <ol id="ranking-list" class="ranking-list"></ol>
+        <p class="search-hint">
+          Não achou quem procurava?
+          <a href="#publicar" id="ranking-publish-link">Publique um pedido</a> e deixe quem pode te atender ver.
+        </p>
       </div>
     </section>
 
@@ -112,7 +117,7 @@
 
     <section id="corridas" class="rides-section">
       <div class="container">
-        <p class="eyebrow">Tipo BlaBlaCar</p>
+        <p class="eyebrow" id="rides-today">Tipo BlaBlaCar</p>
         <h2 class="section-title">Corridas e caronas</h2>
         <p class="rides-subtitle">
           Diga de onde e pra onde — mostramos o que já tem publicado nesse trajeto, ou você publica em segundos.
