@@ -308,6 +308,66 @@ function renderResult(query, state, text) {
   `;
 }
 
+// Módulo de corridas (pilar 4.5) — mini-app "de onde → pra onde" estilo
+// BlaBlaCar, separado do formulário genérico de qualquer categoria.
+const rideForm = document.getElementById("ride-form");
+const rideFrom = document.getElementById("ride-from");
+const rideTo = document.getElementById("ride-to");
+const rideResults = document.getElementById("ride-results");
+
+function renderRideResults(matches) {
+  const matchesHtml = matches.length
+    ? `<ul class="ride-matches">${matches
+        .map(
+          (r) => `
+        <li class="ride-match">
+          <strong>${escapeHtml(r.title)}</strong>
+          <span class="ride-match-meta">${escapeHtml(r.requester)} · ${escapeHtml(r.when || "a combinar")} · R$ ${r.price}</span>
+        </li>`
+        )
+        .join("")}</ul>`
+    : `<p class="ride-empty">Nada publicado nesse trajeto ainda — seja a primeira pessoa.</p>`;
+
+  return `${matchesHtml}<button type="button" class="ride-publish-btn" id="ride-publish-btn">Publicar essa corrida</button>`;
+}
+
+rideForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const from = rideFrom.value.trim();
+  const to = rideTo.value.trim();
+  if (!from || !to) return;
+
+  rideResults.innerHTML = '<p class="ride-loading">buscando…</p>';
+  try {
+    const res = await fetch("/api/requests");
+    if (!res.ok) throw new Error("falha ao buscar");
+    const { requests } = await res.json();
+    const fromLower = from.toLowerCase();
+    const toLower = to.toLowerCase();
+    const matches = requests.filter(
+      (r) =>
+        r.type === "corrida" &&
+        r.status === "aberto" &&
+        r.title.toLowerCase().includes(fromLower) &&
+        r.title.toLowerCase().includes(toLower)
+    );
+    rideResults.innerHTML = renderRideResults(matches);
+  } catch (err) {
+    rideResults.innerHTML = '<p class="ride-empty">Não consegui buscar agora. Tenta de novo.</p>';
+  }
+});
+
+rideResults.addEventListener("click", (event) => {
+  const btn = event.target.closest("#ride-publish-btn");
+  if (!btn) return;
+  const from = rideFrom.value.trim();
+  const to = rideTo.value.trim();
+  document.getElementById("post-type").value = "corrida";
+  document.getElementById("post-title").value = `${from} → ${to}`;
+  document.getElementById("publicar").scrollIntoView({ behavior: "smooth", block: "start" });
+  document.getElementById("post-price").focus();
+});
+
 const postForm = document.getElementById("post-form");
 const postStatus = document.getElementById("post-status");
 const publishInterestLink = document.getElementById("publish-interest-link");

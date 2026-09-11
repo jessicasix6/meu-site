@@ -75,6 +75,31 @@ test.describe("Top3Profissional - fluxo básico", () => {
     await expect(requests.first()).toBeVisible();
   });
 
+  test("módulo de corridas (pilar 4.5): busca acha corrida existente pelo trajeto", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#ride-from").fill("Rua Bahia");
+    await page.locator("#ride-to").fill("Aeroporto");
+    await page.locator("#ride-form button[type=submit]").click();
+
+    await expect(page.locator(".ride-match").first()).toContainText("Aeroporto de Confins");
+    await expect(page.locator("#ride-publish-btn")).toBeVisible();
+  });
+
+  test("módulo de corridas: trajeto sem resultado mostra estado vazio e permite publicar pré-preenchido", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.locator("#ride-from").fill("Barreiro");
+    await page.locator("#ride-to").fill("Pampulha");
+    await page.locator("#ride-form button[type=submit]").click();
+
+    await expect(page.locator(".ride-empty")).toBeVisible();
+    await page.locator("#ride-publish-btn").click();
+
+    await expect(page.locator("#post-type")).toHaveValue("corrida");
+    await expect(page.locator("#post-title")).toHaveValue("Barreiro → Pampulha");
+  });
+
   test("publicar pedido com categoria livre (não só corrida/entrega/profissional)", async ({ page, request }) => {
     const res = await request.post("/api/requests", {
       data: { type: "Terreno", title: "terreno barato em Contagem", price: 50000 },
