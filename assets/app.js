@@ -443,10 +443,21 @@ postForm.addEventListener("submit", async (event) => {
 const bottomSearchForm = document.getElementById("bottom-search-form");
 const bottomSearchInput = document.getElementById("bottom-search-input");
 const allSearchInputs = [input, bottomSearchInput];
+const allSearchSubmitButtons = [
+  form.querySelector('button[type="submit"]'),
+  bottomSearchForm.querySelector('button[type="submit"]'),
+];
+let searchInFlight = false;
 
 async function runSearch(message) {
+  // Guarda contra buscas simultâneas: com dois formulários (topo + barra
+  // fixa embaixo) alimentando o mesmo resultado, uma segunda busca em voo
+  // poderia terminar antes da primeira e sobrescrever com resposta velha.
+  if (searchInFlight) return;
+  searchInFlight = true;
   lastSearchQuery = message;
   allSearchInputs.forEach((el) => (el.disabled = true));
+  allSearchSubmitButtons.forEach((el) => (el.disabled = true));
   renderResult(message, "loading");
   results.scrollIntoView({ behavior: "smooth", block: "center" });
 
@@ -467,6 +478,8 @@ async function runSearch(message) {
     renderResult(message, "error", "Não consegui falar com o servidor.");
   } finally {
     allSearchInputs.forEach((el) => (el.disabled = false));
+    allSearchSubmitButtons.forEach((el) => (el.disabled = false));
+    searchInFlight = false;
   }
 }
 

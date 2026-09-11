@@ -20,6 +20,52 @@ test.describe("Top3Profissional - fluxo básico", () => {
     await expect(searchInput).toHaveValue("manicure amanhã em BH");
   });
 
+  test("barra fixa embaixo: busca reaproveita a busca do topo e evita corrida entre as duas", async ({ page }) => {
+    // A barra de baixo (sempre visível) e a de cima alimentam o mesmo
+    // runSearch(). Simula uma busca lenta seguida de uma segunda busca
+    // (pela outra barra) enquanto a primeira ainda está em voo: a segunda
+    // deve ser ignorada até a primeira terminar, senão a resposta mais
+    // velha poderia chegar depois e sobrescrever o resultado mais novo.
+    let releaseFirst;
+    const firstRequestReceived = new Promise((resolve) => {
+      page.route("**/api/chat", async (route) => {
+        const body = route.request().postDataJSON();
+        if (body.message === "primeira busca") {
+          resolve();
+          await new Promise((r) => (releaseFirst = r));
+          await route.fulfill({ json: { reply: "resposta da primeira busca" } });
+        } else {
+          await route.fulfill({ json: { reply: "resposta da segunda busca" } });
+        }
+      });
+    });
+
+    await page.goto("/");
+    const topInput = page.getByLabel("Pesquisar profissional");
+    const bottomInput = page.getByPlaceholder("O que você precisa?");
+    const bottomSubmit = page.locator("#bottom-search-form button[type=submit]");
+
+    await topInput.fill("primeira busca");
+    await topInput.press("Enter");
+    await firstRequestReceived;
+
+    // Enquanto a primeira busca está em voo, os dois campos e os dois
+    // botões de envio devem estar desabilitados — inclusive o da barra de
+    // baixo, que é o outro caminho pra disparar runSearch().
+    await expect(topInput).toBeDisabled();
+    await expect(bottomInput).toBeDisabled();
+    await expect(bottomSubmit).toBeDisabled();
+
+    // Tenta a segunda busca mesmo assim (ex: clique já registrado antes de
+    // desabilitar) — deve ser ignorada pela guarda de busca em voo.
+    await bottomSubmit.click({ force: true });
+
+    releaseFirst();
+    await expect(page.locator(".result-answer")).toContainText("resposta da primeira busca");
+    await expect(topInput).toBeEnabled();
+    await expect(bottomSubmit).toBeEnabled();
+  });
+
   test("top 3 carrega profissionais mock (sem depender de IA)", async ({ page }) => {
     await page.goto("/");
     const cards = page.locator(".rank-card");
