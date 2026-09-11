@@ -44,6 +44,7 @@
           <a href="#bottom-search-input" id="nav-ask-link">Perguntar</a>
           <a href="#corridas">Corridas</a>
           <a href="#publicar">Publicar</a>
+          <a href="#criar-perfil">Criar meu perfil</a>
           <a href="#beneficios">Benefícios</a>
           <a href="#como-funciona">Como funciona</a>
         </nav>
@@ -177,6 +178,46 @@
           <button type="submit" class="post-submit">Publicar solicitação</button>
         </form>
         <p id="post-status" class="post-status" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section id="criar-perfil" class="post-section">
+      <div class="container">
+        <p class="eyebrow">Divulgue seu trabalho</p>
+        <h2 class="section-title">Crie seu perfil profissional</h2>
+        <p class="post-subtitle">
+          Manda uma foto e descreve o que você faz — a IA escreve a bio e monta uma página sua, com link pra
+          compartilhar. Acumula avaliação de verdade com o tempo.
+        </p>
+        <form id="provider-form" class="post-form" enctype="multipart/form-data">
+          <div class="post-field post-field--wide">
+            <label for="provider-name">Seu nome</label>
+            <input id="provider-name" name="name" type="text" placeholder="ex: Juliana Martins" required />
+          </div>
+          <div class="post-field">
+            <label for="provider-service">O que você faz</label>
+            <input id="provider-service" name="service" type="text" placeholder="ex: manicure, eletricista..." required />
+          </div>
+          <div class="post-field">
+            <label for="provider-location">Onde você atende</label>
+            <input id="provider-location" name="location" type="text" placeholder="ex: Savassi, Belo Horizonte" required />
+          </div>
+          <div class="post-field">
+            <label for="provider-whatsapp">Seu WhatsApp</label>
+            <input id="provider-whatsapp" name="whatsapp" type="tel" placeholder="ex: (31) 99999-0000" required />
+          </div>
+          <div class="post-field post-field--wide">
+            <label for="provider-description">Descreva o que você faz, com suas palavras</label>
+            <textarea id="provider-description" name="description" rows="3" placeholder="ex: faço unha há 5 anos, atendo em casa e a domicílio..." required></textarea>
+          </div>
+          <div class="post-field post-field--wide">
+            <label for="provider-photos">Fotos (pelo menos uma)</label>
+            <input id="provider-photos" name="photos" type="file" accept="image/png,image/jpeg,image/webp" multiple required />
+          </div>
+          <button type="submit" class="post-submit">Criar meu perfil</button>
+        </form>
+        <p id="provider-status" class="post-status" aria-live="polite"></p>
+        <div id="provider-result" class="provider-result" hidden></div>
       </div>
     </section>
 

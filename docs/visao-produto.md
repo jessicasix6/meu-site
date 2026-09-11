@@ -128,6 +128,7 @@ Esse é o coração diferencial da ideia, mais importante que qualquer integraç
 
 ### 4.12 Perfil profissional gerado por IA (site próprio do prestador)
 
+- **Status (2026-09-11): implementado.** Formulário "Criar meu perfil" (e busca por "quero criar meu perfil profissional") já publica a página em `/prestador/<slug>`, com bio escrita pela Claude a partir da descrição da pessoa. Melhoria automática de foto (OpenAI GPT Image 2) está no código, mas **inativa até a Jéssica configurar `OPENAI_API_KEY`** — até lá, usa a foto como foi enviada. Ainda não conectado com o motor de avaliação (pilar 4.11) nem com destaque pago (pilar 4.8) — ver "em aberto" abaixo.
 - **Ideia nova (2026-09-11):** hoje "ser prestador" no site é só aceitar pedidos avulsos — não existe uma página própria, permanente, que a pessoa possa compartilhar. A ideia é criar isso: pela mesma barra de busca (ou um fluxo dedicado a partir dela), o prestador manda algumas fotos e descreve o que faz em poucas frases, e a IA:
   - Melhora/retoca as fotos automaticamente.
   - Escreve uma descrição profissional a partir do que a pessoa mandou.

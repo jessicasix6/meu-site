@@ -1,5 +1,6 @@
 node_modules/
 .env
+uploads/
 playwright-report/
 test-results/
 .claude/scheduled_tasks.lock

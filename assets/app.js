@@ -22,9 +22,14 @@ function highlightSection(section) {
 // painel de corridas, sem gastar uma chamada de IA à toa.
 const KNOWN_SERVICES = ["manicure", "eletricista", "cabeleireiro", "encanador"];
 const RIDE_KEYWORDS = ["corrida", "carona", "ônibus", "onibus", "busão", "busao"];
+// Frases de quem quer criar o próprio perfil (pilar 4.12), não buscar algo.
+const PROFILE_KEYWORDS = ["criar meu perfil", "meu perfil profissional", "divulgar meu trabalho", "meu site profissional"];
 
 function classifyIntent(message) {
   const lower = message.toLowerCase();
+  if (PROFILE_KEYWORDS.some((k) => lower.includes(k))) {
+    return { type: "profile" };
+  }
   // "de/do/da/dos/das X pra/para Y" — cobre as contrações mais comuns de
   // "de" + artigo no português falado (ex: "corrida do Centro pra Rodoviária").
   const routeMatch = message.match(/\bd[eoa]s?\s+(.+?)\s+(?:pra|para)\s+(.+)/i);
@@ -505,6 +510,50 @@ postForm.addEventListener("submit", async (event) => {
   }
 });
 
+// Pilar 4.12 — perfil profissional gerado por IA. Envia como multipart
+// (FormData direto do form, sem montar JSON) porque tem arquivo de foto
+// junto; o servidor escreve a bio e (se configurado) melhora as fotos.
+const providerForm = document.getElementById("provider-form");
+const providerStatus = document.getElementById("provider-status");
+const providerResult = document.getElementById("provider-result");
+
+providerForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const data = new FormData(providerForm);
+  const submitBtn = providerForm.querySelector("button[type=submit]");
+
+  providerStatus.textContent = "criando seu perfil…";
+  providerStatus.className = "post-status";
+  providerResult.hidden = true;
+  submitBtn.disabled = true;
+
+  try {
+    const res = await fetch("/api/providers", { method: "POST", body: data });
+    const result = await res.json();
+
+    if (!res.ok) {
+      providerStatus.textContent = result.error || "Não consegui criar seu perfil.";
+      providerStatus.className = "post-status post-status--error";
+      return;
+    }
+
+    const link = `${window.location.origin}/prestador/${result.provider.slug}`;
+    providerStatus.textContent = "Perfil criado!";
+    providerStatus.className = "post-status post-status--ok";
+    providerResult.hidden = false;
+    providerResult.innerHTML = `
+      <p>Seu perfil já está no ar — compartilhe o link:</p>
+      <a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(link)}</a>
+    `;
+    providerForm.reset();
+  } catch (err) {
+    providerStatus.textContent = "Falha de conexão ao criar o perfil.";
+    providerStatus.className = "post-status post-status--error";
+  } finally {
+    submitBtn.disabled = false;
+  }
+});
+
 // Busca única, sempre pela barra fixa embaixo (estilo app) — o topo do
 // site fica só pra mostrar rankings, corridas e outros resultados.
 const bottomSearchForm = document.getElementById("bottom-search-form");
@@ -561,6 +610,11 @@ bottomSearchForm.addEventListener("submit", (event) => {
   // (runSearch) pro que sobrar (terreno, carro, produto etc). Ver seção 10
   // de docs/visao-produto.md.
   const intent = classifyIntent(message);
+  if (intent.type === "profile") {
+    highlightSection(document.getElementById("criar-perfil"));
+    document.getElementById("provider-name").focus();
+    return;
+  }
   if (intent.type === "ride") {
     if (intent.from && intent.to) {
       rideFrom.value = intent.from;
