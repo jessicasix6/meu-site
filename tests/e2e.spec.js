@@ -372,3 +372,38 @@ test.describe("Top3Profissional - infra", () => {
     expect(body.status).toBe("ok");
   });
 });
+
+test.describe("Top3Profissional - PWA", () => {
+  test("manifest.json é válido e referencia ícones que existem de verdade", async ({ request }) => {
+    const res = await request.get("/manifest.json");
+    expect(res.status()).toBe(200);
+    const manifest = await res.json();
+    expect(manifest.name).toBe("Top3Profissional");
+    expect(manifest.display).toBe("standalone");
+    expect(manifest.icons.length).toBeGreaterThan(0);
+
+    for (const icon of manifest.icons) {
+      const iconRes = await request.get(icon.src);
+      expect(iconRes.status(), `ícone ${icon.src} deveria existir`).toBe(200);
+    }
+  });
+
+  test("service worker registra e cacheia o esqueleto do app, sem cachear /api/ ou /health", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForFunction(async () => {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      return regs.length > 0;
+    });
+
+    const cachedPaths = await page.evaluate(async () => {
+      const cache = await caches.open("top3-shell-v1");
+      const keys = await cache.keys();
+      return keys.map((k) => new URL(k.url).pathname);
+    });
+
+    expect(cachedPaths).toContain("/assets/style.css");
+    expect(cachedPaths).toContain("/assets/app.js");
+    expect(cachedPaths.some((p) => p.startsWith("/api/"))).toBe(false);
+    expect(cachedPaths).not.toContain("/health");
+  });
+});
