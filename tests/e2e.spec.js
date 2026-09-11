@@ -12,20 +12,22 @@ test.describe("Top3Profissional - fluxo básico", () => {
     expect(consoleErrors).toEqual([]);
   });
 
-  test("barra de busca principal existe e aceita texto", async ({ page }) => {
+  test("barra de busca fixa embaixo existe e aceita texto", async ({ page }) => {
     await page.goto("/");
-    const searchInput = page.getByLabel("Pesquisar profissional");
+    const searchInput = page.getByPlaceholder("O que você precisa?");
     await expect(searchInput).toBeVisible();
     await searchInput.fill("manicure amanhã em BH");
     await expect(searchInput).toHaveValue("manicure amanhã em BH");
   });
 
-  test("barra fixa embaixo: busca reaproveita a busca do topo e evita corrida entre as duas", async ({ page }) => {
-    // A barra de baixo (sempre visível) e a de cima alimentam o mesmo
-    // runSearch(). Simula uma busca lenta seguida de uma segunda busca
-    // (pela outra barra) enquanto a primeira ainda está em voo: a segunda
-    // deve ser ignorada até a primeira terminar, senão a resposta mais
-    // velha poderia chegar depois e sobrescrever o resultado mais novo.
+  test("busca: bloqueia uma segunda busca (ex: 'Chamar agora' no ranking) enquanto a primeira está em andamento", async ({
+    page,
+  }) => {
+    // A busca pode ser disparada por mais de um caminho — a barra fixa
+    // embaixo e o botão "Chamar agora" dos cards de ranking — e os dois
+    // alimentam o mesmo runSearch(). Sem uma guarda compartilhada, uma
+    // busca mais antiga em voo poderia terminar depois e sobrescrever o
+    // resultado de uma busca mais nova.
     let releaseFirst;
     const firstRequestReceived = new Promise((resolve) => {
       page.route("**/api/chat", async (route) => {
@@ -41,28 +43,26 @@ test.describe("Top3Profissional - fluxo básico", () => {
     });
 
     await page.goto("/");
-    const topInput = page.getByLabel("Pesquisar profissional");
     const bottomInput = page.getByPlaceholder("O que você precisa?");
     const bottomSubmit = page.locator("#bottom-search-form button[type=submit]");
 
-    await topInput.fill("primeira busca");
-    await topInput.press("Enter");
+    await bottomInput.fill("primeira busca");
+    await bottomSubmit.click();
     await firstRequestReceived;
 
-    // Enquanto a primeira busca está em voo, os dois campos e os dois
-    // botões de envio devem estar desabilitados — inclusive o da barra de
-    // baixo, que é o outro caminho pra disparar runSearch().
-    await expect(topInput).toBeDisabled();
+    // Enquanto a primeira busca está em voo, o campo e o botão de envio
+    // da barra de baixo devem estar desabilitados.
     await expect(bottomInput).toBeDisabled();
     await expect(bottomSubmit).toBeDisabled();
 
-    // Tenta a segunda busca mesmo assim (ex: clique já registrado antes de
-    // desabilitar) — deve ser ignorada pela guarda de busca em voo.
-    await bottomSubmit.click({ force: true });
+    // Tenta um segundo caminho pra disparar busca mesmo assim (ex: clique
+    // em "Chamar agora" já registrado antes de desabilitar) — deve ser
+    // ignorado pela guarda de busca em voo.
+    await page.locator(".rank-cta").first().click({ force: true });
 
     releaseFirst();
     await expect(page.locator(".result-answer")).toContainText("resposta da primeira busca");
-    await expect(topInput).toBeEnabled();
+    await expect(bottomInput).toBeEnabled();
     await expect(bottomSubmit).toBeEnabled();
   });
 
@@ -185,7 +185,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
     test.skip(!process.env.ANTHROPIC_API_KEY, "precisa de ANTHROPIC_API_KEY pra testar o agente de verdade");
 
     await page.goto("/");
-    const searchInput = page.getByLabel("Pesquisar profissional");
+    const searchInput = page.getByPlaceholder("O que você precisa?");
     await searchInput.fill("manicure amanhã em BH");
     await searchInput.press("Enter");
 
@@ -201,7 +201,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
     );
 
     await page.goto("/");
-    const searchInput = page.getByLabel("Pesquisar profissional");
+    const searchInput = page.getByPlaceholder("O que você precisa?");
     await searchInput.fill("terreno barato em Contagem");
     await searchInput.press("Enter");
 
@@ -254,7 +254,7 @@ test.describe("Top3Profissional - mobile", () => {
     });
 
     await page.goto("/");
-    await expect(page.getByLabel("Pesquisar profissional")).toBeVisible();
+    await expect(page.getByPlaceholder("O que você precisa?")).toBeVisible();
 
     await page.getByRole("tab", { name: /presto um serviço/i }).click();
     await expect(page.locator(".request-item").first()).toBeVisible();

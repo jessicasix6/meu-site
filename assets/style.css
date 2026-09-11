@@ -712,61 +712,13 @@ a {
   background: #3df2cd;
 }
 
-/* search bar (Google-style) */
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.search-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  max-width: 620px;
-  margin: 1.75rem 0 0;
-  padding: 0.9rem 1.4rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.search-bar:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-dim);
-}
+/* resultado de busca (a busca em si mora só na barra fixa embaixo) */
 
 .search-icon {
   width: 18px;
   height: 18px;
   color: var(--text-faint);
   flex-shrink: 0;
-}
-
-#chat-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
-  color: var(--text);
-  font-family: var(--font-body);
-  font-size: 0.95rem;
-}
-
-#chat-input::placeholder {
-  color: var(--text-faint);
-}
-
-#chat-input:disabled {
-  opacity: 0.5;
 }
 
 .search-results {
