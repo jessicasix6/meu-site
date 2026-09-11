@@ -54,8 +54,10 @@ async function sendWhatsAppMessage(to, text) {
 }
 
 // askAgent: (message: string) => Promise<string>
-// acceptRequest: (id: string) => { ok: boolean, request?: object, error?: string }
-function registerWhatsAppRoutes(app, { askAgent, acceptRequest }) {
+// acceptRequest: (id: string, provider?: string) => { ok: boolean, request?: object, error?: string }
+// completeRequest: (id: string) => { ok: boolean, request?: object, error?: string }
+// rateRequest: (id: string, rating: number, comment?: string) => { ok: boolean, request?: object, error?: string }
+function registerWhatsAppRoutes(app, { askAgent, acceptRequest, completeRequest, rateRequest }) {
   // Meta chama essa rota uma vez, quando você configura o webhook no painel,
   // pra confirmar que o servidor é seu.
   app.get("/webhook/whatsapp", (req, res) => {
@@ -83,13 +85,35 @@ function registerWhatsAppRoutes(app, { askAgent, acceptRequest }) {
       const from = message.from;
       const text = message.text.body.trim();
 
-      // Prestador aceitando um pedido: "aceitar r1"
-      const acceptMatch = text.match(/^aceitar\s+(\S+)/i);
+      // Prestador aceitando um pedido: "aceitar r1" ou "aceitar r1 Carlos Motoboy"
+      const acceptMatch = text.match(/^aceitar\s+(\S+)\s*(.*)/i);
       if (acceptMatch) {
-        const result = acceptRequest(acceptMatch[1]);
+        const result = acceptRequest(acceptMatch[1], acceptMatch[2]);
         const reply = result.ok
           ? `Pedido ${result.request.id} aceito: ${result.request.title}`
           : `Não consegui aceitar: ${result.error}`;
+        await sendWhatsAppMessage(from, reply);
+        return;
+      }
+
+      // Marcando um pedido aceito como concluído: "concluir r1"
+      const completeMatch = text.match(/^conclu[ií]r\s+(\S+)/i);
+      if (completeMatch) {
+        const result = completeRequest(completeMatch[1]);
+        const reply = result.ok
+          ? `Pedido ${result.request.id} marcado como concluído. Quem pediu já pode avaliar.`
+          : `Não consegui concluir: ${result.error}`;
+        await sendWhatsAppMessage(from, reply);
+        return;
+      }
+
+      // Avaliando um pedido concluído: "avaliar r1 5 Ótimo atendimento!"
+      const rateMatch = text.match(/^avaliar\s+(\S+)\s+([1-5])\s*(.*)/i);
+      if (rateMatch) {
+        const result = rateRequest(rateMatch[1], Number(rateMatch[2]), rateMatch[3]);
+        const reply = result.ok
+          ? `Avaliação registrada pro pedido ${result.request.id}. Obrigado!`
+          : `Não consegui avaliar: ${result.error}`;
         await sendWhatsAppMessage(from, reply);
         return;
       }

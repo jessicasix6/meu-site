@@ -52,7 +52,11 @@ O código do webhook já está em `whatsapp.js`, plugado em `/webhook/whatsapp`,
 4. Publique o servidor em algum domínio público (localhost não funciona aqui — use `ngrok` pra testar antes do deploy real).
 5. Na aba **Configuration** do app, configure o webhook apontando para `https://SEU-DOMINIO/webhook/whatsapp`, usando o mesmo `WHATSAPP_VERIFY_TOKEN`, e assine o campo `messages`.
 
-Depois de configurado: qualquer mensagem de texto recebida vira uma pergunta pro mesmo agente que responde no site. Mensagens no formato `aceitar <id>` (ex: `aceitar r1`) aceitam um pedido em aberto, do mesmo jeito que o botão "aceitar" no painel do prestador.
+Depois de configurado: qualquer mensagem de texto recebida vira uma pergunta pro mesmo agente que responde no site. Comandos reconhecidos, espelhando o ciclo de vida do pedido (ver seção abaixo):
+
+- `aceitar r1` ou `aceitar r1 Carlos Motoboy` — aceita um pedido em aberto
+- `concluir r1` — marca um pedido aceito como concluído
+- `avaliar r1 5 Ótimo atendimento!` — avalia (1-5) um pedido concluído, comentário opcional
 
 ## Ciclo de vida de um pedido
 
