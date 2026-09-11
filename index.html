@@ -37,6 +37,7 @@
         <nav class="site-nav">
           <a href="#top3">Profissionais</a>
           <a href="#chat">Perguntar</a>
+          <a href="#corridas">Corridas</a>
           <a href="#publicar">Publicar</a>
           <a href="#beneficios">Benefícios</a>
           <a href="#como-funciona">Como funciona</a>
@@ -127,6 +128,23 @@
           Não achou o que procurava?
           <a href="#publicar" id="publish-interest-link">Publique um interesse</a> e deixe quem pode te atender ver seu pedido.
         </p>
+      </div>
+    </section>
+
+    <section id="corridas" class="rides-section">
+      <div class="container">
+        <p class="eyebrow">Tipo BlaBlaCar</p>
+        <h2 class="section-title">Corridas e caronas</h2>
+        <p class="rides-subtitle">
+          Diga de onde e pra onde — mostramos o que já tem publicado nesse trajeto, ou você publica em segundos.
+        </p>
+        <form id="ride-form" class="ride-form">
+          <input id="ride-from" type="text" placeholder="De onde" aria-label="De onde" required />
+          <span class="ride-arrow" aria-hidden="true">→</span>
+          <input id="ride-to" type="text" placeholder="Pra onde" aria-label="Pra onde" required />
+          <button type="submit">Buscar corridas</button>
+        </form>
+        <div id="ride-results" class="ride-results" aria-live="polite"></div>
       </div>
     </section>
 

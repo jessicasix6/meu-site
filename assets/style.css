@@ -526,7 +526,8 @@ a {
 .ranking-section,
 .search-section,
 .how-section,
-.benefits-section {
+.benefits-section,
+.rides-section {
   padding: 4rem 0;
   border-bottom: 1px solid var(--border);
 }
@@ -925,6 +926,116 @@ a {
 
 .post-status--error {
   color: #ff9aa6;
+}
+
+/* corridas */
+
+.rides-subtitle {
+  color: var(--text-dim);
+  font-size: 0.92rem;
+  max-width: 620px;
+  margin-top: 0.5rem;
+  margin-bottom: 1.75rem;
+  line-height: 1.55;
+}
+
+.ride-form {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  max-width: 680px;
+}
+
+.ride-form input {
+  flex: 1;
+  min-width: 160px;
+  background: var(--bg-raised);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  font-size: 0.92rem;
+  font-family: var(--font-body);
+}
+
+.ride-form input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.ride-arrow {
+  color: var(--text-faint);
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.ride-form button {
+  flex-shrink: 0;
+  padding: 0.7rem 1.25rem;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.ride-form button:hover {
+  background: #3df2cd;
+}
+
+.ride-results {
+  margin-top: 1.5rem;
+  max-width: 680px;
+}
+
+.ride-matches {
+  display: grid;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.ride-match {
+  padding: 0.9rem 1.1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.92rem;
+  color: var(--text);
+}
+
+.ride-match-meta {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+
+.ride-empty,
+.ride-loading {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.ride-publish-btn {
+  padding: 0.55rem 1.1rem;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.ride-publish-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* benefícios */
