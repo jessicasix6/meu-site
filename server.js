@@ -248,6 +248,9 @@ async function enhancePhoto(buffer, mimeType) {
       method: "POST",
       headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
       body: form,
+      // Sem isso, uma resposta travada da OpenAI prende a criação do
+      // perfil inteira (writeBio nem chega a rodar, request fica pendurada).
+      signal: AbortSignal.timeout(60_000),
     });
     if (!res.ok) return null; // falha não conta pro teto mensal
     openaiImageCount++;
@@ -316,6 +319,43 @@ const upload = multer({
   fileFilter: (req, file, cb) => cb(null, /^image\/(png|jpe?g|webp)$/.test(file.mimetype)),
 });
 
+// Middleware do multer não devolve JSON em erro (limite de tamanho/qtd de
+// arquivo) por padrão — sem isso, o Express manda uma página HTML de erro
+// e o fetch() do front-end quebra tentando ler como JSON.
+function uploadProviderPhotos(req, res, next) {
+  upload.array("photos", 6)(req, res, (err) => {
+    if (!err) return next();
+    if (err instanceof multer.MulterError) {
+      const message =
+        err.code === "LIMIT_FILE_SIZE"
+          ? "cada foto pode ter no máximo 8MB"
+          : err.code === "LIMIT_FILE_COUNT"
+            ? "no máximo 6 fotos"
+            : "não consegui processar as fotos enviadas";
+      return res.status(400).json({ error: message });
+    }
+    res.status(500).json({ error: "falha ao processar upload" });
+  });
+}
+
+// Limite básico por IP contra abuso em /api/providers — o site ainda não
+// tem conta de usuário (protótipo), então isso não é proteção definitiva,
+// mas evita que um script em loop esgote sozinho o teto mensal de IA de
+// imagem/texto que devia sobrar pra gente de verdade usando o site.
+const PROVIDER_CREATE_LIMIT_PER_HOUR = 20;
+const providerCreateCounts = new Map();
+
+function isProviderCreateRateLimited(ip) {
+  const now = Date.now();
+  const entry = providerCreateCounts.get(ip);
+  if (!entry || now - entry.windowStart > 60 * 60 * 1000) {
+    providerCreateCounts.set(ip, { count: 1, windowStart: now });
+    return false;
+  }
+  entry.count++;
+  return entry.count > PROVIDER_CREATE_LIMIT_PER_HOUR;
+}
+
 // Escapa texto pra HTML renderizado no servidor (página pública do
 // prestador) — mesma lógica do escapeHtml() de assets/app.js, mas essa
 // página não passa pelo bundle do cliente.
@@ -329,6 +369,10 @@ function escapeHtmlServer(text) {
 }
 
 const app = express();
+// Confia só no próximo salto (o proxy reverso na frente do VPS) pra
+// req.ip refletir o IP real de quem fez a requisição, não o do proxy —
+// necessário pro rate limit por IP abaixo funcionar de verdade.
+app.set("trust proxy", 1);
 app.use(express.json());
 app.use("/uploads", express.static(UPLOADS_DIR));
 app.use(express.static(__dirname));
@@ -612,7 +656,12 @@ const PROVIDER_DESCRIPTION_MAX_LENGTH = 500;
 // Pilar 4.12 — perfil profissional gerado por IA: a pessoa manda fotos e
 // descreve o que faz, a IA escreve a bio e (se OPENAI_API_KEY configurada)
 // melhora as fotos. Devolve uma página própria compartilhável.
-app.post("/api/providers", upload.array("photos", 6), async (req, res) => {
+app.post("/api/providers", (req, res, next) => {
+  if (isProviderCreateRateLimited(req.ip)) {
+    return res.status(429).json({ error: "muitos perfis criados recentemente a partir daqui — tente de novo mais tarde" });
+  }
+  next();
+}, uploadProviderPhotos, async (req, res) => {
   const { name, service, description, location, whatsapp } = req.body || {};
 
   if (!name || typeof name !== "string" || !name.trim()) {
@@ -651,38 +700,44 @@ app.post("/api/providers", upload.array("photos", 6), async (req, res) => {
   const id = `pf${nextProviderId++}`;
   const slug = slugify(name.trim());
   const dir = path.join(UPLOADS_DIR, "providers", id);
-  fs.mkdirSync(dir, { recursive: true });
 
-  const photos = [];
-  for (const [index, file] of req.files.entries()) {
-    const ext = file.mimetype === "image/png" ? "png" : file.mimetype === "image/webp" ? "webp" : "jpg";
-    const filename = `${index}.${ext}`;
-    fs.writeFileSync(path.join(dir, filename), file.buffer);
-    let enhancedUrl = null;
-    const enhancedBuffer = await enhancePhoto(file.buffer, file.mimetype);
-    if (enhancedBuffer) {
-      const enhancedFilename = `${index}-melhorada.png`;
-      fs.writeFileSync(path.join(dir, enhancedFilename), enhancedBuffer);
-      enhancedUrl = `/uploads/providers/${id}/${enhancedFilename}`;
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+
+    const photos = [];
+    for (const [index, file] of req.files.entries()) {
+      const ext = file.mimetype === "image/png" ? "png" : file.mimetype === "image/webp" ? "webp" : "jpg";
+      const filename = `${index}.${ext}`;
+      fs.writeFileSync(path.join(dir, filename), file.buffer);
+      let enhancedUrl = null;
+      const enhancedBuffer = await enhancePhoto(file.buffer, file.mimetype);
+      if (enhancedBuffer) {
+        const enhancedFilename = `${index}-melhorada.png`;
+        fs.writeFileSync(path.join(dir, enhancedFilename), enhancedBuffer);
+        enhancedUrl = `/uploads/providers/${id}/${enhancedFilename}`;
+      }
+      photos.push({ url: `/uploads/providers/${id}/${filename}`, enhancedUrl });
     }
-    photos.push({ url: `/uploads/providers/${id}/${filename}`, enhancedUrl });
+
+    const bio = await writeBio(name.trim(), service.trim(), description.trim());
+
+    const provider = {
+      id,
+      slug,
+      name: name.trim(),
+      service: service.trim().toLowerCase(),
+      bio,
+      location: location.trim(),
+      whatsapp: whatsapp.trim(),
+      photos,
+      createdAt: new Date().toISOString(),
+    };
+    PROVIDER_PROFILES.unshift(provider);
+    res.status(201).json({ provider });
+  } catch (err) {
+    fs.rmSync(dir, { recursive: true, force: true });
+    res.status(500).json({ error: "falha ao criar o perfil, tente de novo" });
   }
-
-  const bio = await writeBio(name.trim(), service.trim(), description.trim());
-
-  const provider = {
-    id,
-    slug,
-    name: name.trim(),
-    service: service.trim().toLowerCase(),
-    bio,
-    location: location.trim(),
-    whatsapp: whatsapp.trim(),
-    photos,
-    createdAt: new Date().toISOString(),
-  };
-  PROVIDER_PROFILES.unshift(provider);
-  res.status(201).json({ provider });
 });
 
 app.get("/api/providers/:slug", (req, res) => {

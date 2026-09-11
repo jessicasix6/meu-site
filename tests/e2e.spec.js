@@ -547,6 +547,23 @@ test.describe("Top3Profissional - perfil profissional (pilar 4.12)", () => {
     expect(semNome.status()).toBe(400);
   });
 
+  test("foto maior que o limite retorna erro claro em JSON, não uma página HTML de erro", async ({ request }) => {
+    const tooBig = Buffer.alloc(9 * 1024 * 1024); // acima do limite de 8MB
+    const res = await request.post("/api/providers", {
+      multipart: {
+        name: "Teste",
+        service: "eletricista",
+        description: "conserto qualquer instalação elétrica",
+        location: "Belo Horizonte",
+        whatsapp: "31999990000",
+        photos: { name: "foto-grande.png", mimeType: "image/png", buffer: tooBig },
+      },
+    });
+    expect(res.status()).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/8MB/i);
+  });
+
   test("nome/bio maliciosos não são injetados na página pública (XSS)", async ({ request }) => {
     const maliciousName = '<img src=x onerror=alert(1)>';
     const res = await request.post("/api/providers", {
