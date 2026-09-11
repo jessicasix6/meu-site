@@ -2,6 +2,8 @@
 
 Marketplace de serviços locais com busca por IA. Domínio: top3profissional.com.br (registrado no registro.br).
 
+📄 **Visão completa do produto**: [`docs/visao-produto.md`](docs/visao-produto.md) — a fonte da verdade da ideia, consultada e expandida antes de qualquer missão de implementação grande. Inclui também os [princípios estratégicos](docs/visao-produto.md#3-princípios-estratégicos-inspirados-em-a-arte-da-guerra-sugestão-da-jéssica-2026-09-10) inspirados em [A Arte da Guerra](docs/a-arte-da-guerra.md).
+
 Fonte da verdade em `main`. Fluxo de trabalho:
 
 ```
@@ -51,6 +53,16 @@ O código do webhook já está em `whatsapp.js`, plugado em `/webhook/whatsapp`,
 5. Na aba **Configuration** do app, configure o webhook apontando para `https://SEU-DOMINIO/webhook/whatsapp`, usando o mesmo `WHATSAPP_VERIFY_TOKEN`, e assine o campo `messages`.
 
 Depois de configurado: qualquer mensagem de texto recebida vira uma pergunta pro mesmo agente que responde no site. Mensagens no formato `aceitar <id>` (ex: `aceitar r1`) aceitam um pedido em aberto, do mesmo jeito que o botão "aceitar" no painel do prestador.
+
+## Ciclo de vida de um pedido
+
+`POST /api/requests` cria um pedido em qualquer categoria (`type` é texto livre — corrida, terreno, carro, o que for), sempre começando em `status: "aberto"`. Depois disso:
+
+1. `POST /api/requests/:id/accept` (body opcional `{ "provider": "Nome" }`) — vira `"aceito"`.
+2. `POST /api/requests/:id/complete` — só funciona se estiver `"aceito"`; vira `"concluído"`.
+3. `POST /api/requests/:id/rate` (body `{ "rating": 1-5, "comment": "opcional" }`) — só funciona se estiver `"concluído"` e ainda não avaliado.
+
+Cada passo só avança se o anterior tiver acontecido — não dá pra concluir sem aceitar, nem avaliar sem concluir, nem avaliar duas vezes.
 
 ## Worker do TOP3 (Passo 12)
 
