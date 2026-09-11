@@ -73,6 +73,7 @@ Esse é o coração diferencial da ideia, mais importante que qualquer integraç
 - O Mercado Livre inclusive confirma que **não tem** API de afiliados aberta pra consultar produto/gerar link livremente.
 - **Proposta de valor invertida, mas real:** em vez do Top3Profissional "puxar" anúncios de lá, a pessoa que publica algo no Top3Profissional pode **autorizar (via OAuth) que o mesmo anúncio seja publicado automaticamente também no Mercado Livre e/ou OLX** — publica uma vez, aparece em vários lugares. Isso é um baita incentivo pra quem anuncia usar o Top3Profissional como o ponto de partida.
 - Facebook Marketplace **não tem** API pública equivalente — não há caminho oficial de integração com ele, nem pra ler nem pra publicar automaticamente. Fica de fora dessa parte por ora.
+- **Checado de novo em 2026-09-11** (a Jéssica perguntou se dava pra usar essas APIs pra *buscar* nos sites deles ao mesmo tempo, não só cross-posting): Mercado Livre até documenta um endpoint de busca pública (`/sites/MLB/search`), mas relatos recentes de vários desenvolvedores mostram ele retornando erro 403 (bloqueado) mesmo com token válido — instável demais pra depender dele agora. OLX confirmado: a API deles é só pra quem já anuncia lá gerenciar/importar os próprios anúncios (OAuth do anunciante), sem endpoint de busca pública nenhum. Conclusão: a decisão desta seção continua valendo — nada de puxar catálogo alheio pra dentro da busca; a busca por produto/item continua pelo Brave Search (seção 4.3), que é estável e já está orçado.
 
 ### 4.5 Módulo de corridas — mini-app de corrida/carona compartilhada
 
@@ -124,6 +125,20 @@ Esse é o coração diferencial da ideia, mais importante que qualquer integraç
 - **Avaliação e indicação pós-serviço (2026-09-10), referência: sistemas de avaliação pós-transação de apps de caronas/serviços** — depois que um serviço é **realmente concluído** (não uma avaliação solta, sem transação de verdade por trás), quem contratou pode avaliar e indicar o prestador. Isso constrói reputação real ao longo do tempo — um prestador com várias avaliações genuínas de serviços concluídos passa confiança muito maior que um anúncio novo sem histórico, e ajuda a combater golpe (perfil golpista não acumula avaliação real).
   - Em aberto: como o site confirma que o serviço foi "de verdade" concluído antes de liberar a avaliação (ex: as duas partes confirmam, ou fica vinculado ao pagamento na plataforma quando esse pilar existir — seção 4.10)? Ver seção 8.
 - Outras ideias de segurança (verificação de identidade, denúncia de anúncio suspeito) ainda não foram detalhadas — ficam como ponto a desenvolver mais.
+
+### 4.12 Perfil profissional gerado por IA (site próprio do prestador)
+
+- **Ideia nova (2026-09-11):** hoje "ser prestador" no site é só aceitar pedidos avulsos — não existe uma página própria, permanente, que a pessoa possa compartilhar. A ideia é criar isso: pela mesma barra de busca (ou um fluxo dedicado a partir dela), o prestador manda algumas fotos e descreve o que faz em poucas frases, e a IA:
+  - Melhora/retoca as fotos automaticamente.
+  - Escreve uma descrição profissional a partir do que a pessoa mandou.
+  - Publica uma página própria do prestador (link compartilhável — ela pode mandar pro cliente, colocar no Instagram, etc.).
+- Essa página acumula **avaliações reais** (pilar 4.11 já cobre a lógica de só avaliar depois de serviço concluído de verdade) — com o tempo vira reputação de verdade, não um anúncio solto.
+- **Referência de mercado (categoria, não modelo a copiar):** sites de "encontrar profissional de serviço" com filtro por distância, valor e avaliação — isso já existe no site hoje (ranking com `distanceKm`/`price`/`rating`, seção 4.1) e se estende naturalmente pra esses perfis.
+- **Se conecta direto com pilares que já existem:**
+  - Pilar 4.7 (painel de benefícios) — a lógica de "a IA ajuda a pessoa a ficar com uma presença melhor" é a mesma direção.
+  - Pilar 4.8 (assinatura premium/destaque pago) — perfil com página própria é exatamente o tipo de coisa que faz sentido ter uma versão "destacada" paga; **essa é uma fonte de receita real** (anúncio pago no ranking), citada explicitamente pela Jéssica (2026-09-11).
+  - Pilar 4.11 (avaliação pós-serviço) — o motor de reputação já desenhado passa a alimentar uma página persistente, não só o histórico de um pedido específico.
+- **Ponto técnico em aberto, precisa de decisão da Jéssica antes de virar código:** "melhorar fotos automaticamente" precisa de um serviço de IA de imagem de verdade (o Claude que já usamos processa texto e consegue *analisar* imagem, mas não *edita/melhora* foto) — isso é um custo novo, fora do que já está orçado (Claude + Brave Search, teto de R$50/mês, seção 7). Antes de implementar essa parte específica, precisa decidir: qual serviço usar, quanto custa por imagem, e se cabe no orçamento atual ou se é caso de aumentar o teto. A parte de **texto** (IA escrevendo a descrição do perfil a partir do que a pessoa mandou) já cabe no que está orçado hoje — dá pra começar por aí sem gastar nada a mais, e tratar a melhoria de foto como uma segunda etapa quando o orçamento for decidido.
 
 ## 5. Como isso se conecta com o que já existe no site hoje
 
