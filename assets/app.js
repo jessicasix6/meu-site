@@ -1,5 +1,4 @@
-const form = document.getElementById("chat-form");
-const input = document.getElementById("chat-input");
+const chatSection = document.getElementById("chat");
 const results = document.getElementById("chat-results");
 const rankingList = document.getElementById("ranking-list");
 const rankingSort = document.getElementById("ranking-sort");
@@ -101,10 +100,8 @@ rankingSort.addEventListener("change", () => loadRanking());
 
 rankingList.addEventListener("click", (event) => {
   const button = event.target.closest(".rank-cta");
-  if (!button || input.disabled) return;
-  input.value = `quero chamar ${button.dataset.name}`;
-  document.getElementById("chat").scrollIntoView({ behavior: "smooth", block: "center" });
-  form.requestSubmit();
+  if (!button) return;
+  runSearch(`quero chamar ${button.dataset.name}`);
 });
 
 const requesterView = document.getElementById("requester-view");
@@ -300,6 +297,7 @@ function formatMessage(text) {
 }
 
 function renderResult(query, state, text) {
+  chatSection.hidden = false;
   const actionButton =
     state === "ok"
       ? '<button type="button" class="result-action-btn" id="result-solicitar-btn">Solicitar / publicar pedido</button>'
@@ -438,26 +436,23 @@ postForm.addEventListener("submit", async (event) => {
   }
 });
 
-// Compartilhado entre a busca do topo e a barra fixa embaixo (sempre
-// visível, estilo app) — as duas alimentam o mesmo resultado.
+// Busca única, sempre pela barra fixa embaixo (estilo app) — o topo do
+// site fica só pra mostrar rankings, corridas e outros resultados.
 const bottomSearchForm = document.getElementById("bottom-search-form");
 const bottomSearchInput = document.getElementById("bottom-search-input");
-const allSearchInputs = [input, bottomSearchInput];
-const allSearchSubmitButtons = [
-  form.querySelector('button[type="submit"]'),
-  bottomSearchForm.querySelector('button[type="submit"]'),
-];
+const bottomSearchSubmit = bottomSearchForm.querySelector('button[type="submit"]');
 let searchInFlight = false;
 
 async function runSearch(message) {
-  // Guarda contra buscas simultâneas: com dois formulários (topo + barra
-  // fixa embaixo) alimentando o mesmo resultado, uma segunda busca em voo
-  // poderia terminar antes da primeira e sobrescrever com resposta velha.
+  // Guarda contra buscas simultâneas: a busca pode ser disparada por mais
+  // de um caminho (barra de baixo, "Chamar agora" no ranking) — sem essa
+  // guarda, uma busca mais antiga em voo poderia terminar depois e
+  // sobrescrever o resultado de uma busca mais nova.
   if (searchInFlight) return;
   searchInFlight = true;
   lastSearchQuery = message;
-  allSearchInputs.forEach((el) => (el.disabled = true));
-  allSearchSubmitButtons.forEach((el) => (el.disabled = true));
+  bottomSearchInput.disabled = true;
+  bottomSearchSubmit.disabled = true;
   renderResult(message, "loading");
   results.scrollIntoView({ behavior: "smooth", block: "center" });
 
@@ -477,19 +472,11 @@ async function runSearch(message) {
   } catch (err) {
     renderResult(message, "error", "Não consegui falar com o servidor.");
   } finally {
-    allSearchInputs.forEach((el) => (el.disabled = false));
-    allSearchSubmitButtons.forEach((el) => (el.disabled = false));
+    bottomSearchInput.disabled = false;
+    bottomSearchSubmit.disabled = false;
     searchInFlight = false;
   }
 }
-
-form.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const message = input.value.trim();
-  if (!message) return;
-  runSearch(message);
-  input.focus();
-});
 
 bottomSearchForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -498,7 +485,16 @@ bottomSearchForm.addEventListener("submit", (event) => {
   // A busca só é visível no modo "solicitar" — troca de volta se a pessoa
   // buscar estando no modo "presto um serviço".
   if (providerView.hidden === false) setMode("requester");
-  input.value = message;
   bottomSearchInput.value = "";
   runSearch(message);
+});
+
+document.getElementById("nav-ask-link").addEventListener("click", (event) => {
+  event.preventDefault();
+  bottomSearchInput.focus();
+});
+
+document.getElementById("hero-ask-link").addEventListener("click", (event) => {
+  event.preventDefault();
+  bottomSearchInput.focus();
 });

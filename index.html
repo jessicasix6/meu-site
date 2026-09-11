@@ -41,7 +41,7 @@
         <a href="#top" class="logo">Top3Profissional</a>
         <nav class="site-nav">
           <a href="#top3">Profissionais</a>
-          <a href="#chat">Perguntar</a>
+          <a href="#bottom-search-input" id="nav-ask-link">Perguntar</a>
           <a href="#corridas">Corridas</a>
           <a href="#publicar">Publicar</a>
           <a href="#beneficios">Benefícios</a>
@@ -61,7 +61,7 @@
           <h1>Pare de rolar lista. Comece a perguntar.</h1>
           <p class="subtitle">Descreva o que precisa em uma frase — um serviço, uma corrida, um terreno, o que for. Um agente de IA cruza isso com quem está disponível agora e busca na web quando precisa, respondendo com preço, distância e avaliação — sem filtro, sem catálogo infinito.</p>
           <div class="hero-actions">
-            <a href="#chat" class="cta-button">Perguntar agora</a>
+            <a href="#bottom-search-input" class="cta-button" id="hero-ask-link">Perguntar agora</a>
             <a href="#top3" class="cta-secondary">Ver quem está bem avaliado</a>
           </div>
         </div>
@@ -98,22 +98,10 @@
       </div>
     </section>
 
-    <section id="chat" class="search-section">
+    <section id="chat" class="search-section" hidden>
       <div class="container">
-        <p class="eyebrow">Sem formulário</p>
-        <h2 class="section-title">Descreva o que precisa</h2>
-        <form id="chat-form" class="search-bar" autocomplete="off">
-          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input
-            id="chat-input"
-            type="text"
-            name="q"
-            placeholder="ex: preciso de um eletricista hoje à noite"
-            aria-label="Pesquisar profissional"
-            required
-          />
-          <button type="submit" class="sr-only">Pesquisar</button>
-        </form>
+        <p class="eyebrow">Resultado</p>
+        <h2 class="section-title">O que encontramos pra você</h2>
         <div id="chat-results" class="search-results" aria-live="polite"></div>
         <p class="search-hint">
           Não achou o que procurava?
