@@ -148,7 +148,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
 
   test("publicar pedido com categoria livre (não só corrida/entrega/profissional)", async ({ page, request }) => {
     const res = await request.post("/api/requests", {
-      data: { type: "Terreno", title: "terreno barato em Contagem", price: 50000 },
+      data: { type: "Terreno", title: "terreno barato em Contagem", price: 50000, whatsapp: "31999990000", location: "Contagem" },
     });
     expect(res.status()).toBe(201);
     const { request: created } = await res.json();
@@ -162,7 +162,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
   test("categoria com HTML/script não é injetada na página (sanitização de classe CSS)", async ({ page, request }) => {
     const maliciousType = '"><img src=x onerror=alert(1)>';
     const res = await request.post("/api/requests", {
-      data: { type: maliciousType, title: "teste de segurança", price: 10 },
+      data: { type: maliciousType, title: "teste de segurança", price: 10, whatsapp: "31999990000", location: "Belo Horizonte" },
     });
     expect(res.status()).toBe(201);
 
@@ -179,6 +179,47 @@ test.describe("Top3Profissional - fluxo básico", () => {
     const html = await page.locator("#requests-list").innerHTML();
     expect(html).not.toContain("<img");
     expect(alerts).toEqual([]);
+  });
+
+  test("publicar pedido exige WhatsApp e localização — sem isso, quem aceitar não tem como te achar", async ({
+    request,
+  }) => {
+    const semWhatsapp = await request.post("/api/requests", {
+      data: { type: "corrida", title: "teste sem whatsapp", price: 10, location: "Belo Horizonte" },
+    });
+    expect(semWhatsapp.status()).toBe(400);
+    expect((await semWhatsapp.json()).error).toMatch(/whatsapp/i);
+
+    const semLocalizacao = await request.post("/api/requests", {
+      data: { type: "corrida", title: "teste sem localização", price: 10, whatsapp: "31999990000" },
+    });
+    expect(semLocalizacao.status()).toBe(400);
+    expect((await semLocalizacao.json()).error).toMatch(/localiza/i);
+
+    const completo = await request.post("/api/requests", {
+      data: { type: "corrida", title: "teste completo", price: 10, whatsapp: "31999990000", location: "Belo Horizonte" },
+    });
+    expect(completo.status()).toBe(201);
+  });
+
+  test("localização aparece pra quem tá navegando, WhatsApp só aparece depois de aceitar", async ({ page, request }) => {
+    const created = await (
+      await request.post("/api/requests", {
+        data: { type: "teste", title: "pedido teste visibilidade contato", price: 10, whatsapp: "31988887777", location: "Barreiro, Belo Horizonte" },
+      })
+    ).json();
+    const id = created.request.id;
+
+    await page.goto("/");
+    await page.getByRole("tab", { name: /presto um serviço/i }).click();
+    const item = page.locator(`.request-item[data-id="${id}"]`);
+    await expect(item).toContainText("Barreiro, Belo Horizonte");
+    await expect(item).not.toContainText("31988887777");
+
+    await request.post(`/api/requests/${id}/accept`, { data: { provider: "Prestador Teste" } });
+    await page.reload();
+    await page.getByRole("tab", { name: /presto um serviço/i }).click();
+    await expect(item).toContainText("31988887777");
   });
 
   test("busca via agente responde de verdade (só roda com ANTHROPIC_API_KEY configurada)", async ({ page }) => {
@@ -218,7 +259,10 @@ test.describe("Top3Profissional - fluxo básico", () => {
     const before = await (await request.get("/api/requests")).json();
 
     const res = await request.post("/api/chat", {
-      data: { message: "quero publicar uma corrida do Centro pra Rodoviária hoje às 20h, pago R$25" },
+      data: {
+        message:
+          "quero publicar uma corrida do Centro pra Rodoviária hoje às 20h, pago R$25, meu whatsapp é 31999990000, em Belo Horizonte",
+      },
     });
     expect(res.status()).toBe(200);
     const { reply } = await res.json();
@@ -286,7 +330,7 @@ test.describe("Top3Profissional - segurança básica", () => {
 test.describe("Top3Profissional - avaliação pós-serviço", () => {
   test("fluxo completo: aceitar → concluir → avaliar", async ({ page, request }) => {
     const created = await (
-      await request.post("/api/requests", { data: { type: "teste", title: "pedido de teste pra avaliação", price: 10 } })
+      await request.post("/api/requests", { data: { type: "teste", title: "pedido de teste pra avaliação", price: 10, whatsapp: "31999990000", location: "Belo Horizonte" } })
     ).json();
     const id = created.request.id;
 
@@ -310,7 +354,7 @@ test.describe("Top3Profissional - avaliação pós-serviço", () => {
 
   test("comentário malicioso na avaliação não é injetado na página", async ({ page, request }) => {
     const created = await (
-      await request.post("/api/requests", { data: { type: "teste", title: "pedido teste XSS avaliação", price: 10 } })
+      await request.post("/api/requests", { data: { type: "teste", title: "pedido teste XSS avaliação", price: 10, whatsapp: "31999990000", location: "Belo Horizonte" } })
     ).json();
     const id = created.request.id;
     await request.post(`/api/requests/${id}/accept`, { data: { provider: "P" } });
@@ -334,7 +378,7 @@ test.describe("Top3Profissional - avaliação pós-serviço", () => {
     request,
   }) => {
     const created = await (
-      await request.post("/api/requests", { data: { type: "teste", title: "pedido validação", price: 10 } })
+      await request.post("/api/requests", { data: { type: "teste", title: "pedido validação", price: 10, whatsapp: "31999990000", location: "Belo Horizonte" } })
     ).json();
     const id = created.request.id;
 
@@ -360,7 +404,7 @@ test.describe("Top3Profissional - avaliação pós-serviço", () => {
     request,
   }) => {
     const created = await (
-      await request.post("/api/requests", { data: { type: "teste", title: "pedido mensagem de erro", price: 10 } })
+      await request.post("/api/requests", { data: { type: "teste", title: "pedido mensagem de erro", price: 10, whatsapp: "31999990000", location: "Belo Horizonte" } })
     ).json();
     const id = created.request.id;
 
@@ -377,7 +421,7 @@ test.describe("Top3Profissional - avaliação pós-serviço", () => {
     request,
   }) => {
     const created = await (
-      await request.post("/api/requests", { data: { type: "teste", title: "pedido teste whatsapp", price: 10 } })
+      await request.post("/api/requests", { data: { type: "teste", title: "pedido teste whatsapp", price: 10, whatsapp: "31999990000", location: "Belo Horizonte" } })
     ).json();
     const id = created.request.id;
     await request.post(`/api/requests/${id}/accept`, { data: { provider: "P" } });

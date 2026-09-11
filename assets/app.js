@@ -168,7 +168,7 @@ function requestActionArea(r) {
   }
   if (r.status === "aceito") {
     return `
-      <span class="request-provider">aceito por ${escapeHtml(r.provider || "prestador")}</span>
+      <span class="request-provider">aceito por ${escapeHtml(r.provider || "prestador")} — fale com ${escapeHtml(r.requester)} no WhatsApp ${escapeHtml(r.whatsapp)}</span>
       <button type="button" class="complete-btn">marcar como concluído</button>
     `;
   }
@@ -212,7 +212,7 @@ function renderRequests(requests) {
         <br />
         <strong>${escapeHtml(r.title)}</strong>
         <br />
-        <span class="request-meta">${escapeHtml(r.requester)} · ${escapeHtml(r.when || "a combinar")} · ${distanceChip}R$ ${r.price}</span>
+        <span class="request-meta">${escapeHtml(r.requester)} · ${escapeHtml(r.location)} · ${escapeHtml(r.when || "a combinar")} · ${distanceChip}R$ ${r.price}</span>
       </span>
       <span class="request-action">${requestActionArea(r)}</span>
     `;
@@ -403,6 +403,8 @@ postForm.addEventListener("submit", async (event) => {
     when: data.get("when"),
     price: data.get("price"),
     requester: data.get("requester"),
+    whatsapp: data.get("whatsapp"),
+    location: data.get("location"),
   };
 
   postStatus.textContent = "publicando…";
