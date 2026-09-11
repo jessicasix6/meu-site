@@ -1,5 +1,8 @@
 require("dotenv").config();
+const path = require("path");
+const fs = require("fs");
 const express = require("express");
+const multer = require("multer");
 const Anthropic = require("@anthropic-ai/sdk").default;
 const { registerWhatsAppRoutes, isConfigured: isWhatsAppConfigured } = require("./whatsapp");
 
@@ -12,6 +15,23 @@ const PROVIDERS = [
   { name: "Beatriz Alves", service: "cabeleireiro", city: "São Paulo", time: "hoje às 18h", rating: 5.0, distanceKm: 0.8, price: 120, fastReply: true, lat: -23.5613, lng: -46.6558 },
   { name: "Ricardo Nunes", service: "encanador", city: "Rio de Janeiro", time: "amanhã às 08h", rating: 4.4, distanceKm: 5.2, price: 100, fastReply: false, lat: -22.9707, lng: -43.1823 },
 ];
+
+// Perfis profissionais criados pela pessoa (pilar 4.12) — em memória, igual
+// REQUESTS: some num redeploy, é o mesmo limite já aceito pra esse
+// protótipo. Diferente do PROVIDERS acima (mock fixo usado no ranking), este
+// é o perfil de verdade que a pessoa cria pela barra/formulário.
+const PROVIDER_PROFILES = [];
+let nextProviderId = 1;
+
+function slugify(text) {
+  const base = text
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return (base || "prestador") + "-" + Math.random().toString(36).slice(2, 6);
+}
 
 // Fórmula de Haversine — distância real em km entre dois pontos lat/lng.
 function haversineKm(lat1, lng1, lat2, lng2) {
@@ -193,6 +213,55 @@ async function searchWeb(query) {
     .join("\n");
 }
 
+// Teto de segurança pra melhoria de foto (pilar 4.12 — ver docs/visao-produto.md
+// seção 4.12). A OpenAI cobra por foto processada, sem limite automático — em
+// qualidade "medium" (~US$0,04-0,05/foto), 150/mês fica em ~R$22-28/mês,
+// dentro do orçamento combinado de R$50/mês junto com Claude e Brave Search.
+const OPENAI_IMAGE_MONTHLY_LIMIT = 150;
+let openaiImageCount = 0;
+let openaiImageMonth = null;
+
+// Melhora uma foto via IA (edição de imagem, não só filtro) — se não tiver
+// OPENAI_API_KEY configurada, ou o teto mensal foi atingido, devolve null e
+// quem chamou usa a foto como foi enviada (nunca bloqueia o cadastro por
+// causa disso).
+async function enhancePhoto(buffer, mimeType) {
+  if (!process.env.OPENAI_API_KEY) return null;
+  const monthKey = currentMonthKey();
+  if (openaiImageMonth !== monthKey) {
+    openaiImageMonth = monthKey;
+    openaiImageCount = 0;
+  }
+  if (openaiImageCount >= OPENAI_IMAGE_MONTHLY_LIMIT) return null;
+
+  const form = new FormData();
+  form.append("model", "gpt-image-2");
+  form.append("image", new Blob([buffer], { type: mimeType }), "foto.png");
+  form.append(
+    "prompt",
+    "Melhore a iluminação, o contraste e a nitidez dessa foto de perfil profissional, deixando com aparência mais limpa e profissional. Não altere a pessoa, a roupa, o fundo nem o conteúdo da imagem — só a qualidade técnica da foto."
+  );
+  form.append("quality", "medium");
+
+  try {
+    const res = await fetch("https://api.openai.com/v1/images/edits", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+      body: form,
+      // Sem isso, uma resposta travada da OpenAI prende a criação do
+      // perfil inteira (writeBio nem chega a rodar, request fica pendurada).
+      signal: AbortSignal.timeout(60_000),
+    });
+    if (!res.ok) return null; // falha não conta pro teto mensal
+    openaiImageCount++;
+    const data = await res.json();
+    const b64 = data.data && data.data[0] && data.data[0].b64_json;
+    return b64 ? Buffer.from(b64, "base64") : null;
+  } catch (err) {
+    return null;
+  }
+}
+
 let anthropic = null;
 if (process.env.ANTHROPIC_API_KEY) {
   anthropic = new Anthropic();
@@ -207,9 +276,126 @@ if (!process.env.BRAVE_SEARCH_API_KEY) {
     "BRAVE_SEARCH_API_KEY não definida — o agente responde só com o catálogo interno, sem buscar na web."
   );
 }
+if (!process.env.OPENAI_API_KEY) {
+  console.warn(
+    "OPENAI_API_KEY não definida — perfis profissionais são criados com a foto como enviada, sem melhoria automática."
+  );
+}
+
+// Transforma a descrição informal que a pessoa escreveu sobre o próprio
+// trabalho numa bio curta e profissional. Sem ANTHROPIC_API_KEY, usa a
+// descrição original mesmo (nunca bloqueia a criação do perfil por isso).
+async function writeBio(name, service, rawDescription) {
+  if (!anthropic) return rawDescription;
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-opus-5",
+      max_tokens: 300,
+      output_config: { effort: "low" },
+      system:
+        "Você escreve bios curtas e profissionais pra prestadores de serviço brasileiros, em português do Brasil, " +
+        "a partir de uma descrição informal que a própria pessoa escreveu. 2 a 4 frases, tom confiável e direto. " +
+        "Nunca invente fato que a pessoa não mencionou (anos de experiência, certificação, etc). Responda só com " +
+        "o texto da bio, sem aspas nem comentário.",
+      messages: [
+        {
+          role: "user",
+          content: `Nome: ${name}\nServiço: ${service}\nO que a pessoa escreveu sobre o próprio trabalho: "${rawDescription}"`,
+        },
+      ],
+    });
+    const textBlock = response.content.find((b) => b.type === "text");
+    return textBlock && textBlock.text.trim() ? textBlock.text.trim() : rawDescription;
+  } catch (err) {
+    return rawDescription;
+  }
+}
+
+// O multer só filtra pelo mimetype que o próprio cliente declarou no
+// multipart — um cliente malicioso pode mandar qualquer conteúdo com
+// "Content-Type: image/png". Confere a assinatura binária de verdade do
+// arquivo antes de salvar, não só o cabeçalho.
+function matchesImageSignature(buffer, mimetype) {
+  if (mimetype === "image/png") {
+    return buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  }
+  if (mimetype === "image/jpeg") {
+    return buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  }
+  if (mimetype === "image/webp") {
+    return (
+      buffer.length >= 12 &&
+      buffer.subarray(0, 4).toString("ascii") === "RIFF" &&
+      buffer.subarray(8, 12).toString("ascii") === "WEBP"
+    );
+  }
+  return false;
+}
+
+const UPLOADS_DIR = path.join(__dirname, "uploads");
+fs.mkdirSync(path.join(UPLOADS_DIR, "providers"), { recursive: true });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024, files: 6 },
+  fileFilter: (req, file, cb) => cb(null, /^image\/(png|jpe?g|webp)$/.test(file.mimetype)),
+});
+
+// Middleware do multer não devolve JSON em erro (limite de tamanho/qtd de
+// arquivo) por padrão — sem isso, o Express manda uma página HTML de erro
+// e o fetch() do front-end quebra tentando ler como JSON.
+function uploadProviderPhotos(req, res, next) {
+  upload.array("photos", 6)(req, res, (err) => {
+    if (!err) return next();
+    if (err instanceof multer.MulterError) {
+      const message =
+        err.code === "LIMIT_FILE_SIZE"
+          ? "cada foto pode ter no máximo 8MB"
+          : err.code === "LIMIT_FILE_COUNT"
+            ? "no máximo 6 fotos"
+            : "não consegui processar as fotos enviadas";
+      return res.status(400).json({ error: message });
+    }
+    res.status(500).json({ error: "falha ao processar upload" });
+  });
+}
+
+// Limite básico por IP contra abuso em /api/providers — o site ainda não
+// tem conta de usuário (protótipo), então isso não é proteção definitiva,
+// mas evita que um script em loop esgote sozinho o teto mensal de IA de
+// imagem/texto que devia sobrar pra gente de verdade usando o site.
+const PROVIDER_CREATE_LIMIT_PER_HOUR = 20;
+const providerCreateCounts = new Map();
+
+function isProviderCreateRateLimited(ip) {
+  const now = Date.now();
+  const entry = providerCreateCounts.get(ip);
+  if (!entry || now - entry.windowStart > 60 * 60 * 1000) {
+    providerCreateCounts.set(ip, { count: 1, windowStart: now });
+    return false;
+  }
+  entry.count++;
+  return entry.count > PROVIDER_CREATE_LIMIT_PER_HOUR;
+}
+
+// Escapa texto pra HTML renderizado no servidor (página pública do
+// prestador) — mesma lógica do escapeHtml() de assets/app.js, mas essa
+// página não passa pelo bundle do cliente.
+function escapeHtmlServer(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 const app = express();
+// Confia só no próximo salto (o proxy reverso na frente do VPS) pra
+// req.ip refletir o IP real de quem fez a requisição, não o do proxy —
+// necessário pro rate limit por IP abaixo funcionar de verdade.
+app.set("trust proxy", 1);
 app.use(express.json());
+app.use("/uploads", express.static(UPLOADS_DIR));
 app.use(express.static(__dirname));
 
 async function askAgent(message) {
@@ -485,6 +671,144 @@ app.post("/api/requests/:id/rate", (req, res) => {
   sendRequestResult(res, rateRequest(req.params.id, rating, comment));
 });
 
+const PROVIDER_NAME_MAX_LENGTH = 60;
+const PROVIDER_DESCRIPTION_MAX_LENGTH = 500;
+
+// Pilar 4.12 — perfil profissional gerado por IA: a pessoa manda fotos e
+// descreve o que faz, a IA escreve a bio e (se OPENAI_API_KEY configurada)
+// melhora as fotos. Devolve uma página própria compartilhável.
+app.post("/api/providers", (req, res, next) => {
+  if (isProviderCreateRateLimited(req.ip)) {
+    return res.status(429).json({ error: "muitos perfis criados recentemente a partir daqui — tente de novo mais tarde" });
+  }
+  next();
+}, uploadProviderPhotos, async (req, res) => {
+  const { name, service, description, location, whatsapp } = req.body || {};
+
+  if (!name || typeof name !== "string" || !name.trim()) {
+    return res.status(400).json({ error: "informe seu nome" });
+  }
+  if (name.trim().length > PROVIDER_NAME_MAX_LENGTH) {
+    return res.status(400).json({ error: `nome muito longo (máximo ${PROVIDER_NAME_MAX_LENGTH} caracteres)` });
+  }
+  if (!service || typeof service !== "string" || !service.trim()) {
+    return res.status(400).json({ error: "informe o serviço que você presta" });
+  }
+  if (!description || typeof description !== "string" || !description.trim()) {
+    return res.status(400).json({ error: "descreva o que você faz" });
+  }
+  if (description.trim().length > PROVIDER_DESCRIPTION_MAX_LENGTH) {
+    return res
+      .status(400)
+      .json({ error: `descrição muito longa (máximo ${PROVIDER_DESCRIPTION_MAX_LENGTH} caracteres)` });
+  }
+  if (!location || typeof location !== "string" || !location.trim()) {
+    return res.status(400).json({ error: "informe a localização" });
+  }
+  if (location.trim().length > REQUEST_LOCATION_MAX_LENGTH) {
+    return res.status(400).json({ error: `localização muito longa (máximo ${REQUEST_LOCATION_MAX_LENGTH} caracteres)` });
+  }
+  if (!whatsapp || typeof whatsapp !== "string" || !whatsapp.trim()) {
+    return res.status(400).json({ error: "informe um WhatsApp pra contato" });
+  }
+  if (whatsapp.trim().length > REQUEST_WHATSAPP_MAX_LENGTH) {
+    return res.status(400).json({ error: `WhatsApp muito longo (máximo ${REQUEST_WHATSAPP_MAX_LENGTH} caracteres)` });
+  }
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ error: "envie pelo menos uma foto" });
+  }
+  if (!req.files.every((file) => matchesImageSignature(file.buffer, file.mimetype))) {
+    return res.status(400).json({ error: "um dos arquivos enviados não é uma imagem válida" });
+  }
+
+  const id = `pf${nextProviderId++}`;
+  const slug = slugify(name.trim());
+  const dir = path.join(UPLOADS_DIR, "providers", id);
+
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+
+    const photos = [];
+    for (const [index, file] of req.files.entries()) {
+      const ext = file.mimetype === "image/png" ? "png" : file.mimetype === "image/webp" ? "webp" : "jpg";
+      const filename = `${index}.${ext}`;
+      fs.writeFileSync(path.join(dir, filename), file.buffer);
+      let enhancedUrl = null;
+      const enhancedBuffer = await enhancePhoto(file.buffer, file.mimetype);
+      if (enhancedBuffer) {
+        const enhancedFilename = `${index}-melhorada.png`;
+        fs.writeFileSync(path.join(dir, enhancedFilename), enhancedBuffer);
+        enhancedUrl = `/uploads/providers/${id}/${enhancedFilename}`;
+      }
+      photos.push({ url: `/uploads/providers/${id}/${filename}`, enhancedUrl });
+    }
+
+    const bio = await writeBio(name.trim(), service.trim(), description.trim());
+
+    const provider = {
+      id,
+      slug,
+      name: name.trim(),
+      service: service.trim().toLowerCase(),
+      bio,
+      location: location.trim(),
+      whatsapp: whatsapp.trim(),
+      photos,
+      createdAt: new Date().toISOString(),
+    };
+    PROVIDER_PROFILES.unshift(provider);
+    res.status(201).json({ provider });
+  } catch (err) {
+    fs.rmSync(dir, { recursive: true, force: true });
+    res.status(500).json({ error: "falha ao criar o perfil, tente de novo" });
+  }
+});
+
+app.get("/api/providers/:slug", (req, res) => {
+  const provider = PROVIDER_PROFILES.find((p) => p.slug === req.params.slug);
+  if (!provider) return res.status(404).json({ error: "perfil não encontrado" });
+  res.json({ provider });
+});
+
+// Página pública do prestador — renderizada no servidor porque é um link
+// compartilhável de verdade (WhatsApp, Instagram etc precisam de uma URL
+// que funcione sem JS do resto do site rodar primeiro).
+app.get("/prestador/:slug", (req, res) => {
+  const provider = PROVIDER_PROFILES.find((p) => p.slug === req.params.slug);
+  if (!provider) return res.status(404).send("Perfil não encontrado.");
+
+  const cover = provider.photos[0];
+  const coverUrl = cover ? cover.enhancedUrl || cover.url : null;
+  const whatsappDigits = provider.whatsapp.replace(/\D/g, "");
+  const galleryHtml = provider.photos
+    .slice(1)
+    .map((p) => `<img src="${escapeHtmlServer(p.enhancedUrl || p.url)}" alt="" class="provider-gallery-photo" />`)
+    .join("");
+
+  res.send(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>${escapeHtmlServer(provider.name)} — Top3Profissional</title>
+<meta name="description" content="${escapeHtmlServer(provider.bio)}" />
+<link rel="stylesheet" href="/assets/style.css" />
+</head>
+<body>
+<div class="provider-page">
+  ${coverUrl ? `<img src="${escapeHtmlServer(coverUrl)}" alt="${escapeHtmlServer(provider.name)}" class="provider-cover-photo" />` : ""}
+  <div class="provider-page-body">
+    <h1>${escapeHtmlServer(provider.name)}</h1>
+    <p class="provider-page-service">${escapeHtmlServer(provider.service)} · ${escapeHtmlServer(provider.location)}</p>
+    <p class="provider-page-bio">${escapeHtmlServer(provider.bio)}</p>
+    <a class="cta-button" href="https://wa.me/${encodeURIComponent(whatsappDigits)}">Chamar no WhatsApp</a>
+    ${galleryHtml ? `<div class="provider-gallery">${galleryHtml}</div>` : ""}
+  </div>
+</div>
+</body>
+</html>`);
+});
+
 // Health check pro host (Railway, etc.) saber se o processo está de pé.
 // De propósito não depende da Claude API nem de nada externo — só confirma
 // que o servidor Express está respondendo, pra não marcar "unhealthy" por
@@ -495,6 +819,7 @@ app.get("/health", (req, res) => {
     anthropicConfigured: Boolean(anthropic),
     whatsappConfigured: isWhatsAppConfigured(),
     braveSearchConfigured: Boolean(process.env.BRAVE_SEARCH_API_KEY),
+    openaiConfigured: Boolean(process.env.OPENAI_API_KEY),
     uptimeSeconds: Math.round(process.uptime()),
   });
 });

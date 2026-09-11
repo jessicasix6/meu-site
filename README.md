@@ -45,6 +45,7 @@ npm start
 | `WHATSAPP_ACCESS_TOKEN` | não | Ver seção WhatsApp abaixo. |
 | `WHATSAPP_PHONE_NUMBER_ID` | não | Ver seção WhatsApp abaixo. |
 | `BRAVE_SEARCH_API_KEY` | não | Chave da [Brave Search API](https://api-dashboard.search.brave.com/register). Sem ela, o agente responde só com o catálogo interno de profissionais (mock) — com ela, também busca na web de verdade pra pedidos fora desse catálogo (terreno, carro, etc.). Tem um limite mensal de segurança no código (`BRAVE_SEARCH_MONTHLY_LIMIT` em `server.js`) pra não estourar orçamento. |
+| `OPENAI_API_KEY` | não | Chave da [OpenAI API](https://platform.openai.com/api-keys), usada só pra melhorar automaticamente as fotos do perfil profissional (pilar 4.12 — modelo `gpt-image-2`). Sem ela, o perfil é criado normalmente, só com a foto como foi enviada. Tem um limite mensal de segurança (`OPENAI_IMAGE_MONTHLY_LIMIT` em `server.js`) pra não estourar orçamento. |
 
 ## Integração com WhatsApp
 
@@ -65,6 +66,14 @@ Depois de configurado: qualquer mensagem de texto recebida vira uma pergunta pro
 ## Publicar por conversa (sem formulário)
 
 Além do formulário, o agente (`/api/chat`, e por consequência o WhatsApp também) consegue publicar um pedido direto pela conversa — a pessoa só precisa confirmar a intenção ("quero publicar uma corrida do Centro pra Rodoviária hoje às 20h, pago R$25"). O agente nunca publica sozinho só porque alguém descreveu o que procura — sempre espera confirmação explícita, e confirma de volta o que foi publicado.
+
+## Perfil profissional gerado por IA
+
+Quem presta serviço pode criar uma página própria (`/prestador/<slug>`), compartilhável fora do site: manda nome, serviço, onde atende, WhatsApp, uma descrição informal do que faz e pelo menos uma foto (formulário "Criar meu perfil", ou pedindo pela barra de busca — "quero criar meu perfil profissional"). O servidor:
+
+- Usa a Claude API pra transformar a descrição informal numa bio curta e profissional (sem inventar fatos que a pessoa não mencionou).
+- Se `OPENAI_API_KEY` estiver configurada, melhora automaticamente cada foto enviada (modelo `gpt-image-2`, edição por instrução — não é só recorte de fundo). Sem a chave, usa a foto como foi enviada.
+- Fotos ficam em `uploads/providers/<id>/` (fora do git, `.gitignore`d) e são servidas em `/uploads/...`.
 
 ## Ciclo de vida de um pedido
 

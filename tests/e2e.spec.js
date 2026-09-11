@@ -491,6 +491,147 @@ test.describe("Top3Profissional - avaliação pós-serviço", () => {
   });
 });
 
+test.describe("Top3Profissional - perfil profissional (pilar 4.12)", () => {
+  test("cria perfil com foto, gera link compartilhável e a página pública carrega", async ({ request }) => {
+    const res = await request.post("/api/providers", {
+      multipart: {
+        name: "Juliana Martins",
+        service: "manicure",
+        description: "faço unha há 5 anos, atendo em casa e a domicílio",
+        location: "Savassi, Belo Horizonte",
+        whatsapp: "31999990000",
+        photos: {
+          name: "foto.png",
+          mimeType: "image/png",
+          buffer: require("fs").readFileSync("assets/icons/icon-192.png"),
+        },
+      },
+    });
+    expect(res.status()).toBe(201);
+    const { provider } = await res.json();
+    expect(provider.slug).toMatch(/^juliana-martins-/);
+    expect(provider.photos.length).toBe(1);
+
+    const page = await request.get(`/prestador/${provider.slug}`);
+    expect(page.status()).toBe(200);
+    const html = await page.text();
+    expect(html).toContain("Juliana Martins");
+    expect(html).toContain("Chamar no WhatsApp");
+  });
+
+  test("validações: exige nome, serviço, descrição, localização, WhatsApp e pelo menos uma foto", async ({
+    request,
+  }) => {
+    const semFoto = await request.post("/api/providers", {
+      multipart: {
+        name: "Teste",
+        service: "eletricista",
+        description: "conserto qualquer instalação elétrica",
+        location: "Belo Horizonte",
+        whatsapp: "31999990000",
+      },
+    });
+    expect(semFoto.status()).toBe(400);
+    expect((await semFoto.json()).error).toMatch(/foto/i);
+
+    const semNome = await request.post("/api/providers", {
+      multipart: {
+        name: "",
+        service: "eletricista",
+        description: "conserto qualquer instalação elétrica",
+        location: "Belo Horizonte",
+        whatsapp: "31999990000",
+        photos: { name: "foto.png", mimeType: "image/png", buffer: require("fs").readFileSync("assets/icons/icon-192.png") },
+      },
+    });
+    expect(semNome.status()).toBe(400);
+  });
+
+  test("foto maior que o limite retorna erro claro em JSON, não uma página HTML de erro", async ({ request }) => {
+    const tooBig = Buffer.alloc(9 * 1024 * 1024); // acima do limite de 8MB
+    const res = await request.post("/api/providers", {
+      multipart: {
+        name: "Teste",
+        service: "eletricista",
+        description: "conserto qualquer instalação elétrica",
+        location: "Belo Horizonte",
+        whatsapp: "31999990000",
+        photos: { name: "foto-grande.png", mimeType: "image/png", buffer: tooBig },
+      },
+    });
+    expect(res.status()).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/8MB/i);
+  });
+
+  test("arquivo que não é imagem de verdade é rejeitado, mesmo declarando Content-Type de imagem", async ({
+    request,
+  }) => {
+    // O cliente pode mentir o mimetype no multipart — o servidor precisa
+    // conferir a assinatura binária real do arquivo, não só confiar nesse
+    // cabeçalho (achado do CodeRabbit no PR #43).
+    const fakeImage = Buffer.from("<script>alert(1)</script>");
+    const res = await request.post("/api/providers", {
+      multipart: {
+        name: "Teste",
+        service: "eletricista",
+        description: "conserto qualquer instalação elétrica",
+        location: "Belo Horizonte",
+        whatsapp: "31999990000",
+        photos: { name: "nao-e-foto.png", mimeType: "image/png", buffer: fakeImage },
+      },
+    });
+    expect(res.status()).toBe(400);
+    expect((await res.json()).error).toMatch(/imagem/i);
+  });
+
+  test("nome/bio maliciosos não são injetados na página pública (XSS)", async ({ request }) => {
+    const maliciousName = '<img src=x onerror=alert(1)>';
+    const res = await request.post("/api/providers", {
+      multipart: {
+        name: maliciousName,
+        service: "encanador",
+        description: "conserto vazamento e instalação hidráulica",
+        location: "Belo Horizonte",
+        whatsapp: "31999990000",
+        photos: { name: "foto.png", mimeType: "image/png", buffer: require("fs").readFileSync("assets/icons/icon-192.png") },
+      },
+    });
+    expect(res.status()).toBe(201);
+    const { provider } = await res.json();
+
+    const page = await request.get(`/prestador/${provider.slug}`);
+    const html = await page.text();
+    expect(html).not.toContain("<img src=x onerror=alert(1)>");
+    expect(html).toContain("&lt;img");
+  });
+
+  test("formulário 'Criar meu perfil' funciona pelo site: sobe foto, mostra o link no final", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#criar-perfil #provider-name").fill("Beatriz Alves");
+    await page.locator("#provider-service").fill("cabeleireiro");
+    await page.locator("#provider-location").fill("São Paulo");
+    await page.locator("#provider-whatsapp").fill("11999990000");
+    await page.locator("#provider-description").fill("corte e coloração, atendo no meu salão em casa");
+    await page.locator("#provider-photos").setInputFiles("assets/icons/icon-192.png");
+    await page.locator("#provider-form button[type=submit]").click();
+
+    await expect(page.locator("#provider-status")).toHaveText("Perfil criado!");
+    await expect(page.locator("#provider-result")).toBeVisible();
+    await expect(page.locator("#provider-result a")).toHaveAttribute("href", /\/prestador\//);
+  });
+
+  test("busca por 'criar meu perfil' rola até a seção certa, sem gastar chamada de IA", async ({ page }) => {
+    await page.goto("/");
+    const searchInput = page.getByPlaceholder("O que você precisa?");
+    await searchInput.fill("quero criar meu perfil profissional");
+    await searchInput.press("Enter");
+
+    await expect(page.locator("#provider-name")).toBeFocused();
+    await expect(page.locator(".result-answer")).not.toBeVisible();
+  });
+});
+
 test.describe("Top3Profissional - infra", () => {
   test("/health responde 200 (usado pelo host pra saber se o processo está de pé)", async ({ request }) => {
     const res = await request.get("/health");
