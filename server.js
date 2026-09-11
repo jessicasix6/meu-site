@@ -379,7 +379,7 @@ app.get("/health", (req, res) => {
   });
 });
 
-registerWhatsAppRoutes(app, { askAgent, acceptRequest });
+registerWhatsAppRoutes(app, { askAgent, acceptRequest, completeRequest, rateRequest });
 
 const PORT = process.env.PORT || 8123;
 app.listen(PORT, () => {
