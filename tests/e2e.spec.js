@@ -251,6 +251,59 @@ test.describe("Top3Profissional - avaliação pós-serviço", () => {
     const doubleRate = await request.post(`/api/requests/${id}/rate`, { data: { rating: 2 } });
     expect(doubleRate.status()).toBe(409);
   });
+
+  test("mensagem de erro ao tentar aceitar reflete o status real do pedido (aceito vs. concluído)", async ({
+    request,
+  }) => {
+    const created = await (
+      await request.post("/api/requests", { data: { type: "teste", title: "pedido mensagem de erro", price: 10 } })
+    ).json();
+    const id = created.request.id;
+
+    await request.post(`/api/requests/${id}/accept`, { data: { provider: "P" } });
+    const acceptAgain = await request.post(`/api/requests/${id}/accept`, { data: { provider: "Q" } });
+    expect((await acceptAgain.json()).error).toContain("já foi aceito");
+
+    await request.post(`/api/requests/${id}/complete`);
+    const acceptAfterComplete = await request.post(`/api/requests/${id}/accept`, { data: { provider: "Q" } });
+    expect((await acceptAfterComplete.json()).error).toContain("já foi concluído");
+  });
+
+  test("webhook do WhatsApp rejeita nota de dois dígitos em vez de truncar (ex: '10' virando '1')", async ({
+    request,
+  }) => {
+    const created = await (
+      await request.post("/api/requests", { data: { type: "teste", title: "pedido teste whatsapp", price: 10 } })
+    ).json();
+    const id = created.request.id;
+    await request.post(`/api/requests/${id}/accept`, { data: { provider: "P" } });
+    await request.post(`/api/requests/${id}/complete`);
+
+    const webhookPayload = {
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                messages: [
+                  { type: "text", from: "5511999999999", text: { body: `avaliar ${id} 10 nota de dez` } },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const webhookRes = await request.post("/webhook/whatsapp", { data: webhookPayload });
+    expect(webhookRes.status()).toBe(200); // sempre 200 pra Meta, mesmo se a mensagem for rejeitada
+
+    // Dá um tempinho pro processamento assíncrono do webhook terminar.
+    await new Promise((r) => setTimeout(r, 300));
+
+    const { requests } = await (await request.get("/api/requests")).json();
+    const updated = requests.find((r) => r.id === id);
+    expect(updated.rating).toBeUndefined(); // não deve ter sido avaliado com "1" por engano
+  });
 });
 
 test.describe("Top3Profissional - infra", () => {

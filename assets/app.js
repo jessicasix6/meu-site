@@ -37,7 +37,13 @@ function starRow(rating) {
   return out;
 }
 
+// A espera pela geolocalização pode ser lenta (até 8s) — se a pessoa trocar
+// de filtro de novo antes disso resolver, essa chamada antiga não pode
+// sobrescrever uma mais recente quando finalmente responder.
+let loadRankingCallId = 0;
+
 async function loadRanking(sortBy) {
+  const callId = ++loadRankingCallId;
   try {
     const effectiveSortBy = sortBy || rankingSort.value;
     let url = `/api/ranking?sortBy=${encodeURIComponent(effectiveSortBy)}`;
@@ -45,6 +51,7 @@ async function loadRanking(sortBy) {
     locationHint.hidden = true;
     if (effectiveSortBy === "distance") {
       const loc = await getUserLocation();
+      if (callId !== loadRankingCallId) return;
       if (loc) {
         url += `&lat=${loc.lat}&lng=${loc.lng}`;
       } else {
@@ -54,8 +61,10 @@ async function loadRanking(sortBy) {
     }
 
     const res = await fetch(url);
+    if (callId !== loadRankingCallId) return;
     if (!res.ok) return;
     const { top3, usedRealLocation } = await res.json();
+    if (callId !== loadRankingCallId) return;
     if (usedRealLocation) {
       locationHint.hidden = false;
       locationHint.textContent = "Mostrando distância real a partir da sua localização.";
@@ -214,6 +223,22 @@ function renderRequests(requests) {
   });
 }
 
+// Compartilhado pelos três fluxos abaixo (aceitar/concluir/avaliar) pra não
+// duplicar o fetch+tratamento de erro três vezes (e divergir entre cópias).
+async function postRequestAction(url, body) {
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body || {}),
+    });
+    const data = await res.json();
+    return { ok: res.ok, error: data.error };
+  } catch (err) {
+    return { ok: false, error: "Falha de conexão." };
+  }
+}
+
 requestsList.addEventListener("click", async (event) => {
   const acceptBtn = event.target.closest(".accept-btn");
   const completeBtn = event.target.closest(".complete-btn");
@@ -224,34 +249,18 @@ requestsList.addEventListener("click", async (event) => {
   const id = item.dataset.id;
   button.disabled = true;
 
-  try {
-    if (acceptBtn) {
-      const provider = prompt("Seu nome (aparece pra quem publicou o pedido):") || "";
-      const res = await fetch(`/api/requests/${encodeURIComponent(id)}/accept`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        button.disabled = false;
-        alert(data.error || "Não consegui aceitar este pedido.");
-        return;
-      }
-    } else {
-      const res = await fetch(`/api/requests/${encodeURIComponent(id)}/complete`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) {
-        button.disabled = false;
-        alert(data.error || "Não consegui marcar como concluído.");
-        return;
-      }
-    }
-    loadRequests();
-  } catch (err) {
+  const result = acceptBtn
+    ? await postRequestAction(`/api/requests/${encodeURIComponent(id)}/accept`, {
+        provider: prompt("Seu nome (aparece pra quem publicou o pedido):") || "",
+      })
+    : await postRequestAction(`/api/requests/${encodeURIComponent(id)}/complete`);
+
+  if (!result.ok) {
     button.disabled = false;
-    alert("Falha de conexão.");
+    alert(result.error || "Não consegui completar a ação.");
+    return;
   }
+  loadRequests();
 });
 
 requestsList.addEventListener("submit", async (event) => {
@@ -265,23 +274,17 @@ requestsList.addEventListener("submit", async (event) => {
   const submitBtn = form.querySelector("button[type=submit]");
   submitBtn.disabled = true;
 
-  try {
-    const res = await fetch(`/api/requests/${encodeURIComponent(id)}/rate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rating: Number(data.get("rating")), comment: data.get("comment") }),
-    });
-    const result = await res.json();
-    if (!res.ok) {
-      submitBtn.disabled = false;
-      alert(result.error || "Não consegui registrar a avaliação.");
-      return;
-    }
-    loadRequests();
-  } catch (err) {
+  const result = await postRequestAction(`/api/requests/${encodeURIComponent(id)}/rate`, {
+    rating: Number(data.get("rating")),
+    comment: data.get("comment"),
+  });
+
+  if (!result.ok) {
     submitBtn.disabled = false;
-    alert("Falha de conexão ao avaliar.");
+    alert(result.error || "Não consegui registrar a avaliação.");
+    return;
   }
+  loadRequests();
 });
 
 function escapeHtml(text) {

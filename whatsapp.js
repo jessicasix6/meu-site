@@ -108,9 +108,16 @@ function registerWhatsAppRoutes(app, { askAgent, acceptRequest, completeRequest,
       }
 
       // Avaliando um pedido concluído: "avaliar r1 5 Ótimo atendimento!"
-      const rateMatch = text.match(/^avaliar\s+(\S+)\s+([1-5])\s*(.*)/i);
+      // Captura o número inteiro (não só 1 dígito) pra não confundir "10" com "1" —
+      // a validação de 1-5 acontece depois, com mensagem clara em vez de truncar.
+      const rateMatch = text.match(/^avaliar\s+(\S+)\s+(\d+)\s*(.*)/i);
       if (rateMatch) {
-        const result = rateRequest(rateMatch[1], Number(rateMatch[2]), rateMatch[3]);
+        const rating = Number(rateMatch[2]);
+        if (rating < 1 || rating > 5) {
+          await sendWhatsAppMessage(from, "Nota inválida: use um número de 1 a 5.");
+          return;
+        }
+        const result = rateRequest(rateMatch[1], rating, rateMatch[3]);
         const reply = result.ok
           ? `Avaliação registrada pro pedido ${result.request.id}. Obrigado!`
           : `Não consegui avaliar: ${result.error}`;
