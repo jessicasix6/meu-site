@@ -3,6 +3,21 @@ const input = document.getElementById("chat-input");
 const results = document.getElementById("chat-results");
 const rankingList = document.getElementById("ranking-list");
 const rankingSort = document.getElementById("ranking-sort");
+const locationHint = document.getElementById("location-hint");
+
+// Pede a localização real do navegador (com permissão explícita da pessoa)
+// só quando faz sentido — ordenando por distância. Se negar ou não tiver
+// suporte, resolve null e cai de volta na distância estimada (mock).
+function getUserLocation() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { timeout: 8000 }
+    );
+  });
+}
 
 function initials(name) {
   return name
@@ -24,9 +39,27 @@ function starRow(rating) {
 
 async function loadRanking(sortBy) {
   try {
-    const res = await fetch(`/api/ranking?sortBy=${encodeURIComponent(sortBy || rankingSort.value)}`);
+    const effectiveSortBy = sortBy || rankingSort.value;
+    let url = `/api/ranking?sortBy=${encodeURIComponent(effectiveSortBy)}`;
+
+    locationHint.hidden = true;
+    if (effectiveSortBy === "distance") {
+      const loc = await getUserLocation();
+      if (loc) {
+        url += `&lat=${loc.lat}&lng=${loc.lng}`;
+      } else {
+        locationHint.hidden = false;
+        locationHint.textContent = "Usando distância estimada — permita o acesso à localização pra ver a distância real até você.";
+      }
+    }
+
+    const res = await fetch(url);
     if (!res.ok) return;
-    const { top3 } = await res.json();
+    const { top3, usedRealLocation } = await res.json();
+    if (usedRealLocation) {
+      locationHint.hidden = false;
+      locationHint.textContent = "Mostrando distância real a partir da sua localização.";
+    }
     rankingList.innerHTML = "";
     top3.forEach((p, index) => {
       const item = document.createElement("li");

@@ -4,14 +4,25 @@ const Anthropic = require("@anthropic-ai/sdk").default;
 const { registerWhatsAppRoutes, isConfigured: isWhatsAppConfigured } = require("./whatsapp");
 
 const PROVIDERS = [
-  { name: "Ana Souza", service: "manicure", city: "Belo Horizonte", time: "amanhã às 14h", rating: 4.9, distanceKm: 1.2, price: 45, fastReply: true },
-  { name: "Carla Lima", service: "manicure", city: "Belo Horizonte", time: "hoje às 17h30", rating: 4.6, distanceKm: 3.8, price: 35, fastReply: false },
-  { name: "Fernanda Reis", service: "manicure", city: "Belo Horizonte", time: "amanhã às 09h", rating: 4.8, distanceKm: 2.1, price: 40, fastReply: true },
-  { name: "João Pedro", service: "eletricista", city: "Curitiba", time: "hoje às 15h", rating: 4.7, distanceKm: 4.5, price: 90, fastReply: true },
-  { name: "Marcos Vieira", service: "eletricista", city: "Curitiba", time: "amanhã às 10h", rating: 4.5, distanceKm: 6.0, price: 80, fastReply: false },
-  { name: "Beatriz Alves", service: "cabeleireiro", city: "São Paulo", time: "hoje às 18h", rating: 5.0, distanceKm: 0.8, price: 120, fastReply: true },
-  { name: "Ricardo Nunes", service: "encanador", city: "Rio de Janeiro", time: "amanhã às 08h", rating: 4.4, distanceKm: 5.2, price: 100, fastReply: false },
+  { name: "Ana Souza", service: "manicure", city: "Belo Horizonte", time: "amanhã às 14h", rating: 4.9, distanceKm: 1.2, price: 45, fastReply: true, lat: -19.9245, lng: -43.9352 },
+  { name: "Carla Lima", service: "manicure", city: "Belo Horizonte", time: "hoje às 17h30", rating: 4.6, distanceKm: 3.8, price: 35, fastReply: false, lat: -19.9331, lng: -43.9378 },
+  { name: "Fernanda Reis", service: "manicure", city: "Belo Horizonte", time: "amanhã às 09h", rating: 4.8, distanceKm: 2.1, price: 40, fastReply: true, lat: -19.9089, lng: -43.9265 },
+  { name: "João Pedro", service: "eletricista", city: "Curitiba", time: "hoje às 15h", rating: 4.7, distanceKm: 4.5, price: 90, fastReply: true, lat: -25.4372, lng: -49.2691 },
+  { name: "Marcos Vieira", service: "eletricista", city: "Curitiba", time: "amanhã às 10h", rating: 4.5, distanceKm: 6.0, price: 80, fastReply: false, lat: -25.4152, lng: -49.2803 },
+  { name: "Beatriz Alves", service: "cabeleireiro", city: "São Paulo", time: "hoje às 18h", rating: 5.0, distanceKm: 0.8, price: 120, fastReply: true, lat: -23.5613, lng: -46.6558 },
+  { name: "Ricardo Nunes", service: "encanador", city: "Rio de Janeiro", time: "amanhã às 08h", rating: 4.4, distanceKm: 5.2, price: 100, fastReply: false, lat: -22.9707, lng: -43.1823 },
 ];
+
+// Fórmula de Haversine — distância real em km entre dois pontos lat/lng.
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 const REQUESTS = [
   {
@@ -271,7 +282,20 @@ const SORTERS = {
 
 app.get("/api/ranking", (req, res) => {
   const sortBy = SORTERS[req.query.sortBy] ? req.query.sortBy : "rating";
-  const top3 = [...PROVIDERS]
+
+  // Se o navegador mandou a localização real (com permissão explícita da
+  // pessoa), usa distância de verdade (Haversine) em vez do mock — só faz
+  // sentido quando ordenando por distância.
+  const lat = Number(req.query.lat);
+  const lng = Number(req.query.lng);
+  const hasRealLocation = sortBy === "distance" && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+
+  const withDistance = PROVIDERS.map((p) => ({
+    ...p,
+    distanceKm: hasRealLocation ? haversineKm(lat, lng, p.lat, p.lng) : p.distanceKm,
+  }));
+
+  const top3 = withDistance
     .sort(SORTERS[sortBy])
     .slice(0, 3)
     .map(({ name, service, city, rating, distanceKm, price, fastReply }) => ({
@@ -283,7 +307,7 @@ app.get("/api/ranking", (req, res) => {
       price,
       fastReply,
     }));
-  res.json({ top3, sortBy });
+  res.json({ top3, sortBy, usedRealLocation: hasRealLocation });
 });
 
 app.get("/api/requests", (req, res) => {

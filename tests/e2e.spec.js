@@ -26,6 +26,36 @@ test.describe("Top3Profissional - fluxo básico", () => {
     await expect(cards).toHaveCount(3);
   });
 
+  test("filtro 'mais perto' usa geolocalização real quando permitida", async ({ page, context }) => {
+    // Ponto perto da Ana Souza (Savassi, BH) — mais perto dela que dos outros.
+    await context.grantPermissions(["geolocation"]);
+    await context.setGeolocation({ latitude: -19.925, longitude: -43.935 });
+
+    await page.goto("/");
+    await page.locator("#ranking-sort").selectOption("distance");
+
+    await expect(page.locator("#location-hint")).toContainText("distância real");
+    await expect(page.locator(".rank-name").first()).toHaveText("Ana Souza");
+  });
+
+  test("filtro 'mais perto' cai pra distância estimada se a localização for negada", async ({ page, context }) => {
+    await context.clearPermissions();
+
+    await page.goto("/");
+    await page.locator("#ranking-sort").selectOption("distance");
+
+    await expect(page.locator("#location-hint")).toContainText("distância estimada");
+  });
+
+  test("/api/ranking calcula distância real (Haversine) quando lat/lng são enviados", async ({ request }) => {
+    const res = await request.get("/api/ranking?sortBy=distance&lat=-19.925&lng=-43.935");
+    expect(res.status()).toBe(200);
+    const { top3, usedRealLocation } = await res.json();
+    expect(usedRealLocation).toBe(true);
+    expect(top3[0].name).toBe("Ana Souza");
+    expect(top3[0].distanceKm).toBeLessThan(1);
+  });
+
   test("painel de benefícios mostra TeraBox em destaque e MEGA, com links pra conectar", async ({ page }) => {
     await page.goto("/");
     const featured = page.locator(".benefit-card--featured");
