@@ -138,6 +138,39 @@ test.describe("Top3Profissional - fluxo básico", () => {
     await expect(answer).toBeVisible({ timeout: 20000 });
     await expect(answer).not.toHaveClass(/result-answer--error/);
   });
+
+  test("publicar pedido por conversa, sem formulário (pilar 4.6 — só roda com ANTHROPIC_API_KEY)", async ({
+    request,
+  }) => {
+    test.skip(!process.env.ANTHROPIC_API_KEY, "precisa de ANTHROPIC_API_KEY pra testar o agente de verdade");
+
+    const before = await (await request.get("/api/requests")).json();
+
+    const res = await request.post("/api/chat", {
+      data: { message: "quero publicar uma corrida do Centro pra Rodoviária hoje às 20h, pago R$25" },
+    });
+    expect(res.status()).toBe(200);
+    const { reply } = await res.json();
+    expect(reply.toLowerCase()).toMatch(/public/);
+
+    const after = await (await request.get("/api/requests")).json();
+    expect(after.requests.length).toBe(before.requests.length + 1);
+    expect(after.requests[0].type).toBe("corrida");
+    expect(after.requests[0].price).toBe(25);
+  });
+
+  test("descrever o que precisa, sem confirmar publicação, não publica nada sozinho", async ({ request }) => {
+    test.skip(!process.env.ANTHROPIC_API_KEY, "precisa de ANTHROPIC_API_KEY pra testar o agente de verdade");
+
+    const before = await (await request.get("/api/requests")).json();
+
+    await request.post("/api/chat", {
+      data: { message: "procuro uma corrida do Barreiro pro Centro amanhã de manhã" },
+    });
+
+    const after = await (await request.get("/api/requests")).json();
+    expect(after.requests.length).toBe(before.requests.length);
+  });
 });
 
 test.describe("Top3Profissional - mobile", () => {
