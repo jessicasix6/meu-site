@@ -552,6 +552,12 @@ a {
   gap: 0.5rem;
 }
 
+.location-hint {
+  font-size: 0.8rem;
+  color: var(--text-faint);
+  margin: -0.75rem 0 1.25rem;
+}
+
 #ranking-sort {
   background: var(--bg-raised);
   color: var(--text);
