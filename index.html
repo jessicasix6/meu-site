@@ -131,32 +131,39 @@
       <div class="container">
         <p class="eyebrow">Prefere publicar do que conversar?</p>
         <h2 class="section-title">Publique o que você precisa</h2>
-        <p class="post-subtitle">Corrida, entrega, um profissional, um terreno, um carro — qualquer coisa. Publique com dia, hora e valor e entra direto na lista de quem pode te atender.</p>
+        <p class="post-subtitle">Poucos campos: o que você precisa, onde e seu WhatsApp — pra quem aceitar poder te achar e chamar.</p>
         <form id="post-form" class="post-form">
-          <div class="post-field">
-            <label for="post-type">Tipo</label>
-            <input id="post-type" name="type" type="text" list="post-type-options" placeholder="ex: corrida, terreno, carro..." required />
-            <datalist id="post-type-options">
-              <option value="corrida"></option>
-              <option value="entrega"></option>
-              <option value="profissional"></option>
-              <option value="terreno"></option>
-              <option value="carro"></option>
-              <option value="produto"></option>
-              <option value="outro"></option>
-            </datalist>
-          </div>
           <div class="post-field post-field--wide">
             <label for="post-title">O que você precisa</label>
             <input id="post-title" name="title" type="text" placeholder="ex: Centro → Rodoviária" required />
           </div>
           <div class="post-field">
-            <label for="post-when">Quando</label>
-            <input id="post-when" name="when" type="text" placeholder="ex: hoje às 19h" />
+            <label for="post-type">Tipo</label>
+            <select id="post-type" name="type">
+              <option value="corrida">corrida</option>
+              <option value="entrega">entrega</option>
+              <option value="profissional">profissional</option>
+              <option value="terreno">terreno</option>
+              <option value="carro">carro</option>
+              <option value="produto">produto</option>
+              <option value="outro" selected>outro</option>
+            </select>
+          </div>
+          <div class="post-field">
+            <label for="post-location">Onde</label>
+            <input id="post-location" name="location" type="text" placeholder="ex: Savassi, Belo Horizonte" required />
+          </div>
+          <div class="post-field">
+            <label for="post-whatsapp">Seu WhatsApp</label>
+            <input id="post-whatsapp" name="whatsapp" type="tel" placeholder="ex: (31) 99999-0000" required />
           </div>
           <div class="post-field">
             <label for="post-price">Valor (R$)</label>
             <input id="post-price" name="price" type="number" min="0" step="1" placeholder="ex: 25" required />
+          </div>
+          <div class="post-field">
+            <label for="post-when">Quando (opcional)</label>
+            <input id="post-when" name="when" type="text" placeholder="ex: hoje às 19h" />
           </div>
           <div class="post-field">
             <label for="post-requester">Seu nome (opcional)</label>
