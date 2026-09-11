@@ -24,6 +24,10 @@ deploy automático no VPS (rollback automático se o /health falhar)
 
 `main` é protegida: sem push direto, PR obrigatório, testes precisam passar antes do merge.
 
+## PWA
+
+O site é instalável como app (PWA) — "adicionar à tela inicial" no celular abre em tela cheia, com ícone próprio, sem barra de navegador. `manifest.json` define nome/ícones/cores, `sw.js` cacheia o esqueleto estático (HTML/CSS/JS/fontes/ícones) pra abrir rápido mesmo com conexão ruim. Nunca cacheia `/api/`, `/webhook/` nem `/health` — esses dados são sempre buscados na hora, nunca servidos do cache.
+
 ## Rodando localmente
 
 ```
