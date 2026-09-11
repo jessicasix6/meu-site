@@ -27,7 +27,13 @@ module.exports = defineConfig({
     command: "npm start",
     url: BASE_URL,
     env: { PORT: String(TEST_PORT) },
-    reuseExistingServer: !process.env.CI,
+    // Sempre falso, mesmo localmente: já aconteceu mais de uma vez nesta
+    // máquina de um processo de teste anterior ficar preso na porta (uma
+    // sessão de terminal fechada sem encerrar o webServer, por exemplo), e
+    // "true" faria o Playwright reaproveitar esse processo com código
+    // desatualizado em silêncio em vez de reclamar. Falhar alto (porta em
+    // uso) é preferível a passar teste contra código errado.
+    reuseExistingServer: false,
     timeout: 30_000,
   },
 });

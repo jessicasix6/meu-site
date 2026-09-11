@@ -123,14 +123,48 @@ function slugifyType(type) {
     .replace(/^-+|-+$/g, "") || "outro";
 }
 
+function requestActionArea(r) {
+  if (r.status === "aberto") {
+    return '<button type="button" class="accept-btn">aceitar</button>';
+  }
+  if (r.status === "aceito") {
+    return `
+      <span class="request-provider">aceito por ${escapeHtml(r.provider || "prestador")}</span>
+      <button type="button" class="complete-btn">marcar como concluído</button>
+    `;
+  }
+  // concluído
+  if (r.rating === undefined) {
+    return `
+      <form class="rate-form">
+        <label class="rate-label">
+          nota
+          <select name="rating" required>
+            <option value="" disabled selected>escolha</option>
+            <option value="5">★★★★★</option>
+            <option value="4">★★★★</option>
+            <option value="3">★★★</option>
+            <option value="2">★★</option>
+            <option value="1">★</option>
+          </select>
+        </label>
+        <input type="text" name="comment" placeholder="comentário (opcional)" maxlength="300" />
+        <button type="submit">avaliar</button>
+      </form>
+    `;
+  }
+  return `
+    <span class="request-rating">${starRow(r.rating)}${r.comment ? ` — "${escapeHtml(r.comment)}"` : ""}</span>
+  `;
+}
+
 function renderRequests(requests) {
   requestsList.innerHTML = "";
   requests.forEach((r) => {
     const typeSlug = slugifyType(r.type);
     const item = document.createElement("li");
-    item.className = `request-item request-item--${typeSlug}`;
+    item.className = `request-item request-item--${typeSlug} request-item--${r.status === "concluído" ? "concluido" : r.status}`;
     item.dataset.id = r.id;
-    const accepted = r.status === "aceito";
     const distanceChip = typeof r.distanceKm === "number" ? `${r.distanceKm.toFixed(1)} km · ` : "";
     item.innerHTML = `
       <span class="request-icon request-icon--${typeSlug}">${REQUEST_ICONS[r.type] || REQUEST_ICON_DEFAULT}</span>
@@ -141,35 +175,79 @@ function renderRequests(requests) {
         <br />
         <span class="request-meta">${escapeHtml(r.requester)} · ${escapeHtml(r.when || "a combinar")} · ${distanceChip}R$ ${r.price}</span>
       </span>
-      <button type="button" class="accept-btn" ${accepted ? "disabled" : ""}>${accepted ? "aceito" : "aceitar"}</button>
+      <span class="request-action">${requestActionArea(r)}</span>
     `;
     requestsList.appendChild(item);
   });
 }
 
 requestsList.addEventListener("click", async (event) => {
-  const button = event.target.closest(".accept-btn");
-  if (!button || button.disabled) return;
+  const acceptBtn = event.target.closest(".accept-btn");
+  const completeBtn = event.target.closest(".complete-btn");
+  if (!acceptBtn && !completeBtn) return;
 
+  const button = acceptBtn || completeBtn;
   const item = button.closest(".request-item");
   const id = item.dataset.id;
   button.disabled = true;
-  button.textContent = "aceitando...";
 
   try {
-    const res = await fetch(`/api/requests/${encodeURIComponent(id)}/accept`, { method: "POST" });
-    const data = await res.json();
-    if (!res.ok) {
-      button.disabled = false;
-      button.textContent = "aceitar";
-      alert(data.error || "Não consegui aceitar este pedido.");
-      return;
+    if (acceptBtn) {
+      const provider = prompt("Seu nome (aparece pra quem publicou o pedido):") || "";
+      const res = await fetch(`/api/requests/${encodeURIComponent(id)}/accept`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        button.disabled = false;
+        alert(data.error || "Não consegui aceitar este pedido.");
+        return;
+      }
+    } else {
+      const res = await fetch(`/api/requests/${encodeURIComponent(id)}/complete`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        button.disabled = false;
+        alert(data.error || "Não consegui marcar como concluído.");
+        return;
+      }
     }
-    button.textContent = "aceito";
+    loadRequests();
   } catch (err) {
     button.disabled = false;
-    button.textContent = "aceitar";
-    alert("Falha de conexão ao aceitar o pedido.");
+    alert("Falha de conexão.");
+  }
+});
+
+requestsList.addEventListener("submit", async (event) => {
+  const form = event.target.closest(".rate-form");
+  if (!form) return;
+  event.preventDefault();
+
+  const item = form.closest(".request-item");
+  const id = item.dataset.id;
+  const data = new FormData(form);
+  const submitBtn = form.querySelector("button[type=submit]");
+  submitBtn.disabled = true;
+
+  try {
+    const res = await fetch(`/api/requests/${encodeURIComponent(id)}/rate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rating: Number(data.get("rating")), comment: data.get("comment") }),
+    });
+    const result = await res.json();
+    if (!res.ok) {
+      submitBtn.disabled = false;
+      alert(result.error || "Não consegui registrar a avaliação.");
+      return;
+    }
+    loadRequests();
+  } catch (err) {
+    submitBtn.disabled = false;
+    alert("Falha de conexão ao avaliar.");
   }
 });
 

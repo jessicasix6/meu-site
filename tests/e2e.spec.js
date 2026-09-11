@@ -149,6 +149,80 @@ test.describe("Top3Profissional - segurança básica", () => {
   });
 });
 
+test.describe("Top3Profissional - avaliação pós-serviço", () => {
+  test("fluxo completo: aceitar → concluir → avaliar", async ({ page, request }) => {
+    const created = await (
+      await request.post("/api/requests", { data: { type: "teste", title: "pedido de teste pra avaliação", price: 10 } })
+    ).json();
+    const id = created.request.id;
+
+    const accept = await request.post(`/api/requests/${id}/accept`, { data: { provider: "Prestador Teste" } });
+    expect(accept.status()).toBe(200);
+
+    const complete = await request.post(`/api/requests/${id}/complete`);
+    expect(complete.status()).toBe(200);
+
+    const rate = await request.post(`/api/requests/${id}/rate`, { data: { rating: 5, comment: "Ótimo atendimento" } });
+    expect(rate.status()).toBe(200);
+    const { request: rated } = await rate.json();
+    expect(rated.rating).toBe(5);
+
+    await page.goto("/");
+    await page.getByRole("tab", { name: /presto um serviço/i }).click();
+    const item = page.locator(`.request-item[data-id="${id}"]`);
+    await expect(item.locator(".star--filled")).toHaveCount(5);
+    await expect(item).toContainText("Ótimo atendimento");
+  });
+
+  test("comentário malicioso na avaliação não é injetado na página", async ({ page, request }) => {
+    const created = await (
+      await request.post("/api/requests", { data: { type: "teste", title: "pedido teste XSS avaliação", price: 10 } })
+    ).json();
+    const id = created.request.id;
+    await request.post(`/api/requests/${id}/accept`, { data: { provider: "P" } });
+    await request.post(`/api/requests/${id}/complete`);
+    await request.post(`/api/requests/${id}/rate`, { data: { rating: 3, comment: "<img src=x onerror=alert(1)>" } });
+
+    const alerts = [];
+    page.on("dialog", (d) => {
+      alerts.push(d.message());
+      d.dismiss();
+    });
+
+    await page.goto("/");
+    await page.getByRole("tab", { name: /presto um serviço/i }).click();
+    const html = await page.locator("#requests-list").innerHTML();
+    expect(html).not.toContain("<img");
+    expect(alerts).toEqual([]);
+  });
+
+  test("validações: não dá pra concluir sem aceitar, nem avaliar fora do intervalo, nem avaliar duas vezes", async ({
+    request,
+  }) => {
+    const created = await (
+      await request.post("/api/requests", { data: { type: "teste", title: "pedido validação", price: 10 } })
+    ).json();
+    const id = created.request.id;
+
+    const completeTooEarly = await request.post(`/api/requests/${id}/complete`);
+    expect(completeTooEarly.status()).toBe(409);
+
+    await request.post(`/api/requests/${id}/accept`, { data: { provider: "P" } });
+    const rateTooEarly = await request.post(`/api/requests/${id}/rate`, { data: { rating: 5 } });
+    expect(rateTooEarly.status()).toBe(409);
+
+    await request.post(`/api/requests/${id}/complete`);
+    const badRating = await request.post(`/api/requests/${id}/rate`, { data: { rating: 6 } });
+    expect(badRating.status()).toBe(400);
+
+    const goodRating = await request.post(`/api/requests/${id}/rate`, { data: { rating: 4 } });
+    expect(goodRating.status()).toBe(200);
+
+    const doubleRate = await request.post(`/api/requests/${id}/rate`, { data: { rating: 2 } });
+    expect(doubleRate.status()).toBe(409);
+  });
+});
+
 test.describe("Top3Profissional - infra", () => {
   test("/health responde 200 (usado pelo host pra saber se o processo está de pé)", async ({ request }) => {
     const res = await request.get("/health");

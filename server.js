@@ -195,19 +195,56 @@ async function askAgent(message) {
   return "Não consegui terminar a busca a tempo. Tente de novo com uma pergunta mais específica.";
 }
 
-function acceptRequest(id) {
+function findRequest(id) {
   // Normalizado aqui (não só no lado do WhatsApp) pra cobrir qualquer
   // chamador que receba o id com espaços, maiúsculas ou pontuação solta
   // (ex: "aceitar R1." digitado no WhatsApp).
   const normalized = String(id).trim().replace(/[.,!?;:]+$/, "").toLowerCase();
-  const request = REQUESTS.find((r) => r.id.toLowerCase() === normalized);
+  return REQUESTS.find((r) => r.id.toLowerCase() === normalized);
+}
+
+function acceptRequest(id, providerName) {
+  const request = findRequest(id);
   if (!request) {
     return { ok: false, error: "pedido não encontrado" };
   }
-  if (request.status === "aceito") {
+  if (request.status !== "aberto") {
     return { ok: false, error: "este pedido já foi aceito" };
   }
   request.status = "aceito";
+  request.provider = (providerName && providerName.trim()) || "Prestador";
+  return { ok: true, request };
+}
+
+function completeRequest(id) {
+  const request = findRequest(id);
+  if (!request) {
+    return { ok: false, error: "pedido não encontrado" };
+  }
+  if (request.status !== "aceito") {
+    return { ok: false, error: "só dá pra concluir um pedido que já foi aceito" };
+  }
+  request.status = "concluído";
+  return { ok: true, request };
+}
+
+function rateRequest(id, rating, comment) {
+  const request = findRequest(id);
+  if (!request) {
+    return { ok: false, error: "pedido não encontrado" };
+  }
+  if (request.status !== "concluído") {
+    return { ok: false, error: "só dá pra avaliar um pedido concluído" };
+  }
+  if (request.rating !== undefined) {
+    return { ok: false, error: "este pedido já foi avaliado" };
+  }
+  const ratingNum = Number(rating);
+  if (!Number.isInteger(ratingNum) || ratingNum < 1 || ratingNum > 5) {
+    return { ok: false, error: "avaliação precisa ser um número inteiro de 1 a 5" };
+  }
+  request.rating = ratingNum;
+  request.comment = (typeof comment === "string" && comment.trim().slice(0, 300)) || "";
   return { ok: true, request };
 }
 
@@ -292,9 +329,37 @@ app.post("/api/requests", (req, res) => {
 });
 
 app.post("/api/requests/:id/accept", (req, res) => {
-  const result = acceptRequest(req.params.id);
+  const { provider } = req.body || {};
+  if (provider !== undefined && typeof provider !== "string") {
+    return res.status(400).json({ error: "nome inválido" });
+  }
+  const result = acceptRequest(req.params.id, provider);
   if (!result.ok) {
     const status = result.error === "pedido não encontrado" ? 404 : 409;
+    return res.status(status).json({ error: result.error });
+  }
+  res.json({ request: result.request });
+});
+
+app.post("/api/requests/:id/complete", (req, res) => {
+  const result = completeRequest(req.params.id);
+  if (!result.ok) {
+    const status = result.error === "pedido não encontrado" ? 404 : 409;
+    return res.status(status).json({ error: result.error });
+  }
+  res.json({ request: result.request });
+});
+
+app.post("/api/requests/:id/rate", (req, res) => {
+  const { rating, comment } = req.body || {};
+  if (comment !== undefined && typeof comment !== "string") {
+    return res.status(400).json({ error: "comentário inválido" });
+  }
+  const result = rateRequest(req.params.id, rating, comment);
+  if (!result.ok) {
+    let status = 409;
+    if (result.error === "pedido não encontrado") status = 404;
+    else if (result.error === "avaliação precisa ser um número inteiro de 1 a 5") status = 400;
     return res.status(status).json({ error: result.error });
   }
   res.json({ request: result.request });
