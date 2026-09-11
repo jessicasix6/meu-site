@@ -377,8 +377,9 @@ results.addEventListener("click", (event) => {
   if (event.target.closest("#result-solicitar-btn")) goToPublish();
 });
 
-// Módulo de corridas (pilar 4.5) — mini-app "de onde → pra onde" estilo
-// BlaBlaCar, separado do formulário genérico de qualquer categoria.
+// Módulo de corridas (pilar 4.5) — mini-app "de onde → pra onde" de
+// corrida/carona compartilhada, separado do formulário genérico de
+// qualquer categoria.
 const rideForm = document.getElementById("ride-form");
 const rideFrom = document.getElementById("ride-from");
 const rideTo = document.getElementById("ride-to");
@@ -388,7 +389,7 @@ const ridesSection = document.getElementById("corridas");
 // Painel assume "hoje" por padrão (nada pra pessoa escolher) — só mostra a
 // data pra dar contexto, igual um app de caronas de verdade.
 document.getElementById("rides-today").textContent =
-  `Hoje, ${new Date().toLocaleDateString("pt-BR", { day: "numeric", month: "long" })} · tipo BlaBlaCar`;
+  `Hoje, ${new Date().toLocaleDateString("pt-BR", { day: "numeric", month: "long" })} · corrida ou carona compartilhada`;
 
 function renderRideResults(matches) {
   const matchesHtml = matches.length
