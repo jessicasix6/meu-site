@@ -390,10 +390,11 @@ test.describe("Top3Profissional - PWA", () => {
 
   test("service worker registra e cacheia o esqueleto do app, sem cachear /api/ ou /health", async ({ page }) => {
     await page.goto("/");
-    await page.waitForFunction(async () => {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      return regs.length > 0;
-    });
+    // "ready" só resolve depois do ciclo completo install→activate (e o
+    // cache.addAll() do install roda dentro de um waitUntil, que bloqueia
+    // essa transição) — diferente de só checar getRegistrations().length,
+    // que pode voltar true antes do cache.addAll() terminar de verdade.
+    await page.evaluate(() => navigator.serviceWorker.ready);
 
     const cachedPaths = await page.evaluate(async () => {
       const cache = await caches.open("top3-shell-v1");

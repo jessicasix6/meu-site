@@ -300,13 +300,30 @@ function formatMessage(text) {
 }
 
 function renderResult(query, state, text) {
+  const actionButton =
+    state === "ok"
+      ? '<button type="button" class="result-action-btn" id="result-solicitar-btn">Solicitar / publicar pedido</button>'
+      : "";
   results.innerHTML = `
     <p class="result-query">Resultados para "${escapeHtml(query)}"</p>
     <div class="result-answer ${state === "error" ? "result-answer--error" : ""}">
       ${state === "loading" ? '<span class="result-loading">buscando…</span>' : formatMessage(text)}
     </div>
+    ${actionButton}
   `;
 }
+
+function goToPublish() {
+  if (lastSearchQuery) {
+    document.getElementById("post-title").value = lastSearchQuery;
+  }
+  document.getElementById("publicar").scrollIntoView({ behavior: "smooth", block: "start" });
+  document.getElementById("post-type").focus();
+}
+
+results.addEventListener("click", (event) => {
+  if (event.target.closest("#result-solicitar-btn")) goToPublish();
+});
 
 // Módulo de corridas (pilar 4.5) — mini-app "de onde → pra onde" estilo
 // BlaBlaCar, separado do formulário genérico de qualquer categoria.
@@ -373,10 +390,10 @@ const postStatus = document.getElementById("post-status");
 const publishInterestLink = document.getElementById("publish-interest-link");
 let lastSearchQuery = "";
 
-publishInterestLink.addEventListener("click", () => {
+publishInterestLink.addEventListener("click", (event) => {
   if (!lastSearchQuery) return;
-  document.getElementById("post-title").value = lastSearchQuery;
-  document.getElementById("post-type").focus();
+  event.preventDefault();
+  goToPublish();
 });
 
 postForm.addEventListener("submit", async (event) => {
@@ -421,14 +438,17 @@ postForm.addEventListener("submit", async (event) => {
   }
 });
 
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const message = input.value.trim();
-  if (!message) return;
+// Compartilhado entre a busca do topo e a barra fixa embaixo (sempre
+// visível, estilo app) — as duas alimentam o mesmo resultado.
+const bottomSearchForm = document.getElementById("bottom-search-form");
+const bottomSearchInput = document.getElementById("bottom-search-input");
+const allSearchInputs = [input, bottomSearchInput];
 
+async function runSearch(message) {
   lastSearchQuery = message;
-  input.disabled = true;
+  allSearchInputs.forEach((el) => (el.disabled = true));
   renderResult(message, "loading");
+  results.scrollIntoView({ behavior: "smooth", block: "center" });
 
   try {
     const res = await fetch("/api/chat", {
@@ -446,7 +466,26 @@ form.addEventListener("submit", async (event) => {
   } catch (err) {
     renderResult(message, "error", "Não consegui falar com o servidor.");
   } finally {
-    input.disabled = false;
-    input.focus();
+    allSearchInputs.forEach((el) => (el.disabled = false));
   }
+}
+
+form.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const message = input.value.trim();
+  if (!message) return;
+  runSearch(message);
+  input.focus();
+});
+
+bottomSearchForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const message = bottomSearchInput.value.trim();
+  if (!message) return;
+  // A busca só é visível no modo "solicitar" — troca de volta se a pessoa
+  // buscar estando no modo "presto um serviço".
+  if (providerView.hidden === false) setMode("requester");
+  input.value = message;
+  bottomSearchInput.value = "";
+  runSearch(message);
 });

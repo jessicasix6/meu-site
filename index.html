@@ -50,20 +50,6 @@
       </div>
     </header>
 
-    <div class="mode-switch-bar">
-      <div class="container">
-        <div class="mode-switch" role="tablist" aria-label="Escolher tipo de uso">
-          <button type="button" class="mode-btn is-active" data-mode="requester" role="tab" aria-selected="true">
-            <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
-            Solicitar serviço
-          </button>
-          <button type="button" class="mode-btn" data-mode="provider" role="tab" aria-selected="false">
-            <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/></svg>
-            Presto um serviço
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <main>
@@ -267,6 +253,23 @@
       <p>Protótipo experimental — profissionais e avaliações são dados fictícios, usados para testar a busca por IA.</p>
     </div>
   </footer>
+
+  <div class="bottom-bar">
+    <div class="bottom-mode-suggestions" role="tablist" aria-label="Escolher tipo de uso">
+      <button type="button" class="mode-btn bottom-mode-btn is-active" data-mode="requester" role="tab" aria-selected="true" aria-label="Solicitar serviço">Solicito serviço</button>
+      <button type="button" class="mode-btn bottom-mode-btn" data-mode="provider" role="tab" aria-selected="false" aria-label="Presto um serviço">Presto serviço</button>
+    </div>
+    <form id="bottom-search-form" class="bottom-search-bar" autocomplete="off">
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input
+        id="bottom-search-input"
+        type="text"
+        placeholder="O que você precisa?"
+        aria-label="Buscar"
+      />
+      <button type="submit">Buscar</button>
+    </form>
+  </div>
 
   <script src="assets/app.js"></script>
   <script>
