@@ -214,48 +214,59 @@ async function searchWeb(query) {
 }
 
 // Teto de segurança pra melhoria de foto (pilar 4.12 — ver docs/visao-produto.md
-// seção 4.12). A OpenAI cobra por foto processada, sem limite automático — em
-// qualidade "medium" (~US$0,04-0,05/foto), 150/mês fica em ~R$22-28/mês,
-// dentro do orçamento combinado de R$50/mês junto com Claude e Brave Search.
-const OPENAI_IMAGE_MONTHLY_LIMIT = 150;
-let openaiImageCount = 0;
-let openaiImageMonth = null;
+// seção 4.12). O Gemini (Nano Banana) cobra por foto processada acima do
+// tier grátis (500 imagens/dia no Google AI Studio) — 150/mês fica bem
+// dentro até do próprio tier grátis, e nem chega a tocar o orçamento pago
+// combinado de R$50/mês com Claude e Brave Search.
+const PHOTO_ENHANCE_MONTHLY_LIMIT = 150;
+let photoEnhanceCount = 0;
+let photoEnhanceMonth = null;
 
 // Melhora uma foto via IA (edição de imagem, não só filtro) — se não tiver
-// OPENAI_API_KEY configurada, ou o teto mensal foi atingido, devolve null e
+// GEMINI_API_KEY configurada, ou o teto mensal foi atingido, devolve null e
 // quem chamou usa a foto como foi enviada (nunca bloqueia o cadastro por
 // causa disso).
 async function enhancePhoto(buffer, mimeType) {
-  if (!process.env.OPENAI_API_KEY) return null;
+  if (!process.env.GEMINI_API_KEY) return null;
   const monthKey = currentMonthKey();
-  if (openaiImageMonth !== monthKey) {
-    openaiImageMonth = monthKey;
-    openaiImageCount = 0;
+  if (photoEnhanceMonth !== monthKey) {
+    photoEnhanceMonth = monthKey;
+    photoEnhanceCount = 0;
   }
-  if (openaiImageCount >= OPENAI_IMAGE_MONTHLY_LIMIT) return null;
-
-  const form = new FormData();
-  form.append("model", "gpt-image-2");
-  form.append("image", new Blob([buffer], { type: mimeType }), "foto.png");
-  form.append(
-    "prompt",
-    "Melhore a iluminação, o contraste e a nitidez dessa foto de perfil profissional, deixando com aparência mais limpa e profissional. Não altere a pessoa, a roupa, o fundo nem o conteúdo da imagem — só a qualidade técnica da foto."
-  );
-  form.append("quality", "medium");
+  if (photoEnhanceCount >= PHOTO_ENHANCE_MONTHLY_LIMIT) return null;
 
   try {
-    const res = await fetch("https://api.openai.com/v1/images/edits", {
+    const res = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
       method: "POST",
-      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-      body: form,
-      // Sem isso, uma resposta travada da OpenAI prende a criação do
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": process.env.GEMINI_API_KEY,
+      },
+      body: JSON.stringify({
+        model: "gemini-3.1-flash-image",
+        input: [
+          {
+            type: "text",
+            text:
+              "Melhore a iluminação, o contraste e a nitidez dessa foto de perfil profissional, deixando com " +
+              "aparência mais limpa e profissional. Não altere a pessoa, a roupa, o fundo nem o conteúdo da " +
+              "imagem — só a qualidade técnica da foto.",
+          },
+          { type: "image", mime_type: mimeType, data: buffer.toString("base64") },
+        ],
+      }),
+      // Sem isso, uma resposta travada do Gemini prende a criação do
       // perfil inteira (writeBio nem chega a rodar, request fica pendurada).
       signal: AbortSignal.timeout(60_000),
     });
     if (!res.ok) return null; // falha não conta pro teto mensal
-    openaiImageCount++;
+    photoEnhanceCount++;
     const data = await res.json();
-    const b64 = data.data && data.data[0] && data.data[0].b64_json;
+    // Formato da Interactions API (introduzida em 2026) — o item de
+    // resposta com a imagem pode variar o nome exato do campo de dados
+    // conforme a versão da API; confere as variações mais prováveis.
+    const imageOutput = (data.outputs || []).find((o) => o.type === "image");
+    const b64 = imageOutput && (imageOutput.data || imageOutput.image_data || (imageOutput.image && imageOutput.image.data));
     return b64 ? Buffer.from(b64, "base64") : null;
   } catch (err) {
     return null;
@@ -276,9 +287,9 @@ if (!process.env.BRAVE_SEARCH_API_KEY) {
     "BRAVE_SEARCH_API_KEY não definida — o agente responde só com o catálogo interno, sem buscar na web."
   );
 }
-if (!process.env.OPENAI_API_KEY) {
+if (!process.env.GEMINI_API_KEY) {
   console.warn(
-    "OPENAI_API_KEY não definida — perfis profissionais são criados com a foto como enviada, sem melhoria automática."
+    "GEMINI_API_KEY não definida — perfis profissionais são criados com a foto como enviada, sem melhoria automática."
   );
 }
 
@@ -675,7 +686,7 @@ const PROVIDER_NAME_MAX_LENGTH = 60;
 const PROVIDER_DESCRIPTION_MAX_LENGTH = 500;
 
 // Pilar 4.12 — perfil profissional gerado por IA: a pessoa manda fotos e
-// descreve o que faz, a IA escreve a bio e (se OPENAI_API_KEY configurada)
+// descreve o que faz, a IA escreve a bio e (se GEMINI_API_KEY configurada)
 // melhora as fotos. Devolve uma página própria compartilhável.
 app.post("/api/providers", (req, res, next) => {
   if (isProviderCreateRateLimited(req.ip)) {
@@ -819,7 +830,7 @@ app.get("/health", (req, res) => {
     anthropicConfigured: Boolean(anthropic),
     whatsappConfigured: isWhatsAppConfigured(),
     braveSearchConfigured: Boolean(process.env.BRAVE_SEARCH_API_KEY),
-    openaiConfigured: Boolean(process.env.OPENAI_API_KEY),
+    geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
     uptimeSeconds: Math.round(process.uptime()),
   });
 });
