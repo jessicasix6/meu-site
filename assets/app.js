@@ -24,7 +24,11 @@ function highlightSection(section) {
 // IA. Palavras de corrida/carona também roteiam direto pro painel de
 // corridas, sem gastar uma chamada de IA à toa.
 let KNOWN_SERVICES = ["manicure", "eletricista", "cabeleireiro", "encanador"];
-fetch("/api/services")
+// Quem for classificar uma busca (ver bottomSearchForm mais abaixo) espera
+// essa promise primeiro — sem isso, uma busca feita rápido demais (antes do
+// fetch responder) classificaria um serviço novo como "other" por engano,
+// já que KNOWN_SERVICES ainda estaria só com os 4 mock de fallback.
+const knownServicesLoaded = fetch("/api/services")
   .then((res) => res.json())
   .then((data) => {
     if (Array.isArray(data.services) && data.services.length) KNOWN_SERVICES = data.services;
@@ -619,7 +623,7 @@ async function runSearch(message) {
   }
 }
 
-bottomSearchForm.addEventListener("submit", (event) => {
+bottomSearchForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const message = bottomSearchInput.value.trim();
   if (!message) return;
@@ -627,6 +631,13 @@ bottomSearchForm.addEventListener("submit", (event) => {
   // buscar estando no modo "presto um serviço".
   if (providerView.hidden === false) setMode("requester");
   bottomSearchInput.value = "";
+
+  // Espera o catálogo de serviços carregar antes de classificar — sem isso,
+  // uma busca feita rápido demais (antes do fetch responder) poderia
+  // classificar um serviço recém-cadastrado como "other" só porque
+  // KNOWN_SERVICES ainda estava com a lista de fallback (achado do
+  // CodeRabbit no PR #45). Na prática resolve quase instantâneo.
+  await knownServicesLoaded;
 
   // Busca roteia por intenção: serviço cadastrado mostra o ranking,
   // corrida/carona mostra o painel de corridas — só cai no texto de IA
