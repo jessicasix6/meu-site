@@ -672,6 +672,42 @@ test.describe("Top3Profissional - perfil profissional (pilar 4.12)", () => {
     await expect(page.locator("#provider-name")).toBeFocused();
     await expect(page.locator(".result-answer")).not.toBeVisible();
   });
+
+  test("perfil criado pela pessoa aparece no ranking de busca, com selo 'novo' e link pra própria página", async ({
+    page,
+    request,
+  }) => {
+    // Serviço com sufixo aleatório: exclusivo desse teste, nunca colide com
+    // os 4 mock nem com "eletricista"/"manicure" usados em outros testes,
+    // e sobrevive até a uma nova tentativa automática do próprio Playwright
+    // sem acumular cards de execuções anteriores no mesmo processo.
+    const uniqueService = `jardinagem-teste-${Math.random().toString(36).slice(2, 8)}`;
+    const res = await request.post("/api/providers", {
+      multipart: {
+        name: "Perfil Ranking Teste",
+        service: uniqueService,
+        description: "cuido de jardim e paisagismo",
+        location: "Belo Horizonte",
+        whatsapp: "31999990000",
+        photos: { name: "foto.png", mimeType: "image/png", buffer: require("fs").readFileSync("assets/icons/icon-192.png") },
+      },
+    });
+    const { provider } = await res.json();
+
+    const servicesResponse = page.waitForResponse((r) => r.url().includes("/api/services"));
+    await page.goto("/");
+    await servicesResponse; // espera o front-end aprender sobre o serviço novo antes de buscar
+
+    const searchInput = page.getByPlaceholder("O que você precisa?");
+    await searchInput.fill(`preciso de ${uniqueService} hoje`);
+    await searchInput.press("Enter");
+
+    const cards = page.locator(".rank-card");
+    await expect(cards).toHaveCount(1);
+    await expect(cards.first()).toContainText("Perfil Ranking Teste");
+    await expect(cards.first().locator(".chip--new")).toHaveText("novo");
+    await expect(cards.first().locator(".rank-cta")).toHaveAttribute("href", `/prestador/${provider.slug}`);
+  });
 });
 
 test.describe("Top3Profissional - infra", () => {

@@ -602,11 +602,41 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
+// Sem dado (ex: perfil real recém-criado, ainda sem avaliação/preço/
+// distância) sempre vai pro fim da lista, não pro topo por acaso de
+// comparação com undefined/NaN.
+function compareNullsLast(aVal, bVal, compare) {
+  if (aVal == null && bVal == null) return 0;
+  if (aVal == null) return 1;
+  if (bVal == null) return -1;
+  return compare(aVal, bVal);
+}
+
 const SORTERS = {
-  rating: (a, b) => b.rating - a.rating,
-  price: (a, b) => a.price - b.price,
-  distance: (a, b) => a.distanceKm - b.distanceKm,
+  rating: (a, b) => compareNullsLast(a.rating, b.rating, (x, y) => y - x),
+  price: (a, b) => compareNullsLast(a.price, b.price, (x, y) => x - y),
+  distance: (a, b) => compareNullsLast(a.distanceKm, b.distanceKm, (x, y) => x - y),
 };
+
+// Perfis reais (pilar 4.12) entram no ranking igual aos prestadores mock —
+// sem isso, um perfil criado pela pessoa nunca aparece em lugar nenhum além
+// do próprio link, o que não faz sentido (a busca é o principal ponto de
+// entrada do site). Ainda não têm avaliação/preço/distância de verdade
+// (fica null, tratado pelo sort acima e pelo front-end como "novo").
+function providerProfilesForRanking() {
+  return PROVIDER_PROFILES.map((p) => ({
+    name: p.name,
+    service: p.service,
+    city: p.location,
+    rating: null,
+    distanceKm: null,
+    price: null,
+    fastReply: false,
+    lat: null,
+    lng: null,
+    slug: p.slug,
+  }));
+}
 
 app.get("/api/ranking", (req, res) => {
   const sortBy = SORTERS[req.query.sortBy] ? req.query.sortBy : "rating";
@@ -618,22 +648,24 @@ app.get("/api/ranking", (req, res) => {
   const lng = Number(req.query.lng);
   const hasRealLocation = sortBy === "distance" && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
 
+  const allProviders = [...PROVIDERS, ...providerProfilesForRanking()];
+
   // ?service= filtra pra uma categoria (ex: "eletricista") — usado quando a
   // busca da pessoa já identificou um serviço cadastrado, pra mostrar o
   // ranking de quem realmente atende aquilo, não o top 3 geral do site.
   const serviceFilter = typeof req.query.service === "string" ? req.query.service.trim().toLowerCase() : "";
-  const matchesService = serviceFilter && PROVIDERS.some((p) => p.service.toLowerCase() === serviceFilter);
-  const pool = matchesService ? PROVIDERS.filter((p) => p.service.toLowerCase() === serviceFilter) : PROVIDERS;
+  const matchesService = serviceFilter && allProviders.some((p) => p.service.toLowerCase() === serviceFilter);
+  const pool = matchesService ? allProviders.filter((p) => p.service.toLowerCase() === serviceFilter) : allProviders;
 
   const withDistance = pool.map((p) => ({
     ...p,
-    distanceKm: hasRealLocation ? haversineKm(lat, lng, p.lat, p.lng) : p.distanceKm,
+    distanceKm: hasRealLocation && p.lat != null && p.lng != null ? haversineKm(lat, lng, p.lat, p.lng) : p.distanceKm,
   }));
 
   const top3 = withDistance
     .sort(SORTERS[sortBy])
     .slice(0, 3)
-    .map(({ name, service, city, rating, distanceKm, price, fastReply }) => ({
+    .map(({ name, service, city, rating, distanceKm, price, fastReply, slug }) => ({
       name,
       service,
       city,
@@ -641,8 +673,19 @@ app.get("/api/ranking", (req, res) => {
       distanceKm,
       price,
       fastReply,
+      slug: slug || null,
     }));
   res.json({ top3, sortBy, usedRealLocation: hasRealLocation });
+});
+
+// Lista de serviços "cadastrados" pra o front-end saber quando uma busca
+// deve rotear pro ranking (em vez de cair no texto de IA) — inclui os mock
+// E os perfis reais que as pessoas foram criando, não só uma lista fixa
+// (senão um serviço novo criado via "Criar meu perfil" nunca aparecia na
+// busca, só no próprio link — mesmo bug de raiz do pilar 4.12).
+app.get("/api/services", (req, res) => {
+  const services = [...new Set([...PROVIDERS, ...PROVIDER_PROFILES].map((p) => p.service.toLowerCase()))];
+  res.json({ services });
 });
 
 app.get("/api/requests", (req, res) => {
