@@ -492,13 +492,24 @@ if (!googleClient) {
 
 const USERS = [];
 let nextUserId = 1;
-const SESSIONS = new Map(); // token de sessão -> id do usuário
+const SESSIONS = new Map(); // token de sessão -> { userId, expiresAt }
 const SESSION_COOKIE = "top3_session";
+const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
+// maxAge do cookie só controla até quando o NAVEGADOR guarda o cookie — não
+// impede alguém de mandar um token capturado manualmente depois desse
+// prazo. Confere e expira a sessão aqui também (achado do CodeRabbit no
+// PR #46).
 function getCurrentUser(req) {
   const token = req.cookies && req.cookies[SESSION_COOKIE];
-  const userId = token && SESSIONS.get(token);
-  return userId ? USERS.find((u) => u.id === userId) || null : null;
+  if (!token) return null;
+  const session = SESSIONS.get(token);
+  if (!session) return null;
+  if (Date.now() > session.expiresAt) {
+    SESSIONS.delete(token);
+    return null;
+  }
+  return USERS.find((u) => u.id === session.userId) || null;
 }
 
 app.get("/api/auth/config", (req, res) => {
@@ -520,12 +531,12 @@ app.post("/api/auth/google", async (req, res) => {
       USERS.push(user);
     }
     const token = crypto.randomBytes(24).toString("hex");
-    SESSIONS.set(token, user.id);
+    SESSIONS.set(token, { userId: user.id, expiresAt: Date.now() + SESSION_MAX_AGE_MS });
     res.cookie(SESSION_COOKIE, token, {
       httpOnly: true,
       sameSite: "lax",
       secure: req.secure,
-      maxAge: 30 * 24 * 60 * 60 * 1000,
+      maxAge: SESSION_MAX_AGE_MS,
     });
     res.json({ user: { name: user.name, email: user.email, picture: user.picture } });
   } catch (err) {

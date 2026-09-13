@@ -714,9 +714,23 @@ async function handleGoogleCredential(response) {
   }
 }
 
-// google.accounts só existe depois do script externo carregar (async) —
-// tenta de novo por um tempo em vez de exigir uma ordem de carregamento
-// exata entre os dois scripts.
+// Só carrega o script da Google (accounts.google.com) quando o login está
+// configurado — sem isso, todo mundo que visita o site faria uma chamada de
+// rede pra Google à toa, mesmo sem essa funcionalidade estar ativa.
+function loadGisScript() {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
+// google.accounts só existe depois do script externo carregar — tenta de
+// novo por um tempo em vez de exigir uma ordem de carregamento exata.
 function initGoogleSignIn(clientId, attemptsLeft) {
   if (!window.google || !window.google.accounts) {
     if (attemptsLeft > 0) setTimeout(() => initGoogleSignIn(clientId, attemptsLeft - 1), 150);
@@ -728,14 +742,18 @@ function initGoogleSignIn(clientId, attemptsLeft) {
 
 fetch("/api/auth/config")
   .then((res) => res.json())
-  .then((config) => {
+  .then(async (config) => {
     if (!config.googleClientId) return;
+    // Confere se já tinha sessão de uma visita anterior ANTES de montar o
+    // botão de login — sem isso, o botão podia aparecer do lado do nome de
+    // quem já está logado (o GIS não limpa o próprio slot ao renderizar).
+    const meRes = await fetch("/api/auth/me");
+    if (meRes.ok) {
+      const { user } = await meRes.json();
+      renderLoggedInUser(user);
+      return;
+    }
+    await loadGisScript();
     initGoogleSignIn(config.googleClientId, 20);
-    // Se já tinha sessão de uma visita anterior (cookie), mostra logado sem
-    // precisar clicar de novo.
-    return fetch("/api/auth/me").then((res) => (res.ok ? res.json() : null));
-  })
-  .then((data) => {
-    if (data) renderLoggedInUser(data.user);
   })
   .catch(() => {});
