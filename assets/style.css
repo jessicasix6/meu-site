@@ -718,7 +718,14 @@ a {
   background: var(--accent-dim);
 }
 
+.chip--new {
+  color: var(--gold);
+  border-color: var(--gold);
+  background: rgba(232, 182, 76, 0.12);
+}
+
 .rank-cta {
+  display: inline-block;
   margin-top: auto;
   padding: 0.65rem 1rem;
   font-family: var(--font-body);
@@ -729,6 +736,8 @@ a {
   border: none;
   border-radius: 8px;
   cursor: pointer;
+  text-decoration: none;
+  text-align: center;
   transition: background 0.15s ease;
 }
 

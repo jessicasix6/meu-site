@@ -15,12 +15,25 @@ function highlightSection(section) {
   setTimeout(() => section.classList.remove("section-highlight"), 1600);
 }
 
-// Serviços dos prestadores mock (mantido em sincronia manual com os
-// "service" de PROVIDERS em server.js — mesma lista citada no SYSTEM_PROMPT
-// de lá). Se a busca citar um desses, mostra o ranking filtrado em vez de
-// cair no texto de IA. Palavras de corrida/carona também roteiam direto pro
-// painel de corridas, sem gastar uma chamada de IA à toa.
-const KNOWN_SERVICES = ["manicure", "eletricista", "cabeleireiro", "encanador"];
+// Serviços "cadastrados" — começa só com os mock (fallback antes do fetch
+// abaixo responder) e é atualizado com /api/services, que já inclui os
+// perfis reais criados pelas pessoas (pilar 4.12). Sem isso, um serviço
+// novo cadastrado via "Criar meu perfil" nunca apareceria numa busca —
+// só no link direto do próprio perfil, o que não faz sentido. Se a busca
+// citar um desses, mostra o ranking filtrado em vez de cair no texto de
+// IA. Palavras de corrida/carona também roteiam direto pro painel de
+// corridas, sem gastar uma chamada de IA à toa.
+let KNOWN_SERVICES = ["manicure", "eletricista", "cabeleireiro", "encanador"];
+// Quem for classificar uma busca (ver bottomSearchForm mais abaixo) espera
+// essa promise primeiro — sem isso, uma busca feita rápido demais (antes do
+// fetch responder) classificaria um serviço novo como "other" por engano,
+// já que KNOWN_SERVICES ainda estaria só com os 4 mock de fallback.
+const knownServicesLoaded = fetch("/api/services")
+  .then((res) => res.json())
+  .then((data) => {
+    if (Array.isArray(data.services) && data.services.length) KNOWN_SERVICES = data.services;
+  })
+  .catch(() => {});
 const RIDE_KEYWORDS = ["corrida", "carona", "ônibus", "onibus", "busão", "busao"];
 // Frases de quem quer criar o próprio perfil (pilar 4.12), não buscar algo.
 const PROFILE_KEYWORDS = ["criar meu perfil", "meu perfil profissional", "divulgar meu trabalho", "meu site profissional"];
@@ -125,6 +138,18 @@ async function loadRanking(sortBy, service) {
     top3.forEach((p, index) => {
       const item = document.createElement("li");
       item.className = `rank-card rank-card--${index + 1}`;
+      // Perfil real recém-criado (pilar 4.12) ainda não tem avaliação, preço
+      // nem distância de verdade — mostra "novo" em vez de tentar formatar
+      // um número que não existe.
+      const ratingHtml =
+        typeof p.rating === "number"
+          ? `${starRow(p.rating)}<span class="rank-rating-num">${p.rating.toFixed(1)}</span>`
+          : '<span class="chip chip--new">novo</span>';
+      const distanceChip = typeof p.distanceKm === "number" ? `<span class="chip">${p.distanceKm.toFixed(1)} km</span>` : "";
+      const priceChip = typeof p.price === "number" ? `<span class="chip">R$ ${p.price}</span>` : "";
+      const ctaHtml = p.slug
+        ? `<a href="/prestador/${encodeURIComponent(p.slug)}" class="rank-cta" target="_blank" rel="noopener">Ver perfil</a>`
+        : `<button type="button" class="rank-cta" data-name="${escapeHtml(p.name)}">Chamar agora</button>`;
       item.innerHTML = `
         <div class="rank-card-top">
           <div class="rank-avatar">${escapeHtml(initials(p.name))}</div>
@@ -132,13 +157,13 @@ async function loadRanking(sortBy, service) {
         </div>
         <h3 class="rank-name">${escapeHtml(p.name)}</h3>
         <p class="rank-service">${escapeHtml(p.service)} · ${escapeHtml(p.city)}</p>
-        <div class="rank-stars">${starRow(p.rating)}<span class="rank-rating-num">${p.rating.toFixed(1)}</span></div>
+        <div class="rank-stars">${ratingHtml}</div>
         <div class="rank-chips">
-          <span class="chip">${p.distanceKm.toFixed(1)} km</span>
-          <span class="chip">R$ ${p.price}</span>
+          ${distanceChip}
+          ${priceChip}
           ${p.fastReply ? '<span class="chip chip--fast">resposta rápida</span>' : ""}
         </div>
-        <button type="button" class="rank-cta" data-name="${escapeHtml(p.name)}">Chamar agora</button>
+        ${ctaHtml}
       `;
       rankingList.appendChild(item);
     });
@@ -159,7 +184,9 @@ rankingFilterHint.addEventListener("click", (event) => {
 
 rankingList.addEventListener("click", (event) => {
   const button = event.target.closest(".rank-cta");
-  if (!button) return;
+  // Perfil real (pilar 4.12) usa um <a> pra própria página — não tem
+  // data-name, e o clique já navega sozinho, sem precisar de runSearch().
+  if (!button || !button.dataset.name) return;
   runSearch(`quero chamar ${button.dataset.name}`);
 });
 
@@ -596,7 +623,7 @@ async function runSearch(message) {
   }
 }
 
-bottomSearchForm.addEventListener("submit", (event) => {
+bottomSearchForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const message = bottomSearchInput.value.trim();
   if (!message) return;
@@ -604,6 +631,13 @@ bottomSearchForm.addEventListener("submit", (event) => {
   // buscar estando no modo "presto um serviço".
   if (providerView.hidden === false) setMode("requester");
   bottomSearchInput.value = "";
+
+  // Espera o catálogo de serviços carregar antes de classificar — sem isso,
+  // uma busca feita rápido demais (antes do fetch responder) poderia
+  // classificar um serviço recém-cadastrado como "other" só porque
+  // KNOWN_SERVICES ainda estava com a lista de fallback (achado do
+  // CodeRabbit no PR #45). Na prática resolve quase instantâneo.
+  await knownServicesLoaded;
 
   // Busca roteia por intenção: serviço cadastrado mostra o ranking,
   // corrida/carona mostra o painel de corridas — só cai no texto de IA
