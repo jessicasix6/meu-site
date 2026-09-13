@@ -72,7 +72,8 @@ Além do formulário, o agente (`/api/chat`, e por consequência o WhatsApp tamb
 Quem presta serviço pode criar uma página própria (`/prestador/<slug>`), compartilhável fora do site: manda nome, serviço, onde atende, WhatsApp, uma descrição informal do que faz e pelo menos uma foto (formulário "Criar meu perfil", ou pedindo pela barra de busca — "quero criar meu perfil profissional"). O servidor:
 
 - Usa a Claude API pra transformar a descrição informal numa bio curta e profissional (sem inventar fatos que a pessoa não mencionou).
-- Se `GEMINI_API_KEY` estiver configurada, melhora automaticamente cada foto enviada (modelo `gemini-3.1-flash-image`/"Nano Banana", edição por instrução — não é só recorte de fundo). Sem a chave, usa a foto como foi enviada.
+- Toda foto recebe um ajuste técnico automático grátis (exposição/contraste/nitidez via `sharp`, sem custo, sem chave). Se `GEMINI_API_KEY` estiver configurada, tenta primeiro a edição por IA generativa (modelo `gemini-3.1-flash-image`/"Nano Banana") antes desse ajuste básico.
+- **Trocar o fundo da foto (opcional, a pessoa marca uma caixinha no formulário — nunca automático):** recorta a pessoa com um modelo de segmentação local (U²-Net portátil, roda 100% no servidor via `onnxruntime-node`, sem chave, sem custo, sem depender de terceiro em tempo de execução) e compõe num fundo em degradê combinando com as cores do site. Modelo em `models/u2netp.onnx`, licença Apache 2.0 — ver [U²-Net](https://github.com/xuebinqin/U-2-Net) (Qin et al., 2020).
 - Fotos ficam em `uploads/providers/<id>/` (fora do git, `.gitignore`d) e são servidas em `/uploads/...`.
 
 ## Ciclo de vida de um pedido

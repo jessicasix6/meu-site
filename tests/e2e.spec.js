@@ -519,6 +519,48 @@ test.describe("Top3Profissional - perfil profissional (pilar 4.12)", () => {
     expect(html).toContain("Chamar no WhatsApp");
   });
 
+  test("troca de fundo é opcional — só roda se a pessoa marcar a caixinha, nunca sozinha", async ({ request }) => {
+    const semMarcar = await request.post("/api/providers", {
+      multipart: {
+        name: "Sem Troca De Fundo",
+        service: "eletricista",
+        description: "não marquei a opção de trocar o fundo",
+        location: "Belo Horizonte",
+        whatsapp: "31999990000",
+        photos: { name: "foto.png", mimeType: "image/png", buffer: require("fs").readFileSync("assets/icons/icon-192.png") },
+      },
+    });
+    expect(semMarcar.status()).toBe(201);
+    const { provider: providerSemFundo } = await semMarcar.json();
+    expect(providerSemFundo.photos[0].newBackgroundUrl).toBeNull();
+  });
+
+  test("troca de fundo (opcional) gera uma foto nova e vira a capa da página pública", async ({ request }) => {
+    const res = await request.post("/api/providers", {
+      multipart: {
+        name: "Com Troca De Fundo",
+        service: "eletricista",
+        description: "marquei a opção de trocar o fundo",
+        location: "Belo Horizonte",
+        whatsapp: "31999990000",
+        newBackground: "true",
+        photos: { name: "foto.png", mimeType: "image/png", buffer: require("fs").readFileSync("assets/icons/icon-192.png") },
+      },
+    });
+    expect(res.status()).toBe(201);
+    const { provider } = await res.json();
+    const photo = provider.photos[0];
+    expect(photo.newBackgroundUrl).toMatch(/-fundo-novo\.png$/);
+
+    const photoRes = await request.get(photo.newBackgroundUrl);
+    expect(photoRes.status()).toBe(200);
+    expect(photoRes.headers()["content-type"]).toBe("image/png");
+
+    const page = await request.get(`/prestador/${provider.slug}`);
+    const html = await page.text();
+    expect(html).toContain(photo.newBackgroundUrl);
+  });
+
   test("validações: exige nome, serviço, descrição, localização, WhatsApp e pelo menos uma foto", async ({
     request,
   }) => {

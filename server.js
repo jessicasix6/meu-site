@@ -3,6 +3,9 @@ const path = require("path");
 const fs = require("fs");
 const express = require("express");
 const multer = require("multer");
+const sharp = require("sharp");
+const ort = require("onnxruntime-node");
+const { BackgroundRemover } = require("@tugrul/rembg");
 const Anthropic = require("@anthropic-ai/sdk").default;
 const { registerWhatsAppRoutes, isConfigured: isWhatsAppConfigured } = require("./whatsapp");
 
@@ -222,11 +225,66 @@ const PHOTO_ENHANCE_MONTHLY_LIMIT = 150;
 let photoEnhanceCount = 0;
 let photoEnhanceMonth = null;
 
-// Melhora uma foto via IA (edição de imagem, não só filtro) — se não tiver
-// GEMINI_API_KEY configurada, ou o teto mensal foi atingido, devolve null e
-// quem chamou usa a foto como foi enviada (nunca bloqueia o cadastro por
-// causa disso).
-async function enhancePhoto(buffer, mimeType) {
+// Camada grátis, sempre ativa, sem depender de nenhuma chave/cartão: ajuste
+// técnico automático via `sharp` (biblioteca local, roda no próprio
+// servidor) — normaliza exposição/contraste, dá uma nitidez leve e realça um
+// pouco a cor. Não é IA generativa (não reimagina a foto), mas é o mesmo
+// tipo de ajuste que um filtro automático básico de Instagram faz, e nunca
+// custa nada nem depende de terceiro.
+async function basicEnhancePhoto(buffer) {
+  try {
+    return await sharp(buffer).normalize().sharpen().modulate({ saturation: 1.15 }).png().toBuffer();
+  } catch (err) {
+    return null;
+  }
+}
+
+// Troca de fundo (opcional, a pessoa escolhe marcando no formulário — nunca
+// automático). Modelo local (U²-Net portátil, licença Apache 2.0, roda no
+// próprio servidor via onnxruntime-node — grátis, sem chave, sem depender de
+// terceiro em tempo de execução) recorta a pessoa e compõe num fundo em
+// degradê combinando com as cores do site.
+let backgroundRemoverPromise = null;
+function getBackgroundRemover() {
+  if (!backgroundRemoverPromise) {
+    backgroundRemoverPromise = ort.InferenceSession.create(path.join(__dirname, "models", "u2netp.onnx")).then(
+      (session) => new BackgroundRemover(session, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    );
+  }
+  return backgroundRemoverPromise;
+}
+
+async function applyNewBackground(buffer) {
+  try {
+    const remover = await getBackgroundRemover();
+    const rgbBuffer = await sharp(buffer).flatten({ background: "#0a0c0d" }).toBuffer();
+    const { width, height } = await sharp(rgbBuffer).metadata();
+    const cutoutBuffer = await (await remover.mask(sharp(rgbBuffer))).toBuffer();
+
+    const backgroundSvg = `
+      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#0a0c0d" />
+            <stop offset="65%" stop-color="#0a0c0d" />
+            <stop offset="100%" stop-color="#21e6c1" stop-opacity="0.55" />
+          </linearGradient>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#bg)" />
+      </svg>`;
+    const background = await sharp(Buffer.from(backgroundSvg)).png().toBuffer();
+
+    return await sharp(background).composite([{ input: cutoutBuffer }]).png().toBuffer();
+  } catch (err) {
+    return null;
+  }
+}
+
+// Camada opcional de IA de verdade (edição por instrução, não só ajuste
+// técnico) — só roda com GEMINI_API_KEY configurada e dentro do teto
+// mensal; qualquer falha (sem chave, cota excedida, erro de rede) devolve
+// null sem lançar erro.
+async function enhancePhotoWithGemini(buffer, mimeType) {
   if (!process.env.GEMINI_API_KEY) return null;
   const monthKey = currentMonthKey();
   if (photoEnhanceMonth !== monthKey) {
@@ -273,6 +331,16 @@ async function enhancePhoto(buffer, mimeType) {
   }
 }
 
+// Ponto único chamado no cadastro do perfil: tenta a IA de verdade primeiro
+// (se configurada e funcionar), cai pro ajuste técnico básico — grátis,
+// sempre disponível — se não tiver chave ou a chamada falhar. Só devolve
+// null se nem o ajuste básico local conseguir rodar (praticamente nunca).
+async function enhancePhoto(buffer, mimeType) {
+  const geminiResult = await enhancePhotoWithGemini(buffer, mimeType);
+  if (geminiResult) return geminiResult;
+  return basicEnhancePhoto(buffer);
+}
+
 let anthropic = null;
 if (process.env.ANTHROPIC_API_KEY) {
   anthropic = new Anthropic();
@@ -289,7 +357,7 @@ if (!process.env.BRAVE_SEARCH_API_KEY) {
 }
 if (!process.env.GEMINI_API_KEY) {
   console.warn(
-    "GEMINI_API_KEY não definida — perfis profissionais são criados com a foto como enviada, sem melhoria automática."
+    "GEMINI_API_KEY não definida — fotos de perfil recebem só o ajuste técnico automático (sharp), sem a edição por IA generativa do Gemini."
   );
 }
 
@@ -686,15 +754,16 @@ const PROVIDER_NAME_MAX_LENGTH = 60;
 const PROVIDER_DESCRIPTION_MAX_LENGTH = 500;
 
 // Pilar 4.12 — perfil profissional gerado por IA: a pessoa manda fotos e
-// descreve o que faz, a IA escreve a bio e (se GEMINI_API_KEY configurada)
-// melhora as fotos. Devolve uma página própria compartilhável.
+// descreve o que faz, a IA escreve a bio e as fotos recebem ajuste técnico
+// automático (sempre) mais edição por IA generativa (se GEMINI_API_KEY
+// configurada). Devolve uma página própria compartilhável.
 app.post("/api/providers", (req, res, next) => {
   if (isProviderCreateRateLimited(req.ip)) {
     return res.status(429).json({ error: "muitos perfis criados recentemente a partir daqui — tente de novo mais tarde" });
   }
   next();
 }, uploadProviderPhotos, async (req, res) => {
-  const { name, service, description, location, whatsapp } = req.body || {};
+  const { name, service, description, location, whatsapp, newBackground } = req.body || {};
 
   if (!name || typeof name !== "string" || !name.trim()) {
     return res.status(400).json({ error: "informe seu nome" });
@@ -751,7 +820,18 @@ app.post("/api/providers", (req, res, next) => {
         fs.writeFileSync(path.join(dir, enhancedFilename), enhancedBuffer);
         enhancedUrl = `/uploads/providers/${id}/${enhancedFilename}`;
       }
-      photos.push({ url: `/uploads/providers/${id}/${filename}`, enhancedUrl });
+      // Fundo novo é opcional — só roda se a pessoa marcar no formulário,
+      // nunca automático (às vezes o fundo original importa pro trabalho).
+      let newBackgroundUrl = null;
+      if (newBackground === "true" || newBackground === "on") {
+        const bgBuffer = await applyNewBackground(file.buffer);
+        if (bgBuffer) {
+          const bgFilename = `${index}-fundo-novo.png`;
+          fs.writeFileSync(path.join(dir, bgFilename), bgBuffer);
+          newBackgroundUrl = `/uploads/providers/${id}/${bgFilename}`;
+        }
+      }
+      photos.push({ url: `/uploads/providers/${id}/${filename}`, enhancedUrl, newBackgroundUrl });
     }
 
     const bio = await writeBio(name.trim(), service.trim(), description.trim());
@@ -788,12 +868,13 @@ app.get("/prestador/:slug", (req, res) => {
   const provider = PROVIDER_PROFILES.find((p) => p.slug === req.params.slug);
   if (!provider) return res.status(404).send("Perfil não encontrado.");
 
+  const bestPhotoUrl = (p) => p.newBackgroundUrl || p.enhancedUrl || p.url;
   const cover = provider.photos[0];
-  const coverUrl = cover ? cover.enhancedUrl || cover.url : null;
+  const coverUrl = cover ? bestPhotoUrl(cover) : null;
   const whatsappDigits = provider.whatsapp.replace(/\D/g, "");
   const galleryHtml = provider.photos
     .slice(1)
-    .map((p) => `<img src="${escapeHtmlServer(p.enhancedUrl || p.url)}" alt="" class="provider-gallery-photo" />`)
+    .map((p) => `<img src="${escapeHtmlServer(bestPhotoUrl(p))}" alt="" class="provider-gallery-photo" />`)
     .join("");
 
   res.send(`<!DOCTYPE html>
