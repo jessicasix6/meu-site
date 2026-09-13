@@ -45,7 +45,7 @@ npm start
 | `WHATSAPP_ACCESS_TOKEN` | não | Ver seção WhatsApp abaixo. |
 | `WHATSAPP_PHONE_NUMBER_ID` | não | Ver seção WhatsApp abaixo. |
 | `BRAVE_SEARCH_API_KEY` | não | Chave da [Brave Search API](https://api-dashboard.search.brave.com/register). Sem ela, o agente responde só com o catálogo interno de profissionais (mock) — com ela, também busca na web de verdade pra pedidos fora desse catálogo (terreno, carro, etc.). Tem um limite mensal de segurança no código (`BRAVE_SEARCH_MONTHLY_LIMIT` em `server.js`) pra não estourar orçamento. |
-| `OPENAI_API_KEY` | não | Chave da [OpenAI API](https://platform.openai.com/api-keys), usada só pra melhorar automaticamente as fotos do perfil profissional (pilar 4.12 — modelo `gpt-image-2`). Sem ela, o perfil é criado normalmente, só com a foto como foi enviada. Tem um limite mensal de segurança (`OPENAI_IMAGE_MONTHLY_LIMIT` em `server.js`) pra não estourar orçamento. |
+| `GEMINI_API_KEY` | não | Chave do [Google AI Studio](https://aistudio.google.com/apikey) (Gemini API), usada só pra melhorar automaticamente as fotos do perfil profissional (pilar 4.12 — modelo `gemini-3.1-flash-image`, "Nano Banana"). Tem tier grátis (500 imagens/dia). Sem ela, o perfil é criado normalmente, só com a foto como foi enviada. Tem um limite mensal de segurança (`PHOTO_ENHANCE_MONTHLY_LIMIT` em `server.js`) pra não estourar orçamento. |
 
 ## Integração com WhatsApp
 
@@ -72,7 +72,8 @@ Além do formulário, o agente (`/api/chat`, e por consequência o WhatsApp tamb
 Quem presta serviço pode criar uma página própria (`/prestador/<slug>`), compartilhável fora do site: manda nome, serviço, onde atende, WhatsApp, uma descrição informal do que faz e pelo menos uma foto (formulário "Criar meu perfil", ou pedindo pela barra de busca — "quero criar meu perfil profissional"). O servidor:
 
 - Usa a Claude API pra transformar a descrição informal numa bio curta e profissional (sem inventar fatos que a pessoa não mencionou).
-- Se `OPENAI_API_KEY` estiver configurada, melhora automaticamente cada foto enviada (modelo `gpt-image-2`, edição por instrução — não é só recorte de fundo). Sem a chave, usa a foto como foi enviada.
+- Toda foto recebe um ajuste técnico automático grátis (exposição/contraste/nitidez via `sharp`, sem custo, sem chave). Se `GEMINI_API_KEY` estiver configurada, tenta primeiro a edição por IA generativa (modelo `gemini-3.1-flash-image`/"Nano Banana") antes desse ajuste básico.
+- **Trocar o fundo da foto (opcional, a pessoa marca uma caixinha no formulário — nunca automático):** recorta a pessoa com um modelo de segmentação local (U²-Net portátil, roda 100% no servidor via `onnxruntime-node`, sem chave, sem custo, sem depender de terceiro em tempo de execução) e compõe num fundo em degradê combinando com as cores do site. Modelo em `models/u2netp.onnx`, licença Apache 2.0 — ver [U²-Net](https://github.com/xuebinqin/U-2-Net) (Qin et al., 2020).
 - Fotos ficam em `uploads/providers/<id>/` (fora do git, `.gitignore`d) e são servidas em `/uploads/...`.
 
 ## Ciclo de vida de um pedido
