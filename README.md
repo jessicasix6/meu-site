@@ -46,6 +46,7 @@ npm start
 | `WHATSAPP_PHONE_NUMBER_ID` | não | Ver seção WhatsApp abaixo. |
 | `BRAVE_SEARCH_API_KEY` | não | Chave da [Brave Search API](https://api-dashboard.search.brave.com/register). Sem ela, o agente responde só com o catálogo interno de profissionais (mock) — com ela, também busca na web de verdade pra pedidos fora desse catálogo (terreno, carro, etc.). Tem um limite mensal de segurança no código (`BRAVE_SEARCH_MONTHLY_LIMIT` em `server.js`) pra não estourar orçamento. |
 | `GEMINI_API_KEY` | não | Chave do [Google AI Studio](https://aistudio.google.com/apikey) (Gemini API), usada só pra melhorar automaticamente as fotos do perfil profissional (pilar 4.12 — modelo `gemini-3.1-flash-image`, "Nano Banana"). Tem tier grátis (500 imagens/dia). Sem ela, o perfil é criado normalmente, só com a foto como foi enviada. Tem um limite mensal de segurança (`PHOTO_ENHANCE_MONTHLY_LIMIT` em `server.js`) pra não estourar orçamento. |
+| `GOOGLE_CLIENT_ID` | não | Client ID OAuth do [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (pilar 4.13 — login com Google, opcional). Sem ela, o botão de login simplesmente não aparece — o resto do site (inclusive criar perfil) funciona normalmente sem login. |
 
 ## Integração com WhatsApp
 
@@ -75,6 +76,11 @@ Quem presta serviço pode criar uma página própria (`/prestador/<slug>`), comp
 - Toda foto recebe um ajuste técnico automático grátis (exposição/contraste/nitidez via `sharp`, sem custo, sem chave). Se `GEMINI_API_KEY` estiver configurada, tenta primeiro a edição por IA generativa (modelo `gemini-3.1-flash-image`/"Nano Banana") antes desse ajuste básico.
 - **Trocar o fundo da foto (opcional, a pessoa marca uma caixinha no formulário — nunca automático):** recorta a pessoa com um modelo de segmentação local (U²-Net portátil, roda 100% no servidor via `onnxruntime-node`, sem chave, sem custo, sem depender de terceiro em tempo de execução) e compõe num fundo em degradê combinando com as cores do site. Modelo em `models/u2netp.onnx`, licença Apache 2.0 — ver [U²-Net](https://github.com/xuebinqin/U-2-Net) (Qin et al., 2020).
 - Fotos ficam em `uploads/providers/<id>/` (fora do git, `.gitignore`d) e são servidas em `/uploads/...`.
+- Aparece no ranking/busca do site (não só no próprio link) — perfil sem avaliação ainda mostra selo "novo" e um link direto "Ver perfil".
+
+## Login com Google (opcional)
+
+Botão "Entrar com Google" no menu — só aparece se `GOOGLE_CLIENT_ID` estiver configurada. Login é **opcional**: perfil continua podendo ser criado sem logar (decisão da Jéssica, 2026-09-13), mas quem loga fica dono do próprio perfil (`ownerUserId`), o que é a base pra editar o perfil depois e ver um painel pessoal (ainda não implementado — ver pilar 4.13 em `docs/visao-produto.md`). Sessão em cookie httpOnly com token de sessão aleatório, expira em 30 dias (no navegador **e** no servidor — `google-auth-library` verifica o token do Google no servidor, sem trocar segredo nenhum com o front-end).
 
 ## Ciclo de vida de um pedido
 

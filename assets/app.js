@@ -677,3 +677,83 @@ document.getElementById("hero-ask-link").addEventListener("click", (event) => {
   event.preventDefault();
   bottomSearchInput.focus();
 });
+
+// Login com Google (opcional, pilar 4.13). Sem GOOGLE_CLIENT_ID configurada
+// no servidor, /api/auth/config devolve null e o botão nunca aparece — nada
+// quebra, o resto do site funciona igual antes.
+const googleSigninSlot = document.getElementById("google-signin-slot");
+
+function renderLoggedInUser(user) {
+  googleSigninSlot.innerHTML = `
+    <span class="user-chip">
+      ${user.picture ? `<img src="${escapeHtml(user.picture)}" alt="" />` : ""}
+      ${escapeHtml(user.name)}
+    </span>
+    <button type="button" class="user-logout" id="google-logout-btn">Sair</button>
+  `;
+}
+
+googleSigninSlot.addEventListener("click", (event) => {
+  if (!event.target.closest("#google-logout-btn")) return;
+  fetch("/api/auth/logout", { method: "POST" }).then(() => window.location.reload());
+});
+
+async function handleGoogleCredential(response) {
+  try {
+    const res = await fetch("/api/auth/google", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential: response.credential }),
+    });
+    if (!res.ok) return;
+    const { user } = await res.json();
+    renderLoggedInUser(user);
+  } catch (err) {
+    // Login é só um extra opcional — falha aqui não deve incomodar quem só
+    // quer usar o site sem logar.
+  }
+}
+
+// Só carrega o script da Google (accounts.google.com) quando o login está
+// configurado — sem isso, todo mundo que visita o site faria uma chamada de
+// rede pra Google à toa, mesmo sem essa funcionalidade estar ativa.
+function loadGisScript() {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
+// google.accounts só existe depois do script externo carregar — tenta de
+// novo por um tempo em vez de exigir uma ordem de carregamento exata.
+function initGoogleSignIn(clientId, attemptsLeft) {
+  if (!window.google || !window.google.accounts) {
+    if (attemptsLeft > 0) setTimeout(() => initGoogleSignIn(clientId, attemptsLeft - 1), 150);
+    return;
+  }
+  google.accounts.id.initialize({ client_id: clientId, callback: handleGoogleCredential });
+  google.accounts.id.renderButton(googleSigninSlot, { theme: "outline", size: "medium", locale: "pt-BR" });
+}
+
+fetch("/api/auth/config")
+  .then((res) => res.json())
+  .then(async (config) => {
+    if (!config.googleClientId) return;
+    // Confere se já tinha sessão de uma visita anterior ANTES de montar o
+    // botão de login — sem isso, o botão podia aparecer do lado do nome de
+    // quem já está logado (o GIS não limpa o próprio slot ao renderizar).
+    const meRes = await fetch("/api/auth/me");
+    if (meRes.ok) {
+      const { user } = await meRes.json();
+      renderLoggedInUser(user);
+      return;
+    }
+    await loadGisScript();
+    initGoogleSignIn(config.googleClientId, 20);
+  })
+  .catch(() => {});

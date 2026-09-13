@@ -156,6 +156,18 @@ Esse é o coração diferencial da ideia, mais importante que qualquer integraç
 - **Decisão (2026-09-12, Jéssica):** usar **Gemini (`gemini-3.1-flash-image`)** em vez da OpenAI — não só mais barato, mas resolve o problema real de acesso (sem billing/cartão pro volume esperado). Implementado com o mesmo teto mensal de segurança (`PHOTO_ENHANCE_MONTHLY_LIMIT` em `server.js`, mesmo padrão do `BRAVE_SEARCH_MONTHLY_LIMIT`) — mesmo o tier grátis do Google tendo limite diário próprio (500/dia), o teto do nosso lado evita depender só do limite deles.
 - **Nota técnica:** a Interactions API do Gemini (endpoint usado) foi lançada em 2026, depois do treinamento do Claude — a implementação em `server.js` foi verificada contra a documentação oficial ao vivo (2026-09-12), mas o formato exato do campo de resposta com a imagem pode variar entre versões da API; `enhancePhoto()` tenta algumas variações prováveis e sempre degrada com segurança (devolve a foto original) se não conseguir extrair o resultado. Confirmar o formato de resposta real assim que a chave estiver configurada e um teste real rodar.
 
+### 4.13 Login com Google (contas de verdade)
+
+- **Ideia nova (2026-09-13, Jéssica):** hoje o site não tem login nenhum — qualquer pessoa cria um perfil profissional sem provar quem é, e não tem como voltar depois pra editar o próprio perfil, ver um painel dos pedidos que aceitou, ou reivindicar de volta um perfil já criado. Login com Google resolve isso sem exigir senha pra gerenciar (a pessoa já tem conta Google).
+- **O que isso desbloqueia:**
+  - Editar o próprio perfil depois de criado (hoje é criar-uma-vez-só, sem volta).
+  - Um painel pessoal: pedidos publicados, pedidos aceitos, o próprio perfil.
+  - Atribuir avaliação a uma identidade verificada, não a um nome digitado à mão (reforça o pilar 4.11 contra golpe).
+  - Base necessária pro pilar 4.8 (assinatura premium) — precisa saber *quem* está pagando por *o quê*.
+- **Decisão (2026-09-13, Jéssica): opcional.** Perfil continua podendo ser criado sem login (não trava quem só quer testar rápido); logar é um upgrade — hoje já marca quem é dono de qual perfil, editar/painel ficam pra depois.
+- **Status (2026-09-13): implementado (login básico), com "editar perfil" e "painel pessoal" ainda em aberto.** Botão "Entrar com Google" (Google Identity Services) no menu, só aparece com `GOOGLE_CLIENT_ID` configurada. `google-auth-library` verifica o token no servidor (`/api/auth/google`), sessão em cookie httpOnly com token de sessão aleatório, expirando em 30 dias no navegador **e** no servidor (`/api/auth/me`, `/api/auth/logout`). Perfil criado enquanto logado já grava `ownerUserId` — a base pra editar/painel já existe, só falta a interface pra usar isso.
+- **Em aberto pra próxima etapa:** tela de "editar meu perfil" (hoje é criar-uma-vez-só mesmo pra quem logou) e um painel listando pedidos publicados/aceitos + perfis próprios (`/api/auth/me` já devolve os perfis da pessoa, só falta uma tela pra mostrar isso).
+
 ## 5. Como isso se conecta com o que já existe no site hoje
 
 O site atual (top3profissional.com.br) já tem, em produção:
