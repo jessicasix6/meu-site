@@ -677,3 +677,65 @@ document.getElementById("hero-ask-link").addEventListener("click", (event) => {
   event.preventDefault();
   bottomSearchInput.focus();
 });
+
+// Login com Google (opcional, pilar 4.13). Sem GOOGLE_CLIENT_ID configurada
+// no servidor, /api/auth/config devolve null e o botão nunca aparece — nada
+// quebra, o resto do site funciona igual antes.
+const googleSigninSlot = document.getElementById("google-signin-slot");
+
+function renderLoggedInUser(user) {
+  googleSigninSlot.innerHTML = `
+    <span class="user-chip">
+      ${user.picture ? `<img src="${escapeHtml(user.picture)}" alt="" />` : ""}
+      ${escapeHtml(user.name)}
+    </span>
+    <button type="button" class="user-logout" id="google-logout-btn">Sair</button>
+  `;
+}
+
+googleSigninSlot.addEventListener("click", (event) => {
+  if (!event.target.closest("#google-logout-btn")) return;
+  fetch("/api/auth/logout", { method: "POST" }).then(() => window.location.reload());
+});
+
+async function handleGoogleCredential(response) {
+  try {
+    const res = await fetch("/api/auth/google", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential: response.credential }),
+    });
+    if (!res.ok) return;
+    const { user } = await res.json();
+    renderLoggedInUser(user);
+  } catch (err) {
+    // Login é só um extra opcional — falha aqui não deve incomodar quem só
+    // quer usar o site sem logar.
+  }
+}
+
+// google.accounts só existe depois do script externo carregar (async) —
+// tenta de novo por um tempo em vez de exigir uma ordem de carregamento
+// exata entre os dois scripts.
+function initGoogleSignIn(clientId, attemptsLeft) {
+  if (!window.google || !window.google.accounts) {
+    if (attemptsLeft > 0) setTimeout(() => initGoogleSignIn(clientId, attemptsLeft - 1), 150);
+    return;
+  }
+  google.accounts.id.initialize({ client_id: clientId, callback: handleGoogleCredential });
+  google.accounts.id.renderButton(googleSigninSlot, { theme: "outline", size: "medium", locale: "pt-BR" });
+}
+
+fetch("/api/auth/config")
+  .then((res) => res.json())
+  .then((config) => {
+    if (!config.googleClientId) return;
+    initGoogleSignIn(config.googleClientId, 20);
+    // Se já tinha sessão de uma visita anterior (cookie), mostra logado sem
+    // precisar clicar de novo.
+    return fetch("/api/auth/me").then((res) => (res.ok ? res.json() : null));
+  })
+  .then((data) => {
+    if (data) renderLoggedInUser(data.user);
+  })
+  .catch(() => {});

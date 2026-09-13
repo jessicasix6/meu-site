@@ -710,6 +710,48 @@ test.describe("Top3Profissional - perfil profissional (pilar 4.12)", () => {
   });
 });
 
+test.describe("Top3Profissional - login com Google (pilar 4.13)", () => {
+  test("sem GOOGLE_CLIENT_ID configurada, tudo continua funcionando sem login", async ({ page, request }) => {
+    const config = await (await request.get("/api/auth/config")).json();
+    expect(config.googleClientId).toBeNull();
+
+    const me = await request.get("/api/auth/me");
+    expect(me.status()).toBe(401);
+
+    const googleLogin = await request.post("/api/auth/google", { data: { credential: "qualquer-coisa" } });
+    expect(googleLogin.status()).toBe(503);
+
+    // O botão de login não aparece na página quando não está configurado.
+    await page.goto("/");
+    await expect(page.locator("#google-signin-slot")).toBeEmpty();
+  });
+
+  test("logout funciona (não quebra) mesmo sem sessão nenhuma", async ({ request }) => {
+    const res = await request.post("/api/auth/logout");
+    expect(res.status()).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+  });
+
+  test("/health reporta se o login com Google está configurado", async ({ request }) => {
+    const health = await (await request.get("/health")).json();
+    expect(health.googleLoginConfigured).toBe(false);
+  });
+
+  test("perfil continua sendo criado normalmente sem estar logado (login é opcional)", async ({ request }) => {
+    const res = await request.post("/api/providers", {
+      multipart: {
+        name: "Sem Login Teste",
+        service: "pintor",
+        description: "pinto casas e apartamentos",
+        location: "Belo Horizonte",
+        whatsapp: "31999990000",
+        photos: { name: "foto.png", mimeType: "image/png", buffer: require("fs").readFileSync("assets/icons/icon-192.png") },
+      },
+    });
+    expect(res.status()).toBe(201);
+  });
+});
+
 test.describe("Top3Profissional - infra", () => {
   test("/health responde 200 (usado pelo host pra saber se o processo está de pé)", async ({ request }) => {
     const res = await request.get("/health");

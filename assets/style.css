@@ -123,6 +123,43 @@ a {
   gap: 2rem;
 }
 
+.google-signin-slot {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.user-chip img {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+}
+
+.user-logout {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+  font-family: var(--font-body);
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.user-logout:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
 .site-nav a {
   color: var(--text-dim);
   text-decoration: none;

@@ -1,7 +1,10 @@
 require("dotenv").config();
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 const express = require("express");
+const cookieParser = require("cookie-parser");
+const { OAuth2Client } = require("google-auth-library");
 const multer = require("multer");
 const sharp = require("sharp");
 const ort = require("onnxruntime-node");
@@ -474,8 +477,75 @@ const app = express();
 // necessário pro rate limit por IP abaixo funcionar de verdade.
 app.set("trust proxy", 1);
 app.use(express.json());
+app.use(cookieParser());
 app.use("/uploads", express.static(UPLOADS_DIR));
 app.use(express.static(__dirname));
+
+// Pilar 4.13 — login com Google, opcional (perfil continua podendo ser
+// criado sem login, como já funcionava — logar só desbloqueia editar depois
+// e ver os próprios perfis). Sem GOOGLE_CLIENT_ID configurado, o botão
+// simplesmente não aparece no site; nada quebra.
+const googleClient = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) : null;
+if (!googleClient) {
+  console.warn("GOOGLE_CLIENT_ID não definida — login com Google fica desativado (perfil continua podendo ser criado sem login).");
+}
+
+const USERS = [];
+let nextUserId = 1;
+const SESSIONS = new Map(); // token de sessão -> id do usuário
+const SESSION_COOKIE = "top3_session";
+
+function getCurrentUser(req) {
+  const token = req.cookies && req.cookies[SESSION_COOKIE];
+  const userId = token && SESSIONS.get(token);
+  return userId ? USERS.find((u) => u.id === userId) || null : null;
+}
+
+app.get("/api/auth/config", (req, res) => {
+  res.json({ googleClientId: process.env.GOOGLE_CLIENT_ID || null });
+});
+
+app.post("/api/auth/google", async (req, res) => {
+  if (!googleClient) return res.status(503).json({ error: "login com Google não configurado neste servidor" });
+  const { credential } = req.body || {};
+  if (!credential || typeof credential !== "string") {
+    return res.status(400).json({ error: "credencial ausente" });
+  }
+  try {
+    const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: process.env.GOOGLE_CLIENT_ID });
+    const payload = ticket.getPayload();
+    let user = USERS.find((u) => u.googleId === payload.sub);
+    if (!user) {
+      user = { id: `u${nextUserId++}`, googleId: payload.sub, email: payload.email, name: payload.name, picture: payload.picture };
+      USERS.push(user);
+    }
+    const token = crypto.randomBytes(24).toString("hex");
+    SESSIONS.set(token, user.id);
+    res.cookie(SESSION_COOKIE, token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: req.secure,
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
+    res.json({ user: { name: user.name, email: user.email, picture: user.picture } });
+  } catch (err) {
+    res.status(401).json({ error: "credencial do Google inválida" });
+  }
+});
+
+app.get("/api/auth/me", (req, res) => {
+  const user = getCurrentUser(req);
+  if (!user) return res.status(401).json({ error: "não autenticado" });
+  const providers = PROVIDER_PROFILES.filter((p) => p.ownerUserId === user.id).map((p) => ({ name: p.name, slug: p.slug }));
+  res.json({ user: { name: user.name, email: user.email, picture: user.picture }, providers });
+});
+
+app.post("/api/auth/logout", (req, res) => {
+  const token = req.cookies && req.cookies[SESSION_COOKIE];
+  if (token) SESSIONS.delete(token);
+  res.clearCookie(SESSION_COOKIE);
+  res.json({ ok: true });
+});
 
 async function askAgent(message) {
   if (!anthropic) {
@@ -879,6 +949,7 @@ app.post("/api/providers", (req, res, next) => {
 
     const bio = await writeBio(name.trim(), service.trim(), description.trim());
 
+    const currentUser = getCurrentUser(req);
     const provider = {
       id,
       slug,
@@ -888,6 +959,9 @@ app.post("/api/providers", (req, res, next) => {
       location: location.trim(),
       whatsapp: whatsapp.trim(),
       photos,
+      // Login é opcional (pilar 4.13) — perfil continua podendo ser criado
+      // sem logar, só fica sem dono (ownerUserId null) nesse caso.
+      ownerUserId: currentUser ? currentUser.id : null,
       createdAt: new Date().toISOString(),
     };
     PROVIDER_PROFILES.unshift(provider);
@@ -955,6 +1029,7 @@ app.get("/health", (req, res) => {
     whatsappConfigured: isWhatsAppConfigured(),
     braveSearchConfigured: Boolean(process.env.BRAVE_SEARCH_API_KEY),
     geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
+    googleLoginConfigured: Boolean(googleClient),
     uptimeSeconds: Math.round(process.uptime()),
   });
 });
