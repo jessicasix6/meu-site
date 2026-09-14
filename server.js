@@ -476,23 +476,25 @@ function uploadProviderPhotos(req, res, next) {
   });
 }
 
-// Limite básico por IP contra abuso em /api/providers — o site ainda não
-// tem conta de usuário (protótipo), então isso não é proteção definitiva,
-// mas evita que um script em loop esgote sozinho o teto mensal de IA de
-// imagem/texto que devia sobrar pra gente de verdade usando o site.
-const PROVIDER_CREATE_LIMIT_PER_HOUR = 20;
-const providerCreateCounts = new Map();
-
-function isProviderCreateRateLimited(ip) {
-  const now = Date.now();
-  const entry = providerCreateCounts.get(ip);
-  if (!entry || now - entry.windowStart > 60 * 60 * 1000) {
-    providerCreateCounts.set(ip, { count: 1, windowStart: now });
-    return false;
-  }
-  entry.count++;
-  return entry.count > PROVIDER_CREATE_LIMIT_PER_HOUR;
+// Limite básico por IP contra abuso — o site ainda não tem conta de usuário
+// obrigatória (protótipo), então isso não é proteção definitiva, mas evita
+// que um script em loop esgote sozinho o teto mensal de IA de imagem/texto
+// que devia sobrar pra gente de verdade usando o site. `makeHourlyRateLimiter`
+// é reaproveitado por outros endpoints mais abaixo (grupos de economia).
+function makeHourlyRateLimiter(limitPerHour) {
+  const counts = new Map();
+  return function isRateLimited(ip) {
+    const now = Date.now();
+    const entry = counts.get(ip);
+    if (!entry || now - entry.windowStart > 60 * 60 * 1000) {
+      counts.set(ip, { count: 1, windowStart: now });
+      return false;
+    }
+    entry.count++;
+    return entry.count > limitPerHour;
+  };
 }
+const isProviderCreateRateLimited = makeHourlyRateLimiter(20);
 
 // Escapa texto pra HTML renderizado no servidor (página pública do
 // prestador) — mesma lógica do escapeHtml() de assets/app.js, mas essa
@@ -975,6 +977,237 @@ app.post("/api/requests/:id/rate", (req, res) => {
     return res.status(400).json({ error: "comentário inválido" });
   }
   sendRequestResult(res, rateRequest(req.params.id, rating, comment));
+});
+
+// Grupos de Economia v1 (decisão da Jéssica, 2026-09-14 — ver
+// docs/visao-produto.md pilar 4.14). Motor geral de "gente quer a mesma
+// coisa, o site junta o grupo": compra coletiva, frete compartilhado,
+// viagem, serviço local em grupo, curso/evento — NUNCA assinatura
+// compartilhada (Netflix etc, viola termos de uso de terceiros) e NUNCA
+// retém pagamento (combinação e pagamento acontecem fora do site, por
+// WhatsApp, igual o resto do site já funciona). Ver seção 4.14 pra por que
+// essas duas coisas ficam de fora de propósito.
+const GROUP_CATEGORIES = ["compra", "frete", "viagem", "servico", "curso"];
+const GROUP_CATEGORY_LABELS = {
+  compra: "Compra coletiva",
+  frete: "Frete compartilhado",
+  viagem: "Viagem",
+  servico: "Serviço local em grupo",
+  curso: "Curso/evento",
+};
+const GROUP_TITLE_MAX_LENGTH = 100;
+const GROUP_MIN_TARGET_MEMBERS = 2;
+const GROUP_MAX_TARGET_MEMBERS = 50;
+
+const GROUP_OPPORTUNITIES = [];
+let nextGroupId = 1;
+
+// Log de eventos básico (pilar 4.14) — não tem tela nem API própria ainda;
+// existe só pra já ter dado real acumulando pro dia que formos calcular
+// reputação por comportamento (etapa explicitamente posterior à v1, ver
+// docs/visao-produto.md).
+const GROUP_EVENTS = [];
+function recordGroupEvent(groupId, type) {
+  GROUP_EVENTS.push({ groupId, type, at: new Date().toISOString() });
+}
+
+function validateGroupFields({ category, title, city, targetMembers, estimatedIndividualPrice, deadline, whatsapp }) {
+  const normalizedCategory = typeof category === "string" ? category.trim().toLowerCase() : "";
+  if (!GROUP_CATEGORIES.includes(normalizedCategory)) {
+    return { ok: false, error: `categoria inválida (use: ${GROUP_CATEGORIES.join(", ")})` };
+  }
+  if (!title || typeof title !== "string" || !title.trim()) {
+    return { ok: false, error: "descreva o que o grupo quer conseguir" };
+  }
+  if (title.trim().length > GROUP_TITLE_MAX_LENGTH) {
+    return { ok: false, error: `descrição muito longa (máximo ${GROUP_TITLE_MAX_LENGTH} caracteres)` };
+  }
+  if (!city || typeof city !== "string" || !city.trim()) {
+    return { ok: false, error: "informe a cidade/bairro" };
+  }
+  if (city.trim().length > REQUEST_LOCATION_MAX_LENGTH) {
+    return { ok: false, error: `cidade/bairro muito longo (máximo ${REQUEST_LOCATION_MAX_LENGTH} caracteres)` };
+  }
+  const targetNum = Number(targetMembers);
+  if (!Number.isInteger(targetNum) || targetNum < GROUP_MIN_TARGET_MEMBERS || targetNum > GROUP_MAX_TARGET_MEMBERS) {
+    return {
+      ok: false,
+      error: `número de participantes precisa ser um inteiro entre ${GROUP_MIN_TARGET_MEMBERS} e ${GROUP_MAX_TARGET_MEMBERS}`,
+    };
+  }
+  let priceNum = null;
+  if (estimatedIndividualPrice !== undefined && estimatedIndividualPrice !== null && estimatedIndividualPrice !== "") {
+    priceNum = Number(estimatedIndividualPrice);
+    if (!Number.isFinite(priceNum) || priceNum < 0) {
+      return { ok: false, error: "valor estimado inválido" };
+    }
+  }
+  if (deadline !== undefined && deadline !== null && typeof deadline !== "string") {
+    return { ok: false, error: "prazo inválido" };
+  }
+  if (!whatsapp || typeof whatsapp !== "string" || !whatsapp.trim()) {
+    return { ok: false, error: "informe um WhatsApp pra contato" };
+  }
+  const normalizedWhatsapp = whatsapp.trim();
+  if (normalizedWhatsapp.length > REQUEST_WHATSAPP_MAX_LENGTH) {
+    return { ok: false, error: `WhatsApp muito longo (máximo ${REQUEST_WHATSAPP_MAX_LENGTH} caracteres)` };
+  }
+  return {
+    ok: true,
+    category: normalizedCategory,
+    title: title.trim(),
+    city: city.trim(),
+    targetMembers: targetNum,
+    estimatedIndividualPrice: priceNum,
+    deadline: (typeof deadline === "string" && deadline.trim().slice(0, 40)) || null,
+    whatsapp: normalizedWhatsapp,
+  };
+}
+
+// Mesma janela de 1h por IP já usada em /api/providers (makeHourlyRateLimiter
+// acima) — reduz o mesmo tipo de risco (fraude/spam) que a Jéssica apontou
+// pra esse recurso, sem reinventar a lógica de rate limit.
+const isGroupCreateRateLimited = makeHourlyRateLimiter(20);
+const isGroupJoinRateLimited = makeHourlyRateLimiter(40);
+
+// Visão resumida (sem contato de ninguém) pra listagem pública — usada tanto
+// em GET /api/groups quanto dentro da resposta de criar/entrar num grupo.
+function groupSummary(group) {
+  return {
+    id: group.id,
+    category: group.category,
+    categoryLabel: GROUP_CATEGORY_LABELS[group.category],
+    title: group.title,
+    city: group.city,
+    targetMembers: group.targetMembers,
+    currentMembers: group.members.length,
+    estimatedIndividualPrice: group.estimatedIndividualPrice,
+    deadline: group.deadline,
+    status: group.status,
+    createdAt: group.createdAt,
+  };
+}
+
+app.get("/api/groups", (req, res) => {
+  const categoryFilter = typeof req.query.category === "string" ? req.query.category.trim().toLowerCase() : "";
+  // "encerrado" (grupo esvaziado, ver /leave) não tem nada útil pra mostrar
+  // numa listagem de "entre nesse grupo" — fica de fora daqui, mas continua
+  // consultável direto por GET /api/groups/:id.
+  const pool = GROUP_OPPORTUNITIES.filter((g) => g.status !== "encerrado" && (!categoryFilter || g.category === categoryFilter));
+  res.json({ groups: pool.map(groupSummary) });
+});
+
+// Contato só aparece aqui (na página do grupo específico), nunca na
+// listagem geral — e só o do criador enquanto o grupo ainda está aberto
+// (pra quem tem dúvida poder perguntar antes de entrar); a lista completa de
+// contatos só libera quando o grupo fecha (todo mundo que entrou já sabia
+// que isso ia acontecer ao entrar — mesmo consentimento implícito que já
+// existe hoje quando alguém aceita um pedido do quadro geral).
+app.get("/api/groups/:id", (req, res) => {
+  const group = GROUP_OPPORTUNITIES.find((g) => g.id === req.params.id);
+  if (!group) return res.status(404).json({ error: "grupo não encontrado" });
+  // "encerrado" pode ter ficado sem ninguém (todo mundo saiu) — sem membro
+  // nenhum pra mostrar contato nesse caso.
+  const visibleMembers =
+    group.status === "completo"
+      ? group.members.map((m) => ({ name: m.name, whatsapp: m.whatsapp }))
+      : group.members.length > 0
+        ? [{ name: group.members[0].name, whatsapp: group.members[0].whatsapp }]
+        : [];
+  res.json({ ...groupSummary(group), members: visibleMembers });
+});
+
+app.post("/api/groups", (req, res) => {
+  if (isGroupCreateRateLimited(req.ip)) {
+    return res.status(429).json({ error: "muitos grupos criados recentemente a partir daqui — tente de novo mais tarde" });
+  }
+  const fields = validateGroupFields(req.body || {});
+  if (!fields.ok) {
+    return res.status(400).json({ error: fields.error });
+  }
+  const { name } = req.body || {};
+  const group = {
+    id: `g${nextGroupId++}`,
+    category: fields.category,
+    title: fields.title,
+    city: fields.city,
+    targetMembers: fields.targetMembers,
+    estimatedIndividualPrice: fields.estimatedIndividualPrice,
+    deadline: fields.deadline,
+    status: "aberto",
+    members: [{ whatsapp: fields.whatsapp, name: (typeof name === "string" && name.trim().slice(0, 60)) || "Quem criou o grupo", joinedAt: new Date().toISOString() }],
+    createdAt: new Date().toISOString(),
+  };
+  // Grupo com meta de 2 (o mínimo) já nasce completo com o próprio criador —
+  // caso de borda real (ex: "só preciso de mais 1 pessoa" com target=2).
+  if (group.members.length >= group.targetMembers) group.status = "completo";
+  GROUP_OPPORTUNITIES.unshift(group);
+  recordGroupEvent(group.id, "created");
+  if (group.status === "completo") recordGroupEvent(group.id, "completed");
+  res.status(201).json(groupSummary(group));
+});
+
+app.post("/api/groups/:id/join", (req, res) => {
+  if (isGroupJoinRateLimited(req.ip)) {
+    return res.status(429).json({ error: "muitas entradas em grupo recentemente a partir daqui — tente de novo mais tarde" });
+  }
+  const group = GROUP_OPPORTUNITIES.find((g) => g.id === req.params.id);
+  if (!group) return res.status(404).json({ error: "grupo não encontrado" });
+  if (group.status !== "aberto") {
+    return res.status(409).json({ error: group.status === "completo" ? "esse grupo já está completo" : "esse grupo já foi encerrado" });
+  }
+
+  const { whatsapp, name } = req.body || {};
+  if (!whatsapp || typeof whatsapp !== "string" || !whatsapp.trim()) {
+    return res.status(400).json({ error: "informe um WhatsApp pra contato" });
+  }
+  const normalizedWhatsapp = whatsapp.trim();
+  if (normalizedWhatsapp.length > REQUEST_WHATSAPP_MAX_LENGTH) {
+    return res.status(400).json({ error: `WhatsApp muito longo (máximo ${REQUEST_WHATSAPP_MAX_LENGTH} caracteres)` });
+  }
+  if (group.members.some((m) => m.whatsapp === normalizedWhatsapp)) {
+    return res.status(409).json({ error: "esse WhatsApp já está nesse grupo" });
+  }
+
+  group.members.push({
+    whatsapp: normalizedWhatsapp,
+    name: (typeof name === "string" && name.trim().slice(0, 60)) || "Participante",
+    joinedAt: new Date().toISOString(),
+  });
+  recordGroupEvent(group.id, "joined");
+  if (group.members.length >= group.targetMembers) {
+    group.status = "completo";
+    recordGroupEvent(group.id, "completed");
+  }
+  res.json(groupSummary(group));
+});
+
+// "Sair antes de fechar" (escopo v1 travado pela Jéssica, 2026-09-14) — só
+// funciona enquanto o grupo ainda está "aberto"; depois de "completo" não dá
+// pra sair por aqui (v1 não lida com reabrir vaga de grupo já fechado).
+// Grupo que fica sem ninguém vira "encerrado" (terceiro status do escopo).
+app.post("/api/groups/:id/leave", (req, res) => {
+  const group = GROUP_OPPORTUNITIES.find((g) => g.id === req.params.id);
+  if (!group) return res.status(404).json({ error: "grupo não encontrado" });
+  if (group.status !== "aberto") {
+    return res.status(409).json({ error: "só dá pra sair de um grupo que ainda está se formando" });
+  }
+  const { whatsapp } = req.body || {};
+  if (!whatsapp || typeof whatsapp !== "string" || !whatsapp.trim()) {
+    return res.status(400).json({ error: "informe o WhatsApp que você usou pra entrar" });
+  }
+  const normalizedWhatsapp = whatsapp.trim();
+  const memberIndex = group.members.findIndex((m) => m.whatsapp === normalizedWhatsapp);
+  if (memberIndex === -1) {
+    return res.status(404).json({ error: "esse WhatsApp não está nesse grupo" });
+  }
+  group.members.splice(memberIndex, 1);
+  recordGroupEvent(group.id, "left");
+  if (group.members.length === 0) {
+    group.status = "encerrado";
+    recordGroupEvent(group.id, "closed");
+  }
+  res.json(groupSummary(group));
 });
 
 const PROVIDER_NAME_MAX_LENGTH = 60;

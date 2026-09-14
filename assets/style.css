@@ -527,7 +527,8 @@ a {
 }
 
 .rate-form select,
-.rate-form input[type="text"] {
+.rate-form input[type="text"],
+.rate-form input[type="tel"] {
   background: var(--bg-raised);
   color: var(--text);
   border: 1px solid var(--border-strong);
@@ -1309,6 +1310,55 @@ a {
   display: flex;
   gap: 0.6rem;
   margin-bottom: 1.25rem;
+}
+
+/* grupos de economia */
+
+.groups-section {
+  padding: 4rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.groups-subtitle {
+  color: var(--text-dim);
+  font-size: 0.92rem;
+  max-width: 620px;
+  margin-top: 0.5rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.55;
+}
+
+.group-category-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.groups-list {
+  list-style: none;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  display: grid;
+  gap: 0.7rem;
+  max-width: 720px;
+}
+
+.group-leave-link {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: var(--font-body);
+  text-decoration: underline;
+}
+
+.group-leave-link:hover {
+  color: var(--text-dim);
 }
 
 .ride-form {
