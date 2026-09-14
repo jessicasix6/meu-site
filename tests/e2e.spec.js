@@ -816,6 +816,122 @@ test.describe("Top3Profissional - sinal de demanda não publicada (pilar 4.2)", 
   });
 });
 
+test.describe("Top3Profissional - grupos de economia (pilar 4.14)", () => {
+  // Título único por teste — GROUP_OPPORTUNITIES é estado global
+  // compartilhado por toda a suíte, igual DEMAND_SIGNALS.
+  function uniqueTitle(prefix) {
+    return `${prefix} ${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  test("categoria fora do escopo v1 (ex: assinatura/Netflix) é rejeitada", async ({ request }) => {
+    const res = await request.post("/api/groups", {
+      data: { category: "assinatura", title: uniqueTitle("Netflix"), city: "BH", targetMembers: 3, whatsapp: "31900000001" },
+    });
+    expect(res.status()).toBe(400);
+    expect((await res.json()).error).toMatch(/categoria inválida/);
+  });
+
+  test("criar grupo, entrar até completar, e o contato de todo mundo só aparece quando completo", async ({ request }) => {
+    const title = uniqueTitle("Lavagem de caixa d'água");
+    const create = await request.post("/api/groups", {
+      data: { category: "servico", title, city: "Centro, BH", targetMembers: 3, estimatedIndividualPrice: 55, whatsapp: "31900000010", name: "Ana" },
+    });
+    expect(create.status()).toBe(201);
+    const group = await create.json();
+    expect(group.currentMembers).toBe(1);
+    expect(group.status).toBe("aberto");
+
+    // Enquanto aberto, só o contato de quem criou aparece no detalhe.
+    const detailOpen = await (await request.get(`/api/groups/${group.id}`)).json();
+    expect(detailOpen.members).toHaveLength(1);
+    expect(detailOpen.members[0].whatsapp).toBe("31900000010");
+
+    await request.post(`/api/groups/${group.id}/join`, { data: { whatsapp: "31900000011", name: "Bia" } });
+    const complete = await request.post(`/api/groups/${group.id}/join`, { data: { whatsapp: "31900000012", name: "Caio" } });
+    expect((await complete.json()).status).toBe("completo");
+
+    const detailComplete = await (await request.get(`/api/groups/${group.id}`)).json();
+    expect(detailComplete.members).toHaveLength(3);
+    expect(detailComplete.members.map((m) => m.whatsapp).sort()).toEqual(["31900000010", "31900000011", "31900000012"].sort());
+  });
+
+  test("mesmo WhatsApp não entra duas vezes no mesmo grupo", async ({ request }) => {
+    const create = await request.post("/api/groups", {
+      data: { category: "compra", title: uniqueTitle("Compra coletiva"), city: "BH", targetMembers: 5, whatsapp: "31900000020" },
+    });
+    const group = await create.json();
+    const dup = await request.post(`/api/groups/${group.id}/join`, { data: { whatsapp: "31900000020" } });
+    expect(dup.status()).toBe(409);
+  });
+
+  test("não dá pra entrar num grupo já completo", async ({ request }) => {
+    const create = await request.post("/api/groups", {
+      data: { category: "curso", title: uniqueTitle("Curso"), city: "BH", targetMembers: 2, whatsapp: "31900000030" },
+    });
+    const group = await create.json();
+    await request.post(`/api/groups/${group.id}/join`, { data: { whatsapp: "31900000031" } });
+    const tooLate = await request.post(`/api/groups/${group.id}/join`, { data: { whatsapp: "31900000032" } });
+    expect(tooLate.status()).toBe(409);
+  });
+
+  test("sair antes de fechar libera a vaga; grupo que esvazia vira 'encerrado' e some da listagem", async ({ request }) => {
+    const title = uniqueTitle("Frete compartilhado");
+    const create = await request.post("/api/groups", {
+      data: { category: "frete", title, city: "BH", targetMembers: 3, whatsapp: "31900000040" },
+    });
+    const group = await create.json();
+
+    const leave = await request.post(`/api/groups/${group.id}/leave`, { data: { whatsapp: "31900000040" } });
+    const leftGroup = await leave.json();
+    expect(leftGroup.currentMembers).toBe(0);
+    expect(leftGroup.status).toBe("encerrado");
+
+    const list = await (await request.get("/api/groups")).json();
+    expect(list.groups.find((g) => g.id === group.id)).toBeUndefined();
+  });
+
+  test("não dá pra sair de um grupo já completo", async ({ request }) => {
+    const create = await request.post("/api/groups", {
+      data: { category: "viagem", title: uniqueTitle("Viagem"), city: "BH", targetMembers: 2, whatsapp: "31900000050" },
+    });
+    const group = await create.json();
+    await request.post(`/api/groups/${group.id}/join`, { data: { whatsapp: "31900000051" } });
+    const leave = await request.post(`/api/groups/${group.id}/leave`, { data: { whatsapp: "31900000050" } });
+    expect(leave.status()).toBe(409);
+  });
+
+  test("filtro por categoria só devolve grupos daquela categoria", async ({ request }) => {
+    const freteTitle = uniqueTitle("Frete filtro");
+    await request.post("/api/groups", { data: { category: "frete", title: freteTitle, city: "BH", targetMembers: 4, whatsapp: "31900000060" } });
+    const list = await (await request.get("/api/groups?category=frete")).json();
+    expect(list.groups.every((g) => g.category === "frete")).toBe(true);
+    expect(list.groups.some((g) => g.title === freteTitle)).toBe(true);
+  });
+
+  test("fluxo completo pela interface: criar grupo, aparece na lista, participar até completar", async ({ page }) => {
+    const title = uniqueTitle("Lavagem de caixa d'água");
+    await page.goto("/#grupos");
+
+    await page.locator("#group-create-toggle").click();
+    await page.locator("#group-title").fill(title);
+    await page.locator("#group-category").selectOption("servico");
+    await page.locator("#group-city").fill("Centro, BH");
+    await page.locator("#group-target").fill("2");
+    await page.locator("#group-whatsapp").fill("31900000070");
+    await page.locator("#group-form button[type=submit]").click();
+
+    await expect(page.locator("#group-status")).toHaveText("Grupo criado!");
+    const card = page.locator(".group-card", { hasText: title });
+    await expect(card).toContainText("1 de 2 vagas ocupadas");
+
+    await card.locator(".group-join-btn").click();
+    await card.locator('input[name="whatsapp"]').fill("31900000071");
+    await card.locator('.group-action-form button[type=submit]').click();
+
+    await expect(card).toContainText("Completo ✓");
+  });
+});
+
 test.describe("Top3Profissional - login com Google (pilar 4.13)", () => {
   test("sem GOOGLE_CLIENT_ID configurada, tudo continua funcionando sem login", async ({ page, request }) => {
     const config = await (await request.get("/api/auth/config")).json();

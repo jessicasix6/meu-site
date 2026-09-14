@@ -43,6 +43,7 @@
           <a href="#top3">Profissionais</a>
           <a href="#bottom-search-input" id="nav-ask-link">Perguntar</a>
           <a href="#corridas">Corridas</a>
+          <a href="#grupos">Grupos</a>
           <a href="#publicar">Publicar</a>
           <a href="#criar-perfil">Criar meu perfil</a>
           <a href="#beneficios">Benefícios</a>
@@ -146,6 +147,68 @@
           <button type="submit">Buscar</button>
         </form>
         <div id="ride-results" class="ride-results" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section id="grupos" class="groups-section">
+      <div class="container">
+        <p class="eyebrow">Junte-se a quem quer a mesma coisa</p>
+        <h2 class="section-title">Grupos de economia</h2>
+        <p class="groups-subtitle">
+          Compra coletiva, frete compartilhado, viagem, serviço em grupo ou curso — quanto mais gente, menor o custo por pessoa. Combinação e pagamento acontecem direto entre vocês, fora do site.
+        </p>
+        <div class="group-category-filter" role="tablist" aria-label="Categoria de grupo">
+          <button type="button" class="mode-btn group-category-btn is-active" data-category="">Todos</button>
+          <button type="button" class="mode-btn group-category-btn" data-category="compra">Compra</button>
+          <button type="button" class="mode-btn group-category-btn" data-category="frete">Frete</button>
+          <button type="button" class="mode-btn group-category-btn" data-category="viagem">Viagem</button>
+          <button type="button" class="mode-btn group-category-btn" data-category="servico">Serviço</button>
+          <button type="button" class="mode-btn group-category-btn" data-category="curso">Curso</button>
+        </div>
+        <ul id="groups-list" class="groups-list" aria-live="polite"></ul>
+        <button type="button" id="group-create-toggle" class="cta-secondary">+ Criar um grupo</button>
+        <form id="group-form" class="post-form" hidden>
+          <div class="post-field post-field--wide">
+            <label for="group-title">O que o grupo quer conseguir</label>
+            <input id="group-title" name="title" type="text" placeholder="ex: Lavagem de caixa d'água" required />
+          </div>
+          <div class="post-field">
+            <label for="group-category">Categoria</label>
+            <select id="group-category" name="category">
+              <option value="compra">compra coletiva</option>
+              <option value="frete">frete compartilhado</option>
+              <option value="viagem">viagem</option>
+              <option value="servico" selected>serviço local em grupo</option>
+              <option value="curso">curso/evento</option>
+            </select>
+          </div>
+          <div class="post-field">
+            <label for="group-city">Cidade/bairro</label>
+            <input id="group-city" name="city" type="text" placeholder="ex: Centro, Belo Horizonte" required />
+          </div>
+          <div class="post-field">
+            <label for="group-target">Quantas pessoas no total</label>
+            <input id="group-target" name="targetMembers" type="number" min="2" max="50" step="1" placeholder="ex: 4" required />
+          </div>
+          <div class="post-field">
+            <label for="group-price">Valor estimado por pessoa (R$, opcional)</label>
+            <input id="group-price" name="estimatedIndividualPrice" type="number" min="0" step="1" placeholder="ex: 55" />
+          </div>
+          <div class="post-field">
+            <label for="group-deadline">Prazo (opcional)</label>
+            <input id="group-deadline" name="deadline" type="text" placeholder="ex: até sexta-feira" />
+          </div>
+          <div class="post-field">
+            <label for="group-whatsapp">Seu WhatsApp</label>
+            <input id="group-whatsapp" name="whatsapp" type="tel" placeholder="ex: (31) 99999-0000" required />
+          </div>
+          <div class="post-field">
+            <label for="group-name">Seu nome (opcional)</label>
+            <input id="group-name" name="name" type="text" placeholder="ex: João" />
+          </div>
+          <button type="submit" class="post-submit">Criar grupo</button>
+        </form>
+        <p id="group-status" class="post-status" aria-live="polite"></p>
       </div>
     </section>
 

@@ -537,6 +537,169 @@ rideResults.addEventListener("click", (event) => {
   document.getElementById("post-price").focus();
 });
 
+// Grupos de Economia v1 (pilar 4.14) — "gente quer a mesma coisa, o site
+// junta o grupo": compra coletiva, frete, viagem, serviço em grupo, curso.
+// De propósito NUNCA assinatura compartilhada nem retenção de pagamento —
+// ver docs/visao-produto.md seção 4.14 pra entender por que ficam de fora.
+const GROUP_CATEGORY_ICONS = {
+  compra: "🛒",
+  frete: "📦",
+  viagem: "🧳",
+  servico: "🧰",
+  curso: "🎓",
+};
+
+const groupsList = document.getElementById("groups-list");
+const groupCategoryButtons = document.querySelectorAll(".group-category-btn");
+const groupCreateToggle = document.getElementById("group-create-toggle");
+const groupForm = document.getElementById("group-form");
+const groupStatus = document.getElementById("group-status");
+let currentGroupCategory = "";
+
+function renderGroupsList(groups) {
+  if (groups.length === 0) {
+    groupsList.innerHTML = '<li class="requests-error">Nenhum grupo aberto nessa categoria ainda — crie o primeiro.</li>';
+    return;
+  }
+  groupsList.innerHTML = groups
+    .map((g) => {
+      const vagas = g.targetMembers - g.currentMembers;
+      const vagasText = g.status === "completo" ? "grupo completo" : vagas === 1 ? "falta 1 pessoa" : `faltam ${vagas} pessoas`;
+      const priceText = typeof g.estimatedIndividualPrice === "number" ? `R$ ${g.estimatedIndividualPrice} por pessoa (estimado)` : "";
+      const deadlineText = g.deadline ? `até ${escapeHtml(g.deadline)}` : "";
+      const actionArea =
+        g.status === "completo"
+          ? '<span class="request-provider">Completo ✓</span>'
+          : `<button type="button" class="accept-btn group-join-btn" data-group-id="${escapeHtml(g.id)}">Participar</button>
+             <button type="button" class="group-leave-link" data-group-id="${escapeHtml(g.id)}">já participa? sair</button>`;
+      return `
+        <li class="request-item group-card" data-group-id="${escapeHtml(g.id)}">
+          <span class="request-icon">${GROUP_CATEGORY_ICONS[g.category] || "👥"}</span>
+          <span class="request-info">
+            <strong>${escapeHtml(g.title)}</strong>
+            <br />
+            <span class="request-meta">${escapeHtml(g.city)} · ${g.currentMembers} de ${g.targetMembers} vagas ocupadas · ${vagasText}</span>
+            <br />
+            <span class="request-meta">${[priceText, deadlineText].filter(Boolean).join(" · ")}</span>
+          </span>
+          <span class="request-action group-action">${actionArea}</span>
+        </li>`;
+    })
+    .join("");
+}
+
+async function loadGroups() {
+  try {
+    const url = currentGroupCategory ? `/api/groups?category=${encodeURIComponent(currentGroupCategory)}` : "/api/groups";
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const { groups } = await res.json();
+    renderGroupsList(groups);
+  } catch (err) {
+    groupsList.innerHTML = '<li class="groups-empty">Não consegui carregar os grupos agora.</li>';
+  }
+}
+
+groupCategoryButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    currentGroupCategory = btn.dataset.category;
+    groupCategoryButtons.forEach((b) => b.classList.toggle("is-active", b === btn));
+    loadGroups();
+  });
+});
+
+groupsList.addEventListener("click", (event) => {
+  const joinBtn = event.target.closest(".group-join-btn");
+  const leaveBtn = event.target.closest(".group-leave-link");
+  const btn = joinBtn || leaveBtn;
+  if (!btn) return;
+  const card = btn.closest(".group-card");
+  const groupId = btn.dataset.groupId;
+  const action = joinBtn ? "join" : "leave";
+  // Formulário mínimo, só aparece quando a pessoa realmente decide agir —
+  // sem abrir modal nem sair da lista (ver princípios de UI/UX da seção 10).
+  card.querySelector(".group-action").innerHTML = `
+    <form class="rate-form group-action-form" data-action="${action}">
+      <input type="tel" name="whatsapp" placeholder="Seu WhatsApp" required />
+      ${action === "join" ? '<input type="text" name="name" placeholder="Seu nome (opcional)" />' : ""}
+      <button type="submit">${action === "join" ? "Confirmar" : "Sair"}</button>
+    </form>
+  `;
+  card.querySelector(".group-action-form input[name=whatsapp]").focus();
+  card.querySelector(".group-action-form").dataset.groupId = groupId;
+});
+
+groupsList.addEventListener("submit", async (event) => {
+  const form = event.target.closest(".group-action-form");
+  if (!form) return;
+  event.preventDefault();
+  const groupId = form.dataset.groupId;
+  const action = form.dataset.action;
+  const data = new FormData(form);
+  const submitBtn = form.querySelector("button[type=submit]");
+  submitBtn.disabled = true;
+  try {
+    const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}/${action}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ whatsapp: data.get("whatsapp"), name: data.get("name") }),
+    });
+    const result = await res.json();
+    if (!res.ok) {
+      form.insertAdjacentHTML(
+        "afterend",
+        `<p class="post-status post-status--error">${escapeHtml(result.error || "Não consegui completar a ação.")}</p>`
+      );
+      submitBtn.disabled = false;
+      return;
+    }
+    await loadGroups();
+  } catch (err) {
+    form.insertAdjacentHTML("afterend", '<p class="post-status post-status--error">Falha de conexão. Tente de novo.</p>');
+    submitBtn.disabled = false;
+  }
+});
+
+groupCreateToggle.addEventListener("click", () => {
+  groupForm.hidden = !groupForm.hidden;
+  if (!groupForm.hidden) document.getElementById("group-title").focus();
+});
+
+groupForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const data = new FormData(groupForm);
+  const submitBtn = groupForm.querySelector("button[type=submit]");
+  groupStatus.textContent = "criando grupo…";
+  groupStatus.className = "post-status";
+  submitBtn.disabled = true;
+
+  try {
+    const res = await fetch("/api/groups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(Object.fromEntries(data)),
+    });
+    const result = await res.json();
+    if (!res.ok) {
+      groupStatus.textContent = result.error || "Não consegui criar o grupo.";
+      groupStatus.className = "post-status post-status--error";
+      return;
+    }
+    groupStatus.textContent = "Grupo criado!";
+    groupStatus.className = "post-status post-status--ok";
+    groupForm.reset();
+    groupForm.hidden = true;
+    await loadGroups();
+  } catch (err) {
+    groupStatus.textContent = "Falha de conexão. Tente de novo.";
+    groupStatus.className = "post-status post-status--error";
+  } finally {
+    submitBtn.disabled = false;
+  }
+});
+
+loadGroups();
+
 const postForm = document.getElementById("post-form");
 const postStatus = document.getElementById("post-status");
 const publishInterestLink = document.getElementById("publish-interest-link");
