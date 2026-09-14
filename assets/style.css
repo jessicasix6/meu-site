@@ -1305,6 +1305,12 @@ a {
   line-height: 1.55;
 }
 
+.ride-type-toggle {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+}
+
 .ride-form {
   display: flex;
   align-items: center;

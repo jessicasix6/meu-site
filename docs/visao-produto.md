@@ -83,6 +83,7 @@ Esse é o coração diferencial da ideia, mais importante que qualquer integraç
 - Pensado pra situações reais como: pessoa precisando de uma corrida, farmácia sem motoboy disponível, alguém oferecendo carona.
 - Interface dedicada de corrida/carona compartilhada: a pessoa só informa de onde → pra onde, e vê as opções disponíveis (carona de alguém, moto/motoboy, ônibus, etc.).
 - Já existe uma primeira versão disso no site hoje (quadro de pedidos tipo "corrida"/"entrega" com aceitar) — a visão é expandir e dar uma cara própria de mini-app pra esse fluxo especificamente, incluindo a possibilidade de simular uma corrida mesmo que ela já exista publicada, e de farmácias/comércios postarem demanda de entregador ali junto com pessoas comuns.
+- **Status (2026-09-14): mini-app "de → pra" agora cobre corrida/carona E entrega, com um alternador (evita duplicar a seção inteira, ver princípios de UI/UX na seção 10).** Antes, a busca "de → pra" só encontrava pedidos tipo "corrida" — o cenário explícito do exemplo acima (farmácia sem motoboy) nunca aparecia nessa busca, mesmo já existindo no quadro de pedidos geral. Corrigido: alternador "Corrida/carona" / "Entrega" no topo do mini-app, filtra e publica no tipo certo. "Simular uma corrida mesmo que já exista publicada" já funcionava (botão "Publicar" sempre aparece, junto com os resultados existentes, não em vez deles) — confirmado, sem mudança necessária.
 
 ### 4.6 Integração com WhatsApp — o site "dentro" do chat
 

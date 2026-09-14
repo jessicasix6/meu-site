@@ -171,6 +171,33 @@ test.describe("Top3Profissional - fluxo básico", () => {
     await expect(page.locator("#post-title")).toHaveValue("Barreiro → Pampulha");
   });
 
+  test("módulo de corridas: alternar pra 'Entrega' acha pedido de entrega existente (não corrida)", async ({ page }) => {
+    await page.goto("/");
+    await page.locator('.ride-type-btn[data-ride-type="entrega"]').click();
+    await page.locator("#ride-from").fill("Farmácia Popular");
+    await page.locator("#ride-to").fill("Ipês");
+    await page.locator("#ride-form button[type=submit]").click();
+
+    await expect(page.locator(".ride-match").first()).toContainText("Farmácia Popular");
+    await page.locator("#ride-publish-btn").click();
+    // Publicar a partir do modo "Entrega" tem que preencher o tipo certo,
+    // não sempre "corrida" (achado ao expandir o pilar 4.5 pra cobrir
+    // farmácia/comércio postando entregador, não só corrida de passageiro).
+    await expect(page.locator("#post-type")).toHaveValue("entrega");
+  });
+
+  test("módulo de corridas: 'Entrega' não mistura resultado de 'Corrida' pro mesmo trajeto", async ({ page }) => {
+    await page.goto("/");
+    await page.locator('.ride-type-btn[data-ride-type="entrega"]').click();
+    await page.locator("#ride-from").fill("Rua Bahia");
+    await page.locator("#ride-to").fill("Aeroporto");
+    await page.locator("#ride-form button[type=submit]").click();
+
+    // "Rua Bahia → Aeroporto de Confins" é tipo "corrida" no mock — buscando
+    // no modo "Entrega" não deve encontrar esse resultado.
+    await expect(page.locator(".ride-empty")).toBeVisible();
+  });
+
   test("publicar pedido com categoria livre (não só corrida/entrega/profissional)", async ({ page, request }) => {
     const res = await request.post("/api/requests", {
       data: { type: "Terreno", title: "terreno barato em Contagem", price: 50000, whatsapp: "31999990000", location: "Contagem" },
