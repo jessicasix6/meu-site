@@ -485,6 +485,12 @@ function uploadProviderPhotos(req, res, next) {
 function makeHourlyRateLimiter(limitPerHour) {
   const counts = new Map();
   return function isRateLimited(ip) {
+    // Só desativa com a env var explícita, setada só pelo servidor isolado
+    // de teste do Playwright (ver playwright.config.js) — nunca em produção.
+    // Sem isso, a suíte de testes (que cria muitas contas/grupos em sequência
+    // pra cobrir as regras de negócio) esbarra nos mesmos limites pensados
+    // pra tráfego de abuso real.
+    if (process.env.DISABLE_RATE_LIMITS === "1") return false;
     const now = Date.now();
     const entry = counts.get(ip);
     if (!entry || now - entry.windowStart > 60 * 60 * 1000) {
@@ -568,6 +574,11 @@ function startSession(req, res, user) {
 // reputacaoScore numérico (interno, task-004).
 function publicUserFields(user) {
   return {
+    // id nunca foi sensível — já é exposto publicamente em GET
+    // /api/groups/:id (members[].userId); sem ele aqui, o front-end não
+    // teria como saber "esse membro do grupo sou eu" pra montar o payload
+    // de avaliação/denúncia ou esconder o próprio card na lista (task-004).
+    id: user.id,
     name: user.name,
     email: user.email,
     picture: user.picture,
@@ -1042,8 +1053,19 @@ const SORTERS = {
 // do próprio link, o que não faz sentido (a busca é o principal ponto de
 // entrada do site). Ainda não têm avaliação/preço/distância de verdade
 // (fica null, tratado pelo sort acima e pelo front-end como "novo").
+// Reputação abaixo do limiar mais severo (task-004) esconde o perfil de
+// quem publicou — some do ranking, da busca por serviço, e a própria página
+// devolve 404 (ver GET /prestador/:slug). Sem dono (ownerUserId null,
+// perfil criado sem login) nunca fica suspenso por essa regra — não tem
+// conta nenhuma pra carregar reputação.
+function isOwnerSuspended(ownerUserId) {
+  if (!ownerUserId) return false;
+  const owner = USERS.find((u) => u.id === ownerUserId);
+  return owner ? owner.status === "suspenso" : false;
+}
+
 function providerProfilesForRanking() {
-  return PROVIDER_PROFILES.map((p) => ({
+  return PROVIDER_PROFILES.filter((p) => !isOwnerSuspended(p.ownerUserId)).map((p) => ({
     name: p.name,
     service: p.service,
     city: p.location,
@@ -1507,16 +1529,32 @@ app.get("/api/groups", (req, res) => {
 // libera quando o grupo fecha (todo mundo que entrou já sabia que isso ia
 // acontecer ao entrar — mesmo consentimento implícito que já existe hoje
 // quando alguém aceita um pedido do quadro geral).
+// userId + média/total de avaliação (task-004) só entram quando o membro
+// tem conta (participou logado) — sem isso o front-end não teria como
+// montar o botão "Avaliar" (precisa do id de quem vai ser avaliado) nem
+// mostrar a reputação de quem já tem histórico.
+function visibleMemberFields(m) {
+  const user = m.userId ? USERS.find((u) => u.id === m.userId) : null;
+  return {
+    name: m.name,
+    whatsapp: m.whatsapp,
+    userId: m.userId || null,
+    mediaAvaliacao: user ? user.mediaAvaliacao : null,
+    totalAvaliacoes: user ? user.totalAvaliacoes : 0,
+  };
+}
+
 app.get("/api/groups/:id", (req, res) => {
+  applyReputationBonusForStaleGroups();
   const group = GROUP_OPPORTUNITIES.find((g) => g.id === req.params.id);
   if (!group) return res.status(404).json({ error: "grupo não encontrado" });
   // "encerrado" pode ter ficado sem ninguém (todo mundo saiu) — sem membro
   // nenhum pra mostrar contato nesse caso.
   const visibleMembers =
-    group.status === "completo"
-      ? group.members.map((m) => ({ name: m.name, whatsapp: m.whatsapp }))
+    group.status === "completo" || group.status === "concluido"
+      ? group.members.map(visibleMemberFields)
       : group.members.length > 0
-        ? [{ name: group.members[0].name, whatsapp: group.members[0].whatsapp }]
+        ? [visibleMemberFields(group.members[0])]
         : [];
   const summary = groupSummary(group);
   const carona =
@@ -1529,7 +1567,16 @@ app.get("/api/groups/:id", (req, res) => {
           veiculoCor: group.carona.veiculoCor,
         }
       : summary.carona;
-  res.json({ ...summary, carona, members: visibleMembers });
+  const currentUser = getCurrentUser(req);
+  res.json({
+    ...summary,
+    carona,
+    members: visibleMembers,
+    concluded: isGroupConcluded(group),
+    // Ajuda o front-end a decidir se mostra os botões "Avaliar"/"Relatar
+    // problema" sem precisar recalcular a regra de elegibilidade no cliente.
+    currentUserIsConfirmedMember: currentUser ? isConfirmedMember(group, currentUser.id) : false,
+  });
 });
 
 // Criar grupo de carona é um caminho à parte (task-002) — a forma dos dados
@@ -1581,7 +1628,18 @@ function handleCreateCaronaGroup(req, res) {
     estimatedIndividualPrice: null,
     deadline: caronaFields.dataViagem,
     status: "aberto",
-    members: [{ whatsapp: normalizedWhatsapp, name: (typeof name === "string" && name.trim().slice(0, 60)) || "Quem criou o post", joinedAt: new Date().toISOString() }],
+    // userId (task-004) só é gravado se a pessoa estiver logada — avaliação e
+    // denúncia exigem identidade real, então um membro sem userId (entrou
+    // anônimo) participa do grupo normalmente mas fica de fora do sistema de
+    // reputação (não tem conta pra vincular nota/denúncia).
+    members: [
+      {
+        whatsapp: normalizedWhatsapp,
+        name: (typeof name === "string" && name.trim().slice(0, 60)) || "Quem criou o post",
+        joinedAt: new Date().toISOString(),
+        userId: getCurrentUser(req)?.id || null,
+      },
+    ],
     createdAt: new Date().toISOString(),
     // Login é opcional (pilar 4.13) — grupo continua podendo ser criado sem
     // logar, só fica sem dono (ownerUserId null) nesse caso, igual perfil.
@@ -1616,6 +1674,13 @@ app.post("/api/groups", (req, res) => {
   if (isGroupCreateRateLimited(req.ip)) {
     return res.status(429).json({ error: "muitos grupos criados recentemente a partir daqui — tente de novo mais tarde" });
   }
+  // Reputação abaixo do limiar (task-004) bloqueia criar grupo novo, mesma
+  // regra de POST /api/providers — participar de grupo já existente continua
+  // liberado (task-004: "restrito" pode participar, só não pode publicar).
+  const requestingUser = getCurrentUser(req);
+  if (requestingUser && (requestingUser.status === "restrito" || requestingUser.status === "suspenso")) {
+    return res.status(403).json({ error: "sua conta está com restrição ativa por causa de denúncias confirmadas — não é possível criar um novo grupo agora." });
+  }
   const normalizedCategory = typeof (req.body || {}).category === "string" ? req.body.category.trim().toLowerCase() : "";
   if (normalizedCategory === "carona") {
     return handleCreateCaronaGroup(req, res);
@@ -1634,7 +1699,14 @@ app.post("/api/groups", (req, res) => {
     estimatedIndividualPrice: fields.estimatedIndividualPrice,
     deadline: fields.deadline,
     status: "aberto",
-    members: [{ whatsapp: fields.whatsapp, name: (typeof name === "string" && name.trim().slice(0, 60)) || "Quem criou o grupo", joinedAt: new Date().toISOString() }],
+    members: [
+      {
+        whatsapp: fields.whatsapp,
+        name: (typeof name === "string" && name.trim().slice(0, 60)) || "Quem criou o grupo",
+        joinedAt: new Date().toISOString(),
+        userId: getCurrentUser(req)?.id || null,
+      },
+    ],
     createdAt: new Date().toISOString(),
     ownerUserId: getCurrentUser(req)?.id || null,
   };
@@ -1673,6 +1745,7 @@ app.post("/api/groups/:id/join", (req, res) => {
     whatsapp: normalizedWhatsapp,
     name: (typeof name === "string" && name.trim().slice(0, 60)) || "Participante",
     joinedAt: new Date().toISOString(),
+    userId: getCurrentUser(req)?.id || null,
   });
   recordGroupEvent(group.id, "joined");
   if (group.members.length >= group.targetMembers) {
@@ -1708,6 +1781,309 @@ app.post("/api/groups/:id/leave", (req, res) => {
     recordGroupEvent(group.id, "closed");
   }
   res.json(groupSummary(group));
+});
+
+// Avaliações e denúncia (task-004), estilo pós-transação de apps de
+// carona/serviço — nunca mediamos pagamento, só registramos histórico real
+// de quem participou de qual grupo com quem, pra construir reputação com
+// base em fato (grupo concluído de verdade), não em anúncio sem histórico.
+//
+// "Confirmado" = tem userId no member do grupo (entrou logado). Quem entra
+// anônimo participa do grupo normalmente, mas fica de fora do sistema de
+// avaliação/denúncia — não tem conta pra vincular nota ou denúncia a ela.
+function isConfirmedMember(group, userId) {
+  return userId != null && group.members.some((m) => m.userId === userId);
+}
+
+// Carona com data de viagem já passada conta como concluída mesmo sem
+// ninguém ter clicado em nada — computado na hora, sem precisar de um job
+// rodando em segundo plano. Outras categorias (sem data estruturada, só
+// "deadline" em texto livre) dependem do POST .../complete manual.
+function isGroupConcluded(group) {
+  if (group.status === "concluido") return true;
+  if (group.status !== "completo") return false;
+  if (group.carona && group.carona.dataViagem) {
+    return new Date(`${group.carona.dataViagem}T23:59:59`) < new Date();
+  }
+  return false;
+}
+
+app.post("/api/groups/:id/complete", (req, res) => {
+  const group = GROUP_OPPORTUNITIES.find((g) => g.id === req.params.id);
+  if (!group) return res.status(404).json({ error: "grupo não encontrado" });
+  const user = getCurrentUser(req);
+  if (!user) return res.status(401).json({ error: "não autenticado" });
+  if (!isConfirmedMember(group, user.id)) {
+    return res.status(403).json({ error: "só quem participou desse grupo pode marcar como concluído" });
+  }
+  if (group.status !== "completo") {
+    return res.status(409).json({ error: "só um grupo completo (todo mundo já entrou) pode ser marcado como concluído" });
+  }
+  group.status = "concluido";
+  recordGroupEvent(group.id, "concluded");
+  res.json(groupSummary(group));
+});
+
+const REPUTACAO_INICIAL = 100;
+const REPUTACAO_PENALIDADE_PROCEDENTE = 25;
+const REPUTACAO_LIMIAR_RESTRITO = 40;
+const REPUTACAO_LIMIAR_SUSPENSO = 20;
+// Bônus por grupo concluído sem denúncia (regra do task-004) — valor
+// pequeno de propósito: reputação sobe devagar com uso legítimo contínuo,
+// não deveria ser possível "farmar" reputação com poucos grupos.
+const REPUTACAO_BONUS_SEM_DENUNCIA = 5;
+const REPUTACAO_BONUS_JANELA_DIAS = 7;
+
+function recalculateUserStatus(user) {
+  if (user.reputacaoScore < REPUTACAO_LIMIAR_SUSPENSO) user.status = "suspenso";
+  else if (user.reputacaoScore < REPUTACAO_LIMIAR_RESTRITO) user.status = "restrito";
+  else user.status = "ativo";
+}
+
+// Grupo concluído há mais de 7 dias, sem nenhuma denúncia contra nenhum
+// membro confirmado: +reputação pra todo mundo que participou (uma vez só
+// por grupo — `reputationBonusApplied` evita aplicar de novo a cada
+// chamada). Computado sob demanda (sem cron/scheduler no projeto) nos
+// pontos onde reputação é consultada/alterada.
+function applyReputationBonusForStaleGroups() {
+  const cutoff = Date.now() - REPUTACAO_BONUS_JANELA_DIAS * 24 * 60 * 60 * 1000;
+  for (const group of GROUP_OPPORTUNITIES) {
+    if (group.reputationBonusApplied) continue;
+    if (!isGroupConcluded(group)) continue;
+    // Carona concluída automaticamente (data da viagem já passou) nunca
+    // grava um evento "concluded" — usa a própria data da viagem, mais
+    // precisa que createdAt pra saber há quanto tempo isso "aconteceu" de
+    // verdade. Outras categorias só concluem via POST .../complete, que
+    // grava o evento de verdade.
+    const concludedEvent = GROUP_EVENTS.find((e) => e.groupId === group.id && e.type === "concluded");
+    const concludedAt = concludedEvent
+      ? new Date(concludedEvent.at).getTime()
+      : group.carona && group.carona.dataViagem
+        ? new Date(`${group.carona.dataViagem}T23:59:59`).getTime()
+        : new Date(group.createdAt).getTime();
+    if (concludedAt > cutoff) continue;
+    const confirmedMemberIds = group.members.map((m) => m.userId).filter(Boolean);
+    const hasDenuncia = DENUNCIAS.some((d) => d.grupoId === group.id);
+    group.reputationBonusApplied = true;
+    if (hasDenuncia || confirmedMemberIds.length === 0) continue;
+    for (const userId of confirmedMemberIds) {
+      const user = USERS.find((u) => u.id === userId);
+      if (user) user.reputacaoScore += REPUTACAO_BONUS_SEM_DENUNCIA;
+    }
+  }
+}
+
+const AVALIACOES = [];
+let nextAvaliacaoId = 1;
+const AVALIACAO_COMENTARIO_MAX_LENGTH = 200;
+
+app.post("/api/groups/:id/avaliacoes", (req, res) => {
+  applyReputationBonusForStaleGroups();
+  const group = GROUP_OPPORTUNITIES.find((g) => g.id === req.params.id);
+  if (!group) return res.status(404).json({ error: "grupo não encontrado" });
+  const avaliador = getCurrentUser(req);
+  if (!avaliador) return res.status(401).json({ error: "não autenticado" });
+  if (!isGroupConcluded(group)) {
+    return res.status(409).json({ error: "só dá pra avaliar depois que o grupo for concluído" });
+  }
+  if (!isConfirmedMember(group, avaliador.id)) {
+    return res.status(403).json({ error: "só quem participou desse grupo pode avaliar" });
+  }
+
+  const { avaliadoId, nota, comentario } = req.body || {};
+  if (avaliadoId === avaliador.id) {
+    return res.status(400).json({ error: "não dá pra avaliar a si mesmo" });
+  }
+  if (!isConfirmedMember(group, avaliadoId)) {
+    return res.status(400).json({ error: "essa pessoa não participou desse grupo" });
+  }
+  const notaNum = Number(nota);
+  if (!Number.isInteger(notaNum) || notaNum < 1 || notaNum > 5) {
+    return res.status(400).json({ error: "nota precisa ser um número inteiro de 1 a 5" });
+  }
+  if (comentario !== undefined && comentario !== null) {
+    if (typeof comentario !== "string") return res.status(400).json({ error: "comentário inválido" });
+    if (comentario.length > AVALIACAO_COMENTARIO_MAX_LENGTH) {
+      return res.status(400).json({ error: `comentário muito longo (máximo ${AVALIACAO_COMENTARIO_MAX_LENGTH} caracteres)` });
+    }
+  }
+  const jaAvaliou = AVALIACOES.some((a) => a.grupoId === group.id && a.avaliadorId === avaliador.id && a.avaliadoId === avaliadoId);
+  if (jaAvaliou) {
+    return res.status(409).json({ error: "você já avaliou essa pessoa nesse grupo" });
+  }
+
+  const avaliacao = {
+    id: `av${nextAvaliacaoId++}`,
+    grupoId: group.id,
+    avaliadorId: avaliador.id,
+    avaliadoId,
+    nota: notaNum,
+    comentario: (typeof comentario === "string" && comentario.trim()) || null,
+    createdAt: new Date().toISOString(),
+  };
+  AVALIACOES.push(avaliacao);
+
+  const avaliado = USERS.find((u) => u.id === avaliadoId);
+  const avaliacoesDoAvaliado = AVALIACOES.filter((a) => a.avaliadoId === avaliadoId);
+  avaliado.totalAvaliacoes = avaliacoesDoAvaliado.length;
+  avaliado.mediaAvaliacao = avaliacoesDoAvaliado.reduce((sum, a) => sum + a.nota, 0) / avaliacoesDoAvaliado.length;
+
+  res.status(201).json({ id: avaliacao.id, nota: avaliacao.nota, comentario: avaliacao.comentario, createdAt: avaliacao.createdAt });
+});
+
+// Média + total + comentários mais recentes de um usuário — não existe
+// página de perfil de usuário separada ainda (só perfil de PRESTADOR,
+// pilar 4.12, que é outra coisa: um userId pode ter vários perfis de
+// prestador, ou nenhum). Esse endpoint serve pra qualquer tela que precise
+// mostrar reputação de uma pessoa (ex: detalhe de grupo concluído). Nunca
+// devolve reputacaoScore (interno, nunca público) nem quem avaliou.
+app.get("/api/users/:id/avaliacoes", (req, res) => {
+  const user = USERS.find((u) => u.id === req.params.id);
+  if (!user) return res.status(404).json({ error: "usuário não encontrado" });
+  const recentes = AVALIACOES.filter((a) => a.avaliadoId === user.id)
+    .slice()
+    .reverse()
+    .slice(0, 10)
+    .map((a) => ({ nota: a.nota, comentario: a.comentario, createdAt: a.createdAt }));
+  res.json({ mediaAvaliacao: user.mediaAvaliacao, totalAvaliacoes: user.totalAvaliacoes, recentes });
+});
+
+const DENUNCIAS = [];
+let nextDenunciaId = 1;
+const DENUNCIA_MOTIVOS = ["nao_entregou", "sumiu_apos_combinado", "valor_diferente", "outro"];
+const DENUNCIA_DESCRICAO_MAX_LENGTH = 500;
+const DENUNCIA_EVIDENCIA_MAX_LENGTH = 300;
+// 2+ denúncias de grupos DIFERENTES, mesmo motivo, contra a mesma pessoa —
+// vira prioridade de revisão manual (ainda sem fila/tela própria, só o
+// campo `prioritaria` marcado pra quem for revisar manualmente saber por
+// onde começar).
+const DENUNCIA_LIMIAR_PRIORIDADE = 2;
+
+app.post("/api/groups/:id/denuncias", (req, res) => {
+  const group = GROUP_OPPORTUNITIES.find((g) => g.id === req.params.id);
+  if (!group) return res.status(404).json({ error: "grupo não encontrado" });
+  const denunciante = getCurrentUser(req);
+  if (!denunciante) return res.status(401).json({ error: "não autenticado" });
+  // Denúncia não espera o grupo estar "concluído" (ex: motorista sumiu ANTES
+  // da data da viagem) — só que já tenha fechado (completo/concluído), pra
+  // ter certeza de que os dois lados realmente confirmaram participação.
+  if (group.status !== "completo" && !isGroupConcluded(group)) {
+    return res.status(409).json({ error: "só dá pra denunciar depois que o grupo fechar (completo)" });
+  }
+  if (!isConfirmedMember(group, denunciante.id)) {
+    return res.status(403).json({ error: "só quem participou desse grupo pode denunciar" });
+  }
+
+  const { denunciadoId, motivo, descricao, evidencia } = req.body || {};
+  if (denunciadoId === denunciante.id) {
+    return res.status(400).json({ error: "não dá pra denunciar a si mesmo" });
+  }
+  if (!isConfirmedMember(group, denunciadoId)) {
+    return res.status(400).json({ error: "essa pessoa não participou desse grupo" });
+  }
+  if (!DENUNCIA_MOTIVOS.includes(motivo)) {
+    return res.status(400).json({ error: `motivo inválido (use: ${DENUNCIA_MOTIVOS.join(", ")})` });
+  }
+  if (!descricao || typeof descricao !== "string" || !descricao.trim()) {
+    return res.status(400).json({ error: "descreva o que aconteceu" });
+  }
+  if (descricao.trim().length > DENUNCIA_DESCRICAO_MAX_LENGTH) {
+    return res.status(400).json({ error: `descrição muito longa (máximo ${DENUNCIA_DESCRICAO_MAX_LENGTH} caracteres)` });
+  }
+  if (evidencia !== undefined && evidencia !== null) {
+    if (typeof evidencia !== "string") return res.status(400).json({ error: "evidência inválida" });
+    if (evidencia.length > DENUNCIA_EVIDENCIA_MAX_LENGTH) {
+      return res.status(400).json({ error: `evidência muito longa (máximo ${DENUNCIA_EVIDENCIA_MAX_LENGTH} caracteres)` });
+    }
+  }
+  const jaDenunciou = DENUNCIAS.some((d) => d.grupoId === group.id && d.denuncianteId === denunciante.id && d.denunciadoId === denunciadoId);
+  if (jaDenunciou) {
+    return res.status(409).json({ error: "você já denunciou essa pessoa nesse grupo" });
+  }
+
+  const outrasDenunciasMesmoMotivo = DENUNCIAS.filter(
+    (d) => d.denunciadoId === denunciadoId && d.motivo === motivo && d.grupoId !== group.id && d.status !== "improcedente"
+  );
+  const prioritaria = outrasDenunciasMesmoMotivo.length + 1 >= DENUNCIA_LIMIAR_PRIORIDADE;
+
+  const denuncia = {
+    id: `den${nextDenunciaId++}`,
+    grupoId: group.id,
+    denuncianteId: denunciante.id,
+    denunciadoId,
+    motivo,
+    descricao: descricao.trim(),
+    evidencia: (typeof evidencia === "string" && evidencia.trim()) || null,
+    status: "aberta",
+    prioritaria,
+    createdAt: new Date().toISOString(),
+    resolvidaAt: null,
+  };
+  DENUNCIAS.push(denuncia);
+  // "aberta" não afeta reputação (regra do task-004) — só a resolução
+  // (ver resolveDenuncia) muda reputacaoScore, e só se for procedente.
+
+  res.status(201).json({ id: denuncia.id, status: denuncia.status, prioritaria: denuncia.prioritaria });
+});
+
+// Contagem pública de "N denúncias confirmadas" — nunca expõe a denúncia
+// em si (descrição, evidência, quem denunciou), só o número de vezes que
+// uma denúncia contra essa pessoa foi julgada procedente. Denúncia aberta
+// ou em análise não aparece aqui — só depois de resolvida como procedente
+// (regra do task-004: denúncia fica invisível publicamente até resolver).
+app.get("/api/users/:id/denuncias-confirmadas", (req, res) => {
+  const user = USERS.find((u) => u.id === req.params.id);
+  if (!user) return res.status(404).json({ error: "usuário não encontrado" });
+  const total = DENUNCIAS.filter((d) => d.denunciadoId === user.id && d.status === "procedente").length;
+  res.json({ total });
+});
+
+// Resolução de denúncia (aberta/em_analise -> procedente/improcedente) é
+// capacidade só-API, sem tela própria nesta v1 (revisão manual "por
+// enquanto", conforme o task-004) — mas nenhum endpoint de resolução deveria
+// ficar aberto sem autenticação nenhuma (mudaria reputação de terceiros).
+// Protegido por uma chave simples (ADMIN_SECRET no .env, comparada num
+// header) em vez de um sistema de contas de administrador completo — mesmo
+// nível de proteção que o suficiente pro tamanho atual do projeto, sem
+// inventar infraestrutura que ninguém vai usar. Sem a variável configurada,
+// a rota fica desativada (503), igual o padrão já usado pras outras
+// integrações opcionais (Gemini, WhatsApp).
+function requireAdminSecret(req, res) {
+  if (!process.env.ADMIN_SECRET) {
+    res.status(503).json({ error: "resolução de denúncia não configurada nesse ambiente (ADMIN_SECRET ausente)" });
+    return false;
+  }
+  if (req.get("X-Admin-Key") !== process.env.ADMIN_SECRET) {
+    res.status(401).json({ error: "chave de administração inválida" });
+    return false;
+  }
+  return true;
+}
+
+app.patch("/api/denuncias/:id", (req, res) => {
+  if (!requireAdminSecret(req, res)) return;
+  const denuncia = DENUNCIAS.find((d) => d.id === req.params.id);
+  if (!denuncia) return res.status(404).json({ error: "denúncia não encontrada" });
+  const { status } = req.body || {};
+  if (!["em_analise", "procedente", "improcedente"].includes(status)) {
+    return res.status(400).json({ error: "status inválido (use: em_analise, procedente, improcedente)" });
+  }
+  if (denuncia.status === "procedente" || denuncia.status === "improcedente") {
+    return res.status(409).json({ error: "essa denúncia já foi resolvida" });
+  }
+
+  denuncia.status = status;
+  if (status === "procedente" || status === "improcedente") {
+    denuncia.resolvidaAt = new Date().toISOString();
+  }
+  if (status === "procedente") {
+    const denunciado = USERS.find((u) => u.id === denuncia.denunciadoId);
+    if (denunciado) {
+      denunciado.reputacaoScore -= REPUTACAO_PENALIDADE_PROCEDENTE;
+      recalculateUserStatus(denunciado);
+    }
+  }
+  res.json({ id: denuncia.id, status: denuncia.status, resolvidaAt: denuncia.resolvidaAt });
 });
 
 const PROVIDER_NAME_MAX_LENGTH = 60;
@@ -1798,6 +2174,13 @@ app.post("/api/providers", (req, res, next) => {
   }
   next();
 }, uploadProviderPhotos, async (req, res) => {
+  // Reputação abaixo do limiar (task-004) bloqueia criar post novo — quem já
+  // tem posts continua com eles no ar, só não consegue publicar mais um até
+  // a reputação se recuperar (ex: mais grupos concluídos sem denúncia).
+  const requestingUser = getCurrentUser(req);
+  if (requestingUser && (requestingUser.status === "restrito" || requestingUser.status === "suspenso")) {
+    return res.status(403).json({ error: "sua conta está com restrição ativa por causa de denúncias confirmadas — não é possível criar um novo perfil agora." });
+  }
   const fields = validateProviderFields(req.body || {}, { requireDescription: true });
   if (!fields.ok) {
     return res.status(400).json({ error: fields.error });
@@ -1902,6 +2285,12 @@ app.put("/api/providers/:slug", uploadProviderPhotos, async (req, res) => {
   }
 });
 
+// Sem checar suspensão aqui de propósito — esse endpoint alimenta a própria
+// tela de edição do dono (ver startEditingProvider em assets/app.js), que
+// precisa continuar funcionando mesmo com a conta suspensa (task-004 esconde
+// o perfil de visitantes, não tira da própria pessoa a capacidade de gerir
+// o que ela já tem). Quem fica de fato escondido é a página pública
+// compartilhável (ver GET /prestador/:slug) e o ranking/busca.
 app.get("/api/providers/:slug", (req, res) => {
   const provider = PROVIDER_PROFILES.find((p) => p.slug === req.params.slug);
   if (!provider) return res.status(404).json({ error: "perfil não encontrado" });
@@ -1913,7 +2302,7 @@ app.get("/api/providers/:slug", (req, res) => {
 // que funcione sem JS do resto do site rodar primeiro).
 app.get("/prestador/:slug", (req, res) => {
   const provider = PROVIDER_PROFILES.find((p) => p.slug === req.params.slug);
-  if (!provider) return res.status(404).send("Perfil não encontrado.");
+  if (!provider || isOwnerSuspended(provider.ownerUserId)) return res.status(404).send("Perfil não encontrado.");
 
   const bestPhotoUrl = (p) => p.newBackgroundUrl || p.enhancedUrl || p.url;
   const cover = provider.photos[0];

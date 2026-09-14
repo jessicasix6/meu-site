@@ -26,7 +26,19 @@ module.exports = defineConfig({
   webServer: {
     command: "npm start",
     url: BASE_URL,
-    env: { PORT: String(TEST_PORT) },
+    env: {
+      PORT: String(TEST_PORT),
+      // Chave fixa só pro servidor de teste isolado (porta dedicada acima) —
+      // nunca usada em produção, onde ADMIN_SECRET vem do .env/VPS de
+      // verdade. Sem isso, a rota de resolução de denúncia (task-004) fica
+      // sempre desativada (503) e não dá pra testar o fluxo completo.
+      ADMIN_SECRET: "test-admin-secret-nao-usar-em-producao",
+      // A suíte cria muitas contas/grupos em sequência pra cobrir regras de
+      // negócio (avaliação, denúncia, task-004) — sem isso, os rate limits
+      // pensados pra abuso real (ex: 20 cadastros/hora por IP) travam a
+      // própria suíte de teste, que roda tudo do mesmo IP (localhost).
+      DISABLE_RATE_LIMITS: "1",
+    },
     // Sempre falso, mesmo localmente: já aconteceu mais de uma vez nesta
     // máquina de um processo de teste anterior ficar preso na porta (uma
     // sessão de terminal fechada sem encerrar o webServer, por exemplo), e
