@@ -51,7 +51,126 @@
         </nav>
         <div class="google-signin-wrap">
           <div id="google-signin-slot" class="google-signin-slot"></div>
+          <button type="button" id="email-auth-toggle" class="cta-secondary email-auth-toggle">Entrar</button>
+          <div id="email-auth-panel" class="user-panel" hidden>
+            <div class="email-auth-tabs" role="tablist" aria-label="Entrar ou criar conta">
+              <button type="button" class="mode-btn email-auth-tab is-active" data-auth-mode="login">Entrar</button>
+              <button type="button" class="mode-btn email-auth-tab" data-auth-mode="signup">Criar conta</button>
+            </div>
+            <form id="email-auth-form" class="email-auth-form">
+              <div class="post-field post-field--wide" data-auth-field="name" hidden>
+                <label for="auth-name">Seu nome</label>
+                <input id="auth-name" name="name" type="text" placeholder="ex: Juliana Martins" />
+              </div>
+              <div class="post-field post-field--wide" data-auth-field="whatsapp" hidden>
+                <label for="auth-whatsapp">Seu WhatsApp</label>
+                <input id="auth-whatsapp" name="whatsapp" type="tel" placeholder="ex: (31) 99999-0000" />
+              </div>
+              <div class="post-field post-field--wide">
+                <label for="auth-email">E-mail</label>
+                <input id="auth-email" name="email" type="email" placeholder="ex: voce@email.com" required />
+              </div>
+              <div class="post-field post-field--wide">
+                <label for="auth-password">Senha</label>
+                <input id="auth-password" name="password" type="password" placeholder="mínimo 8 caracteres" required />
+              </div>
+              <button type="submit" class="post-submit" id="email-auth-submit">Entrar</button>
+            </form>
+            <p id="email-auth-status" class="post-status" aria-live="polite"></p>
+          </div>
           <div id="user-panel" class="user-panel" hidden></div>
+          <div id="profile-edit-panel" class="user-panel profile-edit-panel" hidden>
+            <h3>Meus dados</h3>
+            <p class="profile-edit-intro">
+              Preenchidos aqui, esses dados entram sozinhos nos formulários de Grupos da próxima vez — sem digitar de novo.
+            </p>
+            <form id="profile-edit-form" class="post-form">
+              <div class="post-field post-field--wide">
+                <label for="profile-whatsapp">Seu WhatsApp</label>
+                <input id="profile-whatsapp" name="whatsapp" type="tel" placeholder="ex: (31) 99999-0000" required />
+              </div>
+              <div class="post-field post-field--wide">
+                <label for="profile-tipo-uso">Como você usa o site</label>
+                <select id="profile-tipo-uso" name="tipoUso">
+                  <option value="">Não informado</option>
+                  <option value="solicitante">Só solicito serviços</option>
+                  <option value="prestador">Só presto serviços</option>
+                  <option value="ambos">Solicito e presto</option>
+                </select>
+              </div>
+              <fieldset id="profile-motorista-fields" class="post-field post-field--wide">
+                <legend>Dados de motorista (preencha só se for oferecer carona)</legend>
+                <p class="carona-docs-notice">
+                  Não são verificados contra nenhuma base oficial — só coletados aqui pra pré-preencher seus posts de carona.
+                </p>
+                <div class="post-field">
+                  <label for="profile-cnh">Número da CNH</label>
+                  <input id="profile-cnh" type="text" placeholder="ex: 12345678900" />
+                </div>
+                <div class="post-field">
+                  <label for="profile-placa">Placa do veículo</label>
+                  <input id="profile-placa" type="text" placeholder="ex: ABC1D23" />
+                </div>
+                <div class="post-field">
+                  <label for="profile-modelo">Modelo do veículo</label>
+                  <input id="profile-modelo" type="text" placeholder="ex: Onix" />
+                </div>
+                <div class="post-field">
+                  <label for="profile-cor">Cor do veículo</label>
+                  <input id="profile-cor" type="text" placeholder="ex: Prata" />
+                </div>
+              </fieldset>
+              <fieldset class="post-field post-field--wide">
+                <legend>Disponibilidade (deixe em branco os dias em que você não está disponível)</legend>
+                <div class="profile-availability-list">
+                  <div class="profile-availability-row" data-day="segunda">
+                    <span class="profile-availability-day">Segunda</span>
+                    <input type="time" class="profile-availability-inicio" aria-label="Segunda, horário de início" />
+                    <span aria-hidden="true">até</span>
+                    <input type="time" class="profile-availability-fim" aria-label="Segunda, horário de fim" />
+                  </div>
+                  <div class="profile-availability-row" data-day="terca">
+                    <span class="profile-availability-day">Terça</span>
+                    <input type="time" class="profile-availability-inicio" aria-label="Terça, horário de início" />
+                    <span aria-hidden="true">até</span>
+                    <input type="time" class="profile-availability-fim" aria-label="Terça, horário de fim" />
+                  </div>
+                  <div class="profile-availability-row" data-day="quarta">
+                    <span class="profile-availability-day">Quarta</span>
+                    <input type="time" class="profile-availability-inicio" aria-label="Quarta, horário de início" />
+                    <span aria-hidden="true">até</span>
+                    <input type="time" class="profile-availability-fim" aria-label="Quarta, horário de fim" />
+                  </div>
+                  <div class="profile-availability-row" data-day="quinta">
+                    <span class="profile-availability-day">Quinta</span>
+                    <input type="time" class="profile-availability-inicio" aria-label="Quinta, horário de início" />
+                    <span aria-hidden="true">até</span>
+                    <input type="time" class="profile-availability-fim" aria-label="Quinta, horário de fim" />
+                  </div>
+                  <div class="profile-availability-row" data-day="sexta">
+                    <span class="profile-availability-day">Sexta</span>
+                    <input type="time" class="profile-availability-inicio" aria-label="Sexta, horário de início" />
+                    <span aria-hidden="true">até</span>
+                    <input type="time" class="profile-availability-fim" aria-label="Sexta, horário de fim" />
+                  </div>
+                  <div class="profile-availability-row" data-day="sabado">
+                    <span class="profile-availability-day">Sábado</span>
+                    <input type="time" class="profile-availability-inicio" aria-label="Sábado, horário de início" />
+                    <span aria-hidden="true">até</span>
+                    <input type="time" class="profile-availability-fim" aria-label="Sábado, horário de fim" />
+                  </div>
+                  <div class="profile-availability-row" data-day="domingo">
+                    <span class="profile-availability-day">Domingo</span>
+                    <input type="time" class="profile-availability-inicio" aria-label="Domingo, horário de início" />
+                    <span aria-hidden="true">até</span>
+                    <input type="time" class="profile-availability-fim" aria-label="Domingo, horário de fim" />
+                  </div>
+                </div>
+              </fieldset>
+              <button type="submit" class="post-submit">Salvar meus dados</button>
+            </form>
+            <p id="profile-edit-status" class="post-status" aria-live="polite"></p>
+          </div>
         </div>
       </div>
     </header>
@@ -59,6 +178,13 @@
   </div>
 
   <main>
+    <div id="login-suggestion-banner" class="login-suggestion-banner" hidden>
+      <p>Crie uma conta grátis e preencha seus dados uma vez só — da próxima vez é tudo automático.</p>
+      <div class="login-suggestion-actions">
+        <button type="button" id="login-suggestion-cta" class="cta-secondary">Criar conta ou entrar</button>
+        <button type="button" id="login-suggestion-dismiss" aria-label="Dispensar sugestão">✕</button>
+      </div>
+    </div>
     <div id="requester-view">
     <section id="top" class="hero">
       <div class="container hero-grid">
