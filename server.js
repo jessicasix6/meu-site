@@ -12,6 +12,7 @@ const ort = require("onnxruntime-node");
 const { BackgroundRemover } = require("@tugrul/rembg");
 const Anthropic = require("@anthropic-ai/sdk").default;
 const { registerWhatsAppRoutes, isConfigured: isWhatsAppConfigured } = require("./whatsapp");
+const { SERVICO_SYNONYMS, GROUP_CATEGORY_SYNONYMS, CITY_SYNONYMS } = require("./keywords");
 
 const PROVIDERS = [
   { name: "Ana Souza", service: "manicure", city: "Belo Horizonte", time: "amanhã às 14h", rating: 4.9, distanceKm: 1.2, price: 45, fastReply: true, lat: -19.9245, lng: -43.9352 },
@@ -1129,6 +1130,196 @@ app.get("/api/services", (req, res) => {
   res.json({ services });
 });
 
+// Busca por palavra-chave (task-005), sem IA nenhuma envolvida — reconhece
+// serviço/categoria/data/cidade só com o dicionário de sinônimos
+// (keywords.js) e devolve o resultado já filtrado direto, igual /api/chat
+// fazia antes só que sem nenhuma chamada externa nem custo.
+const WEEKDAY_NAMES_PT = ["domingo", "segunda", "terca", "terça", "quarta", "quinta", "sexta", "sabado", "sábado"];
+const WEEKDAY_INDEX = { domingo: 0, segunda: 1, terca: 2, terça: 2, quarta: 3, quinta: 4, sexta: 5, sabado: 6, sábado: 6 };
+
+function normalizeSearchText(text) {
+  return (text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim();
+}
+
+function dateInputValueFromDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+// Reconhece "hoje", "amanhã", dia da semana (próxima ocorrência) e datas
+// dd/mm — devolve uma data no formato YYYY-MM-DD (mesmo formato usado nos
+// filtros de carona) ou null se não achou nada reconhecível.
+function parseDateFromQuery(normalizedQuery) {
+  const today = new Date();
+  if (/\bhoje\b/.test(normalizedQuery)) return dateInputValueFromDate(today);
+  if (/\bamanha\b/.test(normalizedQuery)) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + 1);
+    return dateInputValueFromDate(d);
+  }
+  for (const dayName of WEEKDAY_NAMES_PT) {
+    const normalizedDayName = normalizeSearchText(dayName);
+    if (normalizedQuery.includes(normalizedDayName)) {
+      const targetIndex = WEEKDAY_INDEX[dayName];
+      const d = new Date(today);
+      const diff = (targetIndex - d.getDay() + 7) % 7 || 7; // sempre a PRÓXIMA ocorrência, nunca hoje mesmo
+      d.setDate(d.getDate() + diff);
+      return dateInputValueFromDate(d);
+    }
+  }
+  const ddmm = normalizedQuery.match(/\b(\d{1,2})\/(\d{1,2})\b/);
+  if (ddmm) {
+    const day = Number(ddmm[1]);
+    const month = Number(ddmm[2]);
+    if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+      let year = today.getFullYear();
+      // dd/mm sem ano: se a data já passou esse ano, assume o próximo ano
+      // (ninguém busca "carona 10/03" querendo uma data do ano passado).
+      const candidate = new Date(year, month - 1, day);
+      if (candidate < today) year += 1;
+      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+  }
+  return null;
+}
+
+function parseCityFromQuery(normalizedQuery) {
+  for (const [canonical, variants] of Object.entries(CITY_SYNONYMS)) {
+    if (variants.some((v) => normalizedQuery.includes(normalizeSearchText(v)))) return canonical;
+  }
+  return null;
+}
+
+// Serviço profissional (ranking) — inclui os sinônimos fixos do dicionário
+// E os perfis reais cadastrados (mesmo raciocínio de /api/services: um
+// serviço novo criado via "Criar meu perfil" também precisa ser achável
+// pela busca, não só pelo link direto).
+function parseServiceFromQuery(normalizedQuery) {
+  for (const [service, synonyms] of Object.entries(SERVICO_SYNONYMS)) {
+    if (synonyms.some((s) => normalizedQuery.includes(normalizeSearchText(s)))) return service;
+  }
+  const knownServices = [...new Set([...PROVIDERS, ...PROVIDER_PROFILES].map((p) => p.service.toLowerCase()))];
+  return knownServices.find((s) => normalizedQuery.includes(normalizeSearchText(s))) || null;
+}
+
+function parseGroupCategoryFromQuery(normalizedQuery) {
+  for (const [category, synonyms] of Object.entries(GROUP_CATEGORY_SYNONYMS)) {
+    if (synonyms.some((s) => normalizedQuery.includes(normalizeSearchText(s)))) return category;
+  }
+  return null;
+}
+
+// Cache de buscas resolvidas (query normalizada -> resultado já
+// interpretado) — se 1.000 pessoas buscarem "manicure amanhã em bh", só a
+// primeira paga o custo de reprocessar; as próximas 999 pegam do cache.
+// Vale a pena mesmo sem IA nenhuma ligada ainda: acelera a busca por
+// palavra-chave também. TTL curto (resultado muda conforme posts
+// novos/vagas preenchidas) — cache não pode ficar velho demais.
+const SEARCH_CACHE = new Map();
+const SEARCH_CACHE_TTL_MS = 60 * 1000;
+
+// Toda busca que não reconheceu nem serviço nem categoria de grupo (caiu no
+// fallback de texto livre) — revisar essa lista de vez em quando e
+// adicionar os termos mais comuns em keywords.js. Cresce o dicionário
+// conforme mais gente usa o site, em vez de crescer a dependência de IA.
+const SEARCH_UNRECOGNIZED = [];
+const SEARCH_UNRECOGNIZED_MAX_ENTRIES = 500;
+
+function recordUnrecognizedSearch(query) {
+  SEARCH_UNRECOGNIZED.push({ query, at: new Date().toISOString() });
+  if (SEARCH_UNRECOGNIZED.length > SEARCH_UNRECOGNIZED_MAX_ENTRIES) SEARCH_UNRECOGNIZED.shift();
+}
+
+// TODO: fallback de IA (Groq, gratuito, sem cartão) — ativar só se o
+// dicionário de sinônimos não for suficiente na prática. Desativado por
+// padrão (SEARCH_AI_FALLBACK_ENABLED sempre false nesta v1) — nenhuma
+// chamada de rede externa acontece em nenhum fluxo desta busca. Quando/se
+// for ativado de verdade, aplicar um limite de chamadas por IP/pessoa por
+// dia (mesmo padrão de makeHourlyRateLimiter) antes de qualquer chamada
+// real, pra nunca deixar o custo crescer proporcional ao tráfego.
+const SEARCH_AI_FALLBACK_ENABLED = false;
+async function searchWithAiFallback(query) {
+  return null;
+}
+
+function buildServiceSearchResult(service) {
+  const allProviders = [...PROVIDERS, ...providerProfilesForRanking()];
+  const results = allProviders
+    .filter((p) => p.service.toLowerCase() === service)
+    .sort(SORTERS.rating)
+    .slice(0, 3)
+    .map(({ name, service: s, city, rating, distanceKm, price, fastReply, slug }) => ({
+      name,
+      service: s,
+      city,
+      rating,
+      distanceKm,
+      price,
+      fastReply,
+      slug: slug || null,
+    }));
+  return { type: "service", service, results };
+}
+
+function buildGroupCategorySearchResult(category, { dataFilter, cityFilter }) {
+  let pool = GROUP_OPPORTUNITIES.filter((g) => g.status !== "encerrado" && g.category === category);
+  if (cityFilter) pool = pool.filter((g) => locationsMatch(g.city, cityFilter));
+  if (dataFilter && category === "carona") pool = pool.filter((g) => g.carona && g.carona.dataViagem === dataFilter);
+  return { type: "group", category, results: pool.slice(0, 10).map(groupSummary) };
+}
+
+// Fallback final: sem nenhum serviço/categoria reconhecido, busca só texto
+// livre nos títulos dos posts de Grupos (LIKE %termo% simplificado — sem
+// índice de verdade, é uma lista pequena em memória, um filter já resolve).
+function buildFreeTextSearchResult(normalizedQuery) {
+  const results = GROUP_OPPORTUNITIES.filter(
+    (g) => g.status !== "encerrado" && normalizeSearchText(g.title).includes(normalizedQuery)
+  )
+    .slice(0, 10)
+    .map(groupSummary);
+  return { type: "text", results };
+}
+
+app.get("/api/search", (req, res) => {
+  const rawQuery = typeof req.query.q === "string" ? req.query.q.trim() : "";
+  if (!rawQuery) return res.status(400).json({ error: "informe o campo 'q' com o texto da busca" });
+
+  const normalizedQuery = normalizeSearchText(rawQuery);
+  const cached = SEARCH_CACHE.get(normalizedQuery);
+  if (cached && Date.now() - cached.at < SEARCH_CACHE_TTL_MS) {
+    return res.json({ ...cached.result, cached: true });
+  }
+
+  const dataFilter = parseDateFromQuery(normalizedQuery);
+  const cityFilter = parseCityFromQuery(normalizedQuery);
+  const service = parseServiceFromQuery(normalizedQuery);
+  const groupCategory = !service ? parseGroupCategoryFromQuery(normalizedQuery) : null;
+
+  let result;
+  if (service) {
+    result = buildServiceSearchResult(service);
+  } else if (groupCategory) {
+    result = buildGroupCategorySearchResult(groupCategory, { dataFilter, cityFilter });
+  } else {
+    result = buildFreeTextSearchResult(normalizedQuery);
+  }
+  result.date = dataFilter;
+  result.city = cityFilter;
+
+  if (result.results.length === 0) {
+    recordUnrecognizedSearch(rawQuery);
+  }
+  SEARCH_CACHE.set(normalizedQuery, { result, at: Date.now() });
+
+  res.json({ ...result, cached: false });
+});
+
 // ownerUserId nunca aparece numa resposta pública (mesma regra já aplicada
 // em Grupos e Perfis) — só existe pra filtrar "meus pedidos" no painel
 // pessoal de quem publicou logado.
@@ -1387,10 +1578,20 @@ function recordGroupEvent(groupId, type) {
   GROUP_EVENTS.push({ groupId, type, at: new Date().toISOString() });
 }
 
-function validateGroupFields({ category, title, city, targetMembers, estimatedIndividualPrice, deadline, whatsapp }) {
+// "quero" | "ofereco" (task-005) — opcional, alimenta o motor de sugestão
+// automática (ver findGroupSuggestions). Sem informar, o post continua
+// funcionando normalmente, só fica de fora do matching automático (não dá
+// pra sugerir "o oposto de nada"). Carona já tem esse conceito embutido em
+// carona.tipo (motorista/passageiro) — não duplica aqui, ver tipoForMatching.
+const GROUP_TIPO_VALUES = ["quero", "ofereco"];
+
+function validateGroupFields({ category, title, city, targetMembers, estimatedIndividualPrice, deadline, whatsapp, tipo }) {
   const normalizedCategory = typeof category === "string" ? category.trim().toLowerCase() : "";
   if (!GROUP_CATEGORIES.includes(normalizedCategory)) {
     return { ok: false, error: `categoria inválida (use: ${GROUP_CATEGORIES.join(", ")})` };
+  }
+  if (tipo !== undefined && tipo !== null && tipo !== "" && !GROUP_TIPO_VALUES.includes(tipo)) {
+    return { ok: false, error: `tipo inválido (use: ${GROUP_TIPO_VALUES.join(", ")})` };
   }
   if (!title || typeof title !== "string" || !title.trim()) {
     return { ok: false, error: "descreva o que o grupo quer conseguir" };
@@ -1437,6 +1638,7 @@ function validateGroupFields({ category, title, city, targetMembers, estimatedIn
     estimatedIndividualPrice: priceNum,
     deadline: (typeof deadline === "string" && deadline.trim().slice(0, 40)) || null,
     whatsapp: normalizedWhatsapp,
+    tipo: GROUP_TIPO_VALUES.includes(tipo) ? tipo : null,
   };
 }
 
@@ -1447,6 +1649,99 @@ function validateGroupFields({ category, title, city, targetMembers, estimatedIn
 // mais folgado que o de /api/providers — 40, não 20.
 const isGroupCreateRateLimited = makeHourlyRateLimiter(40);
 const isGroupJoinRateLimited = makeHourlyRateLimiter(60);
+
+// Motor de sugestão automática entre posts opostos (task-005), sem IA —
+// compara texto/categoria/data direto, sem gastar nenhuma chamada de API.
+// "Local parecido" é intencionalmente simples (normaliza acento/maiúscula e
+// compara substring nos dois sentidos) — cobre bem os casos reais óbvios
+// ("Bom Despacho" bate com "bom despacho, mg") sem inventar geolocalização
+// de verdade, que fica fora do escopo desta tarefa.
+function normalizeLocationText(text) {
+  return (text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim();
+}
+
+function locationsMatch(a, b) {
+  const na = normalizeLocationText(a);
+  const nb = normalizeLocationText(b);
+  if (!na || !nb) return false;
+  return na.includes(nb) || nb.includes(na);
+}
+
+const SUGGESTION_DATE_WINDOW_DAYS = 1;
+
+// Sem data em algum dos dois lados, não filtra por data (categorias fora de
+// carona só têm "deadline" em texto livre tipo "até sexta-feira", não uma
+// data estruturada pra comparar).
+function datesCompatible(dateA, dateB) {
+  if (!dateA || !dateB) return true;
+  const a = new Date(dateA).getTime();
+  const b = new Date(dateB).getTime();
+  if (Number.isNaN(a) || Number.isNaN(b)) return true;
+  return Math.abs(a - b) <= SUGGESTION_DATE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+}
+
+// Unifica o "tipo" pra fins de matching — carona já tinha motorista/
+// passageiro antes do task-005; mapeia pro mesmo vocabulário quero/ofereco
+// usado nas categorias genéricas, sem duplicar o campo dentro de carona.
+function tipoForMatching(group) {
+  if (group.carona) return group.carona.tipo === "motorista" ? "ofereco" : "quero";
+  return group.tipo || null;
+}
+
+function oppositeTipo(tipo) {
+  return tipo === "quero" ? "ofereco" : "quero";
+}
+
+function suggestionSummary(g) {
+  const contact = g.members[0];
+  return {
+    id: g.id,
+    title: g.title,
+    city: g.city,
+    tipo: tipoForMatching(g),
+    whatsapp: contact ? contact.whatsapp : null,
+    name: contact ? contact.name : null,
+    carona: g.carona
+      ? { origemTexto: g.carona.origemTexto, destinoTexto: g.carona.destinoTexto, dataViagem: g.carona.dataViagem }
+      : null,
+  };
+}
+
+// Passageiro de carona nasce sempre "completo" (o post inteiro é a única
+// vaga, ver handleCreateCaronaGroup) — isso não significa "resolvido", é só
+// o jeito do mecanismo genérico marcar "post individual". Continua sendo
+// uma pessoa disponível procurando carona, então continua elegível pra
+// sugestão — diferente de um grupo genérico "completo" (esse sim já achou
+// todo mundo que precisava).
+function isGroupAvailableForSuggestion(g) {
+  if (g.status === "aberto") return true;
+  return Boolean(g.carona) && g.carona.tipo === "passageiro" && g.status === "completo";
+}
+
+// Só sugere grupo ainda disponível (ver isGroupAvailableForSuggestion) do
+// lado oposto, mesma categoria, local parecido e data compatível. Post sem
+// tipo declarado (campo opcional) não entra nem como origem nem como alvo
+// do matching — não dá pra sugerir "o oposto de nada".
+function findGroupSuggestions(group) {
+  const myTipo = tipoForMatching(group);
+  if (!myTipo) return [];
+  const wantedTipo = oppositeTipo(myTipo);
+  return GROUP_OPPORTUNITIES.filter((g) => {
+    if (g.id === group.id || g.category !== group.category || !isGroupAvailableForSuggestion(g)) return false;
+    if (tipoForMatching(g) !== wantedTipo) return false;
+    if (group.carona) {
+      return (
+        (locationsMatch(g.carona.origemTexto, group.carona.origemTexto) || locationsMatch(g.carona.destinoTexto, group.carona.destinoTexto)) &&
+        datesCompatible(g.carona.dataViagem, group.carona.dataViagem)
+      );
+    }
+    return locationsMatch(g.city, group.city);
+  }).map(suggestionSummary);
+}
 
 // Visão resumida (sem contato de ninguém, sem CNH/placa) pra listagem
 // pública — usada tanto em GET /api/groups quanto dentro da resposta de
@@ -1467,6 +1762,9 @@ function groupSummary(group) {
     deadline: group.deadline,
     status: group.status,
     createdAt: group.createdAt,
+    // "quero"/"ofereco" (task-005) — opcional, null quando a pessoa não
+    // informou. Carona não usa esse campo (tem o próprio carona.tipo).
+    tipo: group.tipo || null,
     carona: group.carona
       ? {
           tipo: group.carona.tipo,
@@ -1579,6 +1877,16 @@ app.get("/api/groups/:id", (req, res) => {
   });
 });
 
+// Recalcula sugestões sob demanda (task-005) — além de já vir na resposta
+// de criar um post, serve pra "sugestões pra você" quando a pessoa abre a
+// lista geral de novo depois (ex: um post oposto compatível apareceu só
+// depois que ela já tinha publicado o dela).
+app.get("/api/groups/:id/suggestions", (req, res) => {
+  const group = GROUP_OPPORTUNITIES.find((g) => g.id === req.params.id);
+  if (!group) return res.status(404).json({ error: "grupo não encontrado" });
+  res.json({ suggestions: findGroupSuggestions(group) });
+});
+
 // Criar grupo de carona é um caminho à parte (task-002) — a forma dos dados
 // é genuinamente diferente (motorista x passageiro têm campos obrigatórios
 // diferentes, e "vagas" tem um significado específico), então não força
@@ -1667,7 +1975,7 @@ function handleCreateCaronaGroup(req, res) {
   GROUP_OPPORTUNITIES.unshift(group);
   recordGroupEvent(group.id, "created");
   if (group.status === "completo") recordGroupEvent(group.id, "completed");
-  res.status(201).json(groupSummary(group));
+  res.status(201).json({ ...groupSummary(group), suggestions: findGroupSuggestions(group) });
 }
 
 app.post("/api/groups", (req, res) => {
@@ -1699,6 +2007,7 @@ app.post("/api/groups", (req, res) => {
     estimatedIndividualPrice: fields.estimatedIndividualPrice,
     deadline: fields.deadline,
     status: "aberto",
+    tipo: fields.tipo,
     members: [
       {
         whatsapp: fields.whatsapp,
@@ -1716,7 +2025,10 @@ app.post("/api/groups", (req, res) => {
   GROUP_OPPORTUNITIES.unshift(group);
   recordGroupEvent(group.id, "created");
   if (group.status === "completo") recordGroupEvent(group.id, "completed");
-  res.status(201).json(groupSummary(group));
+  // Sugestões (task-005) calculadas na hora, só pra devolver na resposta —
+  // não muda nada salvo, é recalculável a qualquer momento via
+  // GET /api/groups/:id/suggestions.
+  res.status(201).json({ ...groupSummary(group), suggestions: findGroupSuggestions(group) });
 });
 
 app.post("/api/groups/:id/join", (req, res) => {

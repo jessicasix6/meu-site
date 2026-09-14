@@ -326,6 +326,14 @@
             <label for="group-target">Quantas pessoas no total</label>
             <input id="group-target" name="targetMembers" type="number" min="2" max="50" step="1" placeholder="ex: 4" required />
           </div>
+          <div class="post-field" id="group-tipo-field">
+            <label for="group-tipo">Você quer ou oferece? (opcional)</label>
+            <select id="group-tipo" name="tipoGeral">
+              <option value="">Não informar</option>
+              <option value="quero">Quero (procuro isso)</option>
+              <option value="ofereco">Ofereço (tenho isso pra dar)</option>
+            </select>
+          </div>
           <div class="post-field" id="group-price-field">
             <label for="group-price">Valor estimado por pessoa (R$, opcional)</label>
             <input id="group-price" name="estimatedIndividualPrice" type="number" min="0" step="1" placeholder="ex: 55" />
@@ -402,6 +410,7 @@
           <button type="submit" class="post-submit">Criar grupo</button>
         </form>
         <p id="group-status" class="post-status" aria-live="polite"></p>
+        <div id="group-suggestions" aria-live="polite"></div>
       </div>
     </section>
 
