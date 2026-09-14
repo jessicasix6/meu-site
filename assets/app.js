@@ -1224,14 +1224,15 @@ document.querySelectorAll(".example-chip").forEach((chip) => {
 const googleSigninSlot = document.getElementById("google-signin-slot");
 const userPanel = document.getElementById("user-panel");
 
-// Painel pessoal (pilar 4.13): lista os perfis e os grupos que a pessoa
-// logada criou, com atalho pra ver/editar cada um. Guardado aqui pra não
-// precisar buscar de novo toda vez que o painel abre/fecha. "Meus pedidos"
-// (REQUESTS) continua fora — esses nascem via chat/WhatsApp também, sem
-// sessão de navegador pra amarrar de forma confiável, diferente de
-// perfil/grupo que só nascem pelo formulário do site.
+// Painel pessoal (pilar 4.13): lista os perfis, grupos e pedidos que a
+// pessoa logada criou, com atalho pra ver/editar cada um. Guardado aqui pra
+// não precisar buscar de novo toda vez que o painel abre/fecha. "Meus
+// pedidos" só pega o que foi publicado pelo formulário direto do site —
+// pedido publicado por conversa (chat do site ou WhatsApp) fica sem dono,
+// esses dois caminhos não têm sessão de navegador pra amarrar.
 let ownProviders = [];
 let ownGroups = [];
+let ownRequests = [];
 
 function renderUserPanel() {
   const providersHtml =
@@ -1265,12 +1266,28 @@ function renderUserPanel() {
           )
           .join("")}</ul>`;
 
-  userPanel.innerHTML = `<h3>Meus perfis</h3>${providersHtml}<h3>Meus grupos</h3>${groupsHtml}`;
+  const requestsHtml =
+    ownRequests.length === 0
+      ? '<p class="user-panel-empty">Você ainda não publicou nenhum pedido pelo formulário. Use "Publicar" no menu.</p>'
+      : `<ul class="user-panel-list">${ownRequests
+          .map(
+            (r) => `
+          <li class="user-panel-item">
+            <span>${escapeHtml(r.title)} <span class="user-panel-empty">· ${escapeHtml(r.type)} · ${escapeHtml(r.status)}</span></span>
+            <span class="user-panel-item-actions">
+              <button type="button" class="view-own-request-btn">Ver</button>
+            </span>
+          </li>`
+          )
+          .join("")}</ul>`;
+
+  userPanel.innerHTML = `<h3>Meus perfis</h3>${providersHtml}<h3>Meus grupos</h3>${groupsHtml}<h3>Meus pedidos</h3>${requestsHtml}`;
 }
 
-function renderLoggedInUser(user, providers, groups) {
+function renderLoggedInUser(user, providers, groups, requests) {
   ownProviders = providers || [];
   ownGroups = groups || [];
+  ownRequests = requests || [];
   googleSigninSlot.innerHTML = `
     <button type="button" class="user-chip" id="user-chip-toggle">
       ${user.picture ? `<img src="${escapeHtml(user.picture)}" alt="" />` : ""}
@@ -1310,6 +1327,15 @@ userPanel.addEventListener("click", (event) => {
     const categoryBtn = document.querySelector(`.group-category-btn[data-category="${viewGroupBtn.dataset.viewGroupCategory}"]`);
     if (categoryBtn) categoryBtn.click();
     highlightSection(document.getElementById("grupos"));
+    return;
+  }
+  // Não dá pra filtrar o quadro por um pedido específico (não existe esse
+  // filtro ainda) — leva pro quadro geral, no modo "Presto serviço", onde
+  // qualquer pedido publicado (inclusive o da pessoa) aparece.
+  if (event.target.closest(".view-own-request-btn")) {
+    userPanel.hidden = true;
+    setMode("provider");
+    highlightSection(document.getElementById("provider"));
   }
 });
 
@@ -1326,8 +1352,8 @@ async function handleGoogleCredential(response) {
     // — busca em seguida pra já abrir com o painel certo, sem precisar
     // recarregar.
     const meRes = await fetch("/api/auth/me");
-    const me = meRes.ok ? await meRes.json() : { providers: [], groups: [] };
-    renderLoggedInUser(user, me.providers, me.groups);
+    const me = meRes.ok ? await meRes.json() : { providers: [], groups: [], requests: [] };
+    renderLoggedInUser(user, me.providers, me.groups, me.requests);
   } catch (err) {
     // Login é só um extra opcional — falha aqui não deve incomodar quem só
     // quer usar o site sem logar.
@@ -1369,8 +1395,8 @@ fetch("/api/auth/config")
     // quem já está logado (o GIS não limpa o próprio slot ao renderizar).
     const meRes = await fetch("/api/auth/me");
     if (meRes.ok) {
-      const { user, providers, groups } = await meRes.json();
-      renderLoggedInUser(user, providers, groups);
+      const { user, providers, groups, requests } = await meRes.json();
+      renderLoggedInUser(user, providers, groups, requests);
       return;
     }
     await loadGisScript();

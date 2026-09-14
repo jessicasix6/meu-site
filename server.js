@@ -585,10 +585,6 @@ app.get("/api/auth/me", (req, res) => {
   const user = getCurrentUser(req);
   if (!user) return res.status(401).json({ error: "não autenticado" });
   const providers = PROVIDER_PROFILES.filter((p) => p.ownerUserId === user.id).map((p) => ({ name: p.name, service: p.service, slug: p.slug }));
-  // "Meus grupos" no painel pessoal (em aberto no pilar 4.13, fechado agora
-  // pra Grupos — REQUESTS continua sem dono porque também nasce via chat/
-  // WhatsApp, sem sessão de navegador pra amarrar; grupo só nasce pelo
-  // formulário do site, então dá pra amarrar limpo).
   const groups = GROUP_OPPORTUNITIES.filter((g) => g.ownerUserId === user.id).map((g) => ({
     id: g.id,
     title: g.title,
@@ -596,7 +592,17 @@ app.get("/api/auth/me", (req, res) => {
     categoryLabel: GROUP_CATEGORY_LABELS[g.category],
     status: g.status,
   }));
-  res.json({ user: { name: user.name, email: user.email, picture: user.picture }, providers, groups });
+  // "Meus pedidos" — só pega o que foi publicado pelo formulário direto do
+  // site (POST /api/requests), que tem sessão de navegador pra amarrar.
+  // Pedido publicado por conversa (chat do site ou WhatsApp) fica sem dono
+  // mesmo — não tem sessão nenhuma nesses dois caminhos.
+  const requests = REQUESTS.filter((r) => r.ownerUserId === user.id).map((r) => ({
+    id: r.id,
+    type: r.type,
+    title: r.title,
+    status: r.status,
+  }));
+  res.json({ user: { name: user.name, email: user.email, picture: user.picture }, providers, groups, requests });
 });
 
 app.post("/api/auth/logout", (req, res) => {
@@ -885,14 +891,25 @@ app.get("/api/services", (req, res) => {
   res.json({ services });
 });
 
+// ownerUserId nunca aparece numa resposta pública (mesma regra já aplicada
+// em Grupos e Perfis) — só existe pra filtrar "meus pedidos" no painel
+// pessoal de quem publicou logado.
+function requestSummary(r) {
+  const { ownerUserId, ...rest } = r;
+  return rest;
+}
+
 app.get("/api/requests", (req, res) => {
-  res.json({ requests: REQUESTS });
+  res.json({ requests: REQUESTS.map(requestSummary) });
 });
 
 // Compartilhado entre POST /api/requests e a tool publish_request do agente
 // (busca/publicação por conversa, no site e no WhatsApp) — mesma validação
-// pros dois caminhos, sem duplicar regra de negócio.
-function createRequest({ type, title, requester, when, price, whatsapp, location }) {
+// pros dois caminhos, sem duplicar regra de negócio. ownerUserId só é
+// gravado pelo formulário direto (POST /api/requests, abaixo) — chat e
+// WhatsApp não têm sessão de navegador pra amarrar de forma confiável,
+// então ficam sem dono mesmo (ver docs/visao-produto.md pilar 4.13).
+function createRequest({ type, title, requester, when, price, whatsapp, location, ownerUserId }) {
   if (!type || typeof type !== "string" || !type.trim()) {
     return { ok: false, error: "diga o tipo do que você precisa (ex: corrida, terreno, carro...)" };
   }
@@ -942,17 +959,18 @@ function createRequest({ type, title, requester, when, price, whatsapp, location
     distanceKm: null,
     price: priceNum,
     status: "aberto",
+    ownerUserId: ownerUserId || null,
   };
   REQUESTS.unshift(request);
   return { ok: true, request };
 }
 
 app.post("/api/requests", (req, res) => {
-  const result = createRequest(req.body);
+  const result = createRequest({ ...req.body, ownerUserId: getCurrentUser(req)?.id || null });
   if (!result.ok) {
     return res.status(400).json({ error: result.error });
   }
-  res.status(201).json({ request: result.request });
+  res.status(201).json({ request: requestSummary(result.request) });
 });
 
 // Erros que merecem um status diferente do 409 padrão (conflito de estado).
@@ -967,7 +985,7 @@ function sendRequestResult(res, result) {
     const status = REQUEST_ERROR_STATUS[result.error] || 409;
     return res.status(status).json({ error: result.error });
   }
-  res.json({ request: result.request });
+  res.json({ request: requestSummary(result.request) });
 }
 
 app.post("/api/requests/:id/accept", (req, res) => {
