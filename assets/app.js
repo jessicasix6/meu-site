@@ -576,6 +576,7 @@ const groupCategoryButtons = document.querySelectorAll(".group-category-btn");
 const groupCreateToggle = document.getElementById("group-create-toggle");
 const groupForm = document.getElementById("group-form");
 const groupStatus = document.getElementById("group-status");
+const groupSuggestions = document.getElementById("group-suggestions");
 let currentGroupCategory = "";
 
 // Busca extra de carona (origem/destino/data/perto de mim) — só aparece
@@ -1092,6 +1093,7 @@ groupCreateToggle.addEventListener("click", () => {
 // de campo escondido ainda marcado obrigatório.
 const groupCategorySelect = document.getElementById("group-category");
 const groupTargetField = document.getElementById("group-target-field");
+const groupTipoField = document.getElementById("group-tipo-field");
 const groupPriceField = document.getElementById("group-price-field");
 const groupDeadlineField = document.getElementById("group-deadline-field");
 const groupTargetInput = document.getElementById("group-target");
@@ -1176,6 +1178,9 @@ function updateCaronaTipoFields() {
 function updateGroupFormFieldsForCategory() {
   const isCarona = groupCategorySelect.value === "carona";
   groupTargetField.hidden = isCarona;
+  // Carona já tem o próprio "Você é" (motorista/passageiro) — esse campo
+  // genérico de quero/ofereço (task-005) não se aplica a ela.
+  groupTipoField.hidden = isCarona;
   groupPriceField.hidden = isCarona;
   groupDeadlineField.hidden = isCarona;
   groupTargetInput.required = !isCarona;
@@ -1211,6 +1216,41 @@ caronaUseLocationBtn.addEventListener("click", () => {
   );
 });
 
+// Motor de sugestão automática (task-005, sem IA) — mostra na hora quem já
+// publicou o lado oposto compatível (mesma categoria, local parecido, data
+// compatível), com o WhatsApp já pronto pra chamar. Cálculo é feito no
+// servidor (comparação de texto/data direta, nenhuma chamada externa).
+function renderGroupSuggestions(suggestions) {
+  if (!suggestions || suggestions.length === 0) {
+    groupSuggestions.innerHTML = "";
+    return;
+  }
+  const count = suggestions.length;
+  const intro = count === 1 ? "Encontramos 1 pessoa que combina com o que você procura!" : `Encontramos ${count} pessoas que combinam com o que você procura!`;
+  const itemsHtml = suggestions
+    .map((s) => {
+      const routeText = s.carona ? ` · ${escapeHtml(s.carona.origemTexto)} → ${escapeHtml(s.carona.destinoTexto)}` : "";
+      const whatsappDigits = String(s.whatsapp || "").replace(/\D/g, "");
+      const whatsappHtml = whatsappDigits
+        ? `<a class="accept-btn" href="https://wa.me/${encodeURIComponent(whatsappDigits)}" target="_blank" rel="noopener noreferrer">Falar no WhatsApp</a>`
+        : "";
+      return `
+      <li class="request-item">
+        <span class="request-info">
+          <strong>${escapeHtml(s.name || "Alguém")}</strong> · ${escapeHtml(s.title)}
+          <br />
+          <span class="request-meta">${escapeHtml(s.city)}${routeText}</span>
+        </span>
+        <span class="request-action">${whatsappHtml}</span>
+      </li>`;
+    })
+    .join("");
+  groupSuggestions.innerHTML = `
+    <p class="post-status post-status--ok">${escapeHtml(intro)}</p>
+    <ul class="requests-list">${itemsHtml}</ul>
+  `;
+}
+
 groupForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const data = new FormData(groupForm);
@@ -1219,11 +1259,24 @@ groupForm.addEventListener("submit", async (event) => {
   groupStatus.className = "post-status";
   submitBtn.disabled = true;
 
+  // "tipoGeral" (select genérico quero/ofereço, task-005) tem nome próprio
+  // de propósito — o formulário também tem "carona-tipo" com name="tipo"
+  // (motorista/passageiro), e os dois ficam sempre no mesmo <form> (só um
+  // escondido via CSS conforme a categoria). Com o mesmo "name" nos dois,
+  // o FormData pegaria o valor errado quando o campo escondido vem depois
+  // no DOM. Categoria carona já manda "tipo" certo via carona-tipo; fora
+  // dela, "tipoGeral" é que precisa virar "tipo" no payload da API.
+  const payload = Object.fromEntries(data);
+  if (groupCategorySelect.value !== "carona") {
+    payload.tipo = payload.tipoGeral;
+  }
+  delete payload.tipoGeral;
+
   try {
     const res = await fetch("/api/groups", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(Object.fromEntries(data)),
+      body: JSON.stringify(payload),
     });
     const result = await res.json();
     if (!res.ok) {
@@ -1233,6 +1286,7 @@ groupForm.addEventListener("submit", async (event) => {
     }
     groupStatus.textContent = "Grupo criado!";
     groupStatus.className = "post-status post-status--ok";
+    renderGroupSuggestions(result.suggestions);
     groupForm.reset();
     updateGroupFormFieldsForCategory();
     delete caronaHorarioInput.dataset.touched;
@@ -1508,6 +1562,34 @@ bottomSearchForm.addEventListener("submit", async (event) => {
     highlightSection(rankingSection);
     return;
   }
+
+  // Busca por palavra-chave sem IA (task-005) — cobre o que classifyIntent
+  // sozinho não pega: sinônimo de serviço ("unha" além de "manicure") e
+  // categoria de Grupos de Economia (frete/curso/assinatura/compra/viagem).
+  // Resultado "text" (fallback mais fraco, substring simples no título) não
+  // vira atalho aqui — cai no mesmo fluxo de busca na web de sempre, pra
+  // não destacar a seção Grupos pra qualquer busca que bata por acaso.
+  try {
+    const searchRes = await fetch(`/api/search?q=${encodeURIComponent(message)}`);
+    if (searchRes.ok) {
+      const searchData = await searchRes.json();
+      if (searchData.type === "service" && searchData.results.length > 0) {
+        loadRanking(undefined, searchData.service);
+        highlightSection(rankingSection);
+        return;
+      }
+      if (searchData.type === "group" && searchData.results.length > 0) {
+        const categoryBtn = document.querySelector(`.group-category-btn[data-category="${searchData.category}"]`);
+        if (categoryBtn) categoryBtn.click();
+        highlightSection(document.getElementById("grupos"));
+        return;
+      }
+    }
+  } catch (err) {
+    // Falha na busca por palavra-chave não deveria travar a busca — cai no
+    // mesmo fallback de sempre (busca na web).
+  }
+
   runSearch(message);
 });
 

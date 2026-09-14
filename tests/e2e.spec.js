@@ -1925,6 +1925,328 @@ test.describe("Top3Profissional - avaliações e denúncia (task-004)", () => {
   });
 });
 
+test.describe("Top3Profissional - sugestão automática entre posts, sem IA (task-005)", () => {
+  test("post genérico 'ofereco' recebe sugestão de um 'quero' já publicado na mesma categoria e cidade parecida", async ({ request }) => {
+    const cidade = `Contagem Teste ${Date.now()}`;
+    const quero = await request
+      .post("/api/groups", {
+        data: { category: "frete", title: "Quero enviar uma geladeira", city: cidade, targetMembers: 2, whatsapp: "31911110000", name: "Ana", tipo: "quero" },
+      })
+      .then((r) => r.json());
+    expect(quero.suggestions).toEqual([]);
+
+    const ofereco = await request
+      .post("/api/groups", {
+        data: { category: "frete", title: "Tenho espaço no caminhão", city: cidade.toUpperCase(), targetMembers: 2, whatsapp: "31922220000", name: "Beto", tipo: "ofereco" },
+      })
+      .then((r) => r.json());
+    expect(ofereco.suggestions).toHaveLength(1);
+    expect(ofereco.suggestions[0]).toMatchObject({ id: quero.id, name: "Ana", whatsapp: "31911110000", tipo: "quero" });
+  });
+
+  test("GET /api/groups/:id/suggestions recalcula sob demanda depois que um post oposto aparece", async ({ request }) => {
+    const cidade = `Sabará Teste ${Date.now()}`;
+    const quero = await request
+      .post("/api/groups", {
+        data: { category: "curso", title: "Quero aprender violão", city: cidade, targetMembers: 2, whatsapp: "31933330000", name: "Carla", tipo: "quero" },
+      })
+      .then((r) => r.json());
+    expect((await request.get(`/api/groups/${quero.id}/suggestions`).then((r) => r.json())).suggestions).toEqual([]);
+
+    await request.post("/api/groups", {
+      data: { category: "curso", title: "Dou aula de violão", city: cidade, targetMembers: 2, whatsapp: "31944440000", name: "Duda", tipo: "ofereco" },
+    });
+    const depois = await request.get(`/api/groups/${quero.id}/suggestions`).then((r) => r.json());
+    expect(depois.suggestions).toHaveLength(1);
+    expect(depois.suggestions[0].name).toBe("Duda");
+  });
+
+  test("não sugere mesma categoria com o mesmo tipo, categoria diferente, cidade diferente, nem quando um dos dois não informou tipo", async ({
+    request,
+  }) => {
+    const cidade = `Betim Teste ${Date.now()}`;
+    const base = await request
+      .post("/api/groups", {
+        data: { category: "servico", title: "Quero um jardineiro", city: cidade, targetMembers: 2, whatsapp: "31955550000", name: "Eva", tipo: "quero" },
+      })
+      .then((r) => r.json());
+
+    await request.post("/api/groups", {
+      data: { category: "servico", title: "Também quero um jardineiro", city: cidade, targetMembers: 2, whatsapp: "31966660000", name: "Fabio", tipo: "quero" },
+    });
+    await request.post("/api/groups", {
+      data: { category: "compra", title: "Ofereço serviço de jardinagem", city: cidade, targetMembers: 2, whatsapp: "31977770000", name: "Gustavo", tipo: "ofereco" },
+    });
+    await request.post("/api/groups", {
+      data: { category: "servico", title: "Ofereço jardinagem em outro lugar", city: `Cidade bem distante ${Date.now()}`, targetMembers: 2, whatsapp: "31988880000", name: "Helena", tipo: "ofereco" },
+    });
+    await request.post("/api/groups", {
+      data: { category: "servico", title: "Sem tipo declarado", city: cidade, targetMembers: 2, whatsapp: "31999990000", name: "Ivo" },
+    });
+
+    const suggestions = await request.get(`/api/groups/${base.id}/suggestions`).then((r) => r.json());
+    expect(suggestions.suggestions).toEqual([]);
+  });
+
+  test("carona: passageiro (post individual, sempre 'completo') continua elegível pra sugestão — não é tratado como 'resolvido'", async ({
+    request,
+  }) => {
+    const passageiro = await request
+      .post("/api/groups", {
+        data: {
+          category: "carona",
+          title: "Preciso ir pra BH",
+          city: "Bom Despacho",
+          whatsapp: "31911112222",
+          name: "Debora",
+          tipo: "passageiro",
+          origemTexto: "Bom Despacho, MG",
+          destinoTexto: "BH",
+          dataViagem: "2026-10-01",
+        },
+      })
+      .then((r) => r.json());
+    expect(passageiro.status).toBe("completo");
+
+    const motorista = await request
+      .post("/api/groups", {
+        data: {
+          category: "carona",
+          title: "Bom Despacho -> BH",
+          city: "Bom Despacho",
+          whatsapp: "31922223333",
+          name: "Carlos",
+          tipo: "motorista",
+          origemTexto: "Bom Despacho",
+          destinoTexto: "Belo Horizonte",
+          dataViagem: "2026-10-01",
+          vagasTotais: 2,
+          cnhNumero: "12345678900",
+          veiculoPlaca: "ABC1D23",
+          veiculoModelo: "Onix",
+          veiculoCor: "Prata",
+        },
+      })
+      .then((r) => r.json());
+    expect(motorista.suggestions).toHaveLength(1);
+    expect(motorista.suggestions[0]).toMatchObject({ id: passageiro.id, name: "Debora" });
+  });
+
+  test("carona: não sugere motorista sem vaga (status completo), nem data incompatível (fora da janela de 1 dia)", async ({ request }) => {
+    // Motorista com 1 vaga só, que já vai ficar "completo" ao entrar um passageiro.
+    const motoristaLotado = await request
+      .post("/api/groups", {
+        data: {
+          category: "carona",
+          title: "Sabará -> BH lotado",
+          city: "Sabará",
+          whatsapp: "31933334444",
+          name: "Marcos",
+          tipo: "motorista",
+          origemTexto: "Sabará",
+          destinoTexto: "BH",
+          dataViagem: "2026-10-05",
+          vagasTotais: 1,
+          cnhNumero: "98765432100",
+          veiculoPlaca: "XYZ9A87",
+          veiculoModelo: "HB20",
+          veiculoCor: "Branco",
+        },
+      })
+      .then((r) => r.json());
+    await request.post(`/api/groups/${motoristaLotado.id}/join`, { data: { whatsapp: "31900001111", name: "Passageiro Extra" } });
+
+    const motoristaDataDistante = await request
+      .post("/api/groups", {
+        data: {
+          category: "carona",
+          title: "Sabará -> BH data distante",
+          city: "Sabará",
+          whatsapp: "31944445555",
+          name: "Nina",
+          tipo: "motorista",
+          origemTexto: "Sabará",
+          destinoTexto: "BH",
+          dataViagem: "2026-11-20",
+          vagasTotais: 2,
+          cnhNumero: "11122233344",
+          veiculoPlaca: "QWE4R56",
+          veiculoModelo: "Argo",
+          veiculoCor: "Vermelho",
+        },
+      })
+      .then((r) => r.json());
+
+    const passageiro = await request
+      .post("/api/groups", {
+        data: {
+          category: "carona",
+          title: "Preciso ir de Sabará pra BH",
+          city: "Sabará",
+          whatsapp: "31955556666",
+          name: "Olivia",
+          tipo: "passageiro",
+          origemTexto: "Sabará",
+          destinoTexto: "BH",
+          dataViagem: "2026-10-05",
+        },
+      })
+      .then((r) => r.json());
+    expect(passageiro.suggestions).toEqual([]);
+
+    // Sanidade: motoristaDataDistante existe mas não deveria ter sido sugerido (data muito longe).
+    const ids = passageiro.suggestions.map((s) => s.id);
+    expect(ids).not.toContain(motoristaLotado.id);
+    expect(ids).not.toContain(motoristaDataDistante.id);
+  });
+
+  test("UI: criar um post 'ofereço' depois de um 'quero' compatível mostra a sugestão com botão de WhatsApp na tela de confirmação", async ({
+    page,
+  }) => {
+    const cidade = `Nova Lima UI ${Date.now()}`;
+    await page.request.post("/api/groups", {
+      data: { category: "curso", title: "Quero aula de violão", city: cidade, targetMembers: 2, whatsapp: "31911119999", name: "Paula", tipo: "quero" },
+    });
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "+ Criar um grupo" }).click();
+    await page.locator("#group-title").fill("Dou aula de violão particular");
+    await page.locator("#group-category").selectOption("curso");
+    await page.locator("#group-city").fill(cidade);
+    await page.locator("#group-target").fill("2");
+    await page.locator("#group-tipo").selectOption("ofereco");
+    await page.locator("#group-whatsapp").fill("31922229999");
+    await page.locator("#group-name").fill("Rogerio");
+    await page.locator("#group-form button[type=submit]").click();
+
+    await expect(page.locator("#group-status")).toHaveText("Grupo criado!");
+    const suggestions = page.locator("#group-suggestions");
+    await expect(suggestions).toContainText("Encontramos 1 pessoa que combina com o que você procura!");
+    await expect(suggestions).toContainText("Paula");
+    await expect(suggestions.getByRole("link", { name: "Falar no WhatsApp" })).toHaveAttribute("href", "https://wa.me/31911119999");
+  });
+
+  test("UI: criar um post sem ninguém compatível não mostra nenhuma sugestão", async ({ page }) => {
+    const cidade = `Cidade Sozinha UI ${Date.now()}`;
+    await page.goto("/");
+    await page.getByRole("button", { name: "+ Criar um grupo" }).click();
+    await page.locator("#group-title").fill("Quero uma diarista");
+    await page.locator("#group-category").selectOption("servico");
+    await page.locator("#group-city").fill(cidade);
+    await page.locator("#group-target").fill("2");
+    await page.locator("#group-tipo").selectOption("quero");
+    await page.locator("#group-whatsapp").fill("31900001234");
+    await page.locator("#group-form button[type=submit]").click();
+
+    await expect(page.locator("#group-status")).toHaveText("Grupo criado!");
+    await expect(page.locator("#group-suggestions")).toBeEmpty();
+  });
+});
+
+test.describe("Top3Profissional - busca por palavra-chave, sem IA (task-005)", () => {
+  test("critério de pronto do task-005: 'manicure amanhã em BH' retorna o ranking de manicure filtrado, com data e cidade reconhecidos", async ({
+    request,
+  }) => {
+    const res = await request.get("/api/search?q=" + encodeURIComponent("manicure amanhã em BH"));
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.type).toBe("service");
+    expect(body.service).toBe("manicure");
+    expect(body.city).toBe("belo horizonte");
+    expect(body.results.length).toBeGreaterThan(0);
+    expect(body.results.every((r) => r.service === "manicure")).toBe(true);
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const expectedDate = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
+    expect(body.date).toBe(expectedDate);
+  });
+
+  test("reconhece sinônimo de serviço fora do nome exato (ex: 'unha' -> manicure)", async ({ request }) => {
+    const body = await request.get("/api/search?q=" + encodeURIComponent("preciso fazer unha hoje")).then((r) => r.json());
+    expect(body.type).toBe("service");
+    expect(body.service).toBe("manicure");
+  });
+
+  test("reconhece categoria de grupo por sinônimo (ex: 'mudança' -> frete) e filtra por cidade", async ({ request }) => {
+    const cidade = `Contagem Busca ${Date.now()}`;
+    await request.post("/api/groups", {
+      data: { category: "frete", title: "Ofereço frete pra mudança", city: cidade, targetMembers: 2, whatsapp: "31911110000", name: "Zeca", tipo: "ofereco" },
+    });
+    const body = await request.get("/api/search?q=" + encodeURIComponent(`mudança em ${cidade}`)).then((r) => r.json());
+    expect(body.type).toBe("group");
+    expect(body.category).toBe("frete");
+    expect(body.results.some((g) => g.city === cidade)).toBe(true);
+  });
+
+  test("reconhece dia da semana e data dd/mm, sempre apontando pra uma data futura", async ({ request }) => {
+    const today = new Date();
+    const weekdayNames = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+    const otherWeekday = weekdayNames[(today.getDay() + 3) % 7]; // um dia da semana != hoje
+    const bodyWeekday = await request.get("/api/search?q=" + encodeURIComponent(`corte de cabelo ${otherWeekday}`)).then((r) => r.json());
+    expect(bodyWeekday.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(new Date(bodyWeekday.date + "T12:00:00") > today).toBe(true);
+
+    const bodyDdMm = await request.get("/api/search?q=" + encodeURIComponent("eletricista 25/12")).then((r) => r.json());
+    expect(bodyDdMm.date).toMatch(/-12-25$/);
+  });
+
+  test("sem serviço nem categoria reconhecidos, cai no fallback de texto livre e acha post pelo título", async ({ request }) => {
+    const marcador = `revistararaedicaolimitada${Date.now()}`;
+    const titulo = `Coleção de ${marcador}`;
+    await request.post("/api/groups", {
+      data: { category: "compra", title: titulo, city: "BH", targetMembers: 2, whatsapp: "31911110000", name: "Wagner" },
+    });
+    // "coleção" e o marcador não batem nenhum sinônimo de serviço/categoria.
+    const body = await request.get("/api/search?q=" + encodeURIComponent(marcador)).then((r) => r.json());
+    expect(body.type).toBe("text");
+    expect(body.results.some((g) => g.title === titulo)).toBe(true);
+  });
+
+  test("busca sem nenhum resultado reconhecido devolve lista vazia, sem erro e sem travar", async ({ request }) => {
+    const res = await request.get("/api/search?q=" + encodeURIComponent(`termo completamente aleatorio ${Date.now()}`));
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.results).toEqual([]);
+  });
+
+  test("segunda busca idêntica vem do cache (cached: true)", async ({ request }) => {
+    const termo = `busca cache teste ${Date.now()}`;
+    const first = await request.get("/api/search?q=" + encodeURIComponent(termo)).then((r) => r.json());
+    expect(first.cached).toBe(false);
+    const second = await request.get("/api/search?q=" + encodeURIComponent(termo)).then((r) => r.json());
+    expect(second.cached).toBe(true);
+    expect(second.results).toEqual(first.results);
+  });
+
+  test("exige o parâmetro 'q'", async ({ request }) => {
+    const res = await request.get("/api/search");
+    expect(res.status()).toBe(400);
+  });
+
+  test("UI: buscar um sinônimo de serviço na barra principal mostra o ranking filtrado, sem cair na busca web", async ({ page }) => {
+    await page.goto("/");
+    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
+    await searchInput.fill("preciso fazer unha amanhã");
+    await searchInput.press("Enter");
+    await expect(page.locator("#ranking-title")).toContainText("manicure");
+    await expect(page.locator("#ranking-list li").first()).toBeVisible();
+  });
+
+  test("UI: buscar uma categoria de Grupos por sinônimo destaca a seção Grupos já filtrada", async ({ page }) => {
+    const cidade = `Betim UI Busca ${Date.now()}`;
+    await page.request.post("/api/groups", {
+      data: { category: "frete", title: "Ofereço frete pra mudança", city: cidade, targetMembers: 2, whatsapp: "31911110000", name: "Zeca", tipo: "ofereco" },
+    });
+    await page.goto("/");
+    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
+    await searchInput.fill(`mudança em ${cidade}`);
+    await searchInput.press("Enter");
+    await expect(page.locator('.group-category-btn[data-category="frete"]')).toHaveClass(/is-active/);
+    await expect(page.locator(".group-card", { hasText: cidade })).toBeVisible();
+  });
+});
+
 test.describe("Top3Profissional - infra", () => {
   test("/health responde 200 (usado pelo host pra saber se o processo está de pé)", async ({ request }) => {
     const res = await request.get("/health");
