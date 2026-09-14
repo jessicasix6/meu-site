@@ -750,6 +750,32 @@ test.describe("Top3Profissional - login com Google (pilar 4.13)", () => {
     });
     expect(res.status()).toBe(201);
   });
+
+  test("editar perfil (PUT) exige login, mesmo pra um perfil sem dono (ownerUserId null)", async ({ request }) => {
+    const create = await request.post("/api/providers", {
+      multipart: {
+        name: "Editar Sem Login",
+        service: "encanador",
+        description: "conserto vazamento",
+        location: "Belo Horizonte",
+        whatsapp: "31999990000",
+        photos: { name: "foto.png", mimeType: "image/png", buffer: require("fs").readFileSync("assets/icons/icon-192.png") },
+      },
+    });
+    const { provider } = await create.json();
+
+    const edit = await request.put(`/api/providers/${provider.slug}`, {
+      multipart: { name: "Outro Nome", service: "encanador", location: "Belo Horizonte", whatsapp: "31999990000" },
+    });
+    expect(edit.status()).toBe(401);
+  });
+
+  test("editar perfil (PUT) exige login antes mesmo de checar se o slug existe", async ({ request }) => {
+    const edit = await request.put("/api/providers/slug-que-nao-existe-123", {
+      multipart: { name: "X", service: "y", location: "z", whatsapp: "31999990000" },
+    });
+    expect(edit.status()).toBe(401);
+  });
 });
 
 test.describe("Top3Profissional - infra", () => {

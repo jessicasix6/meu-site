@@ -547,7 +547,7 @@ app.post("/api/auth/google", async (req, res) => {
 app.get("/api/auth/me", (req, res) => {
   const user = getCurrentUser(req);
   if (!user) return res.status(401).json({ error: "não autenticado" });
-  const providers = PROVIDER_PROFILES.filter((p) => p.ownerUserId === user.id).map((p) => ({ name: p.name, slug: p.slug }));
+  const providers = PROVIDER_PROFILES.filter((p) => p.ownerUserId === user.id).map((p) => ({ name: p.name, service: p.service, slug: p.slug }));
   res.json({ user: { name: user.name, email: user.email, picture: user.picture }, providers });
 });
 
@@ -877,6 +877,81 @@ app.post("/api/requests/:id/rate", (req, res) => {
 const PROVIDER_NAME_MAX_LENGTH = 60;
 const PROVIDER_DESCRIPTION_MAX_LENGTH = 500;
 
+// Compartilhado entre criar (POST) e editar (PUT) perfil — mesma regra de
+// validação pros dois caminhos, sem divergir. `requireDescription` é false
+// na edição: quem já tem perfil pode só atualizar nome/local/WhatsApp sem
+// reescrever a bio toda vez.
+function validateProviderFields({ name, service, description, location, whatsapp }, { requireDescription }) {
+  if (!name || typeof name !== "string" || !name.trim()) {
+    return { ok: false, error: "informe seu nome" };
+  }
+  if (name.trim().length > PROVIDER_NAME_MAX_LENGTH) {
+    return { ok: false, error: `nome muito longo (máximo ${PROVIDER_NAME_MAX_LENGTH} caracteres)` };
+  }
+  if (!service || typeof service !== "string" || !service.trim()) {
+    return { ok: false, error: "informe o serviço que você presta" };
+  }
+  const hasDescription = typeof description === "string" && description.trim();
+  if (requireDescription && !hasDescription) {
+    return { ok: false, error: "descreva o que você faz" };
+  }
+  if (hasDescription && description.trim().length > PROVIDER_DESCRIPTION_MAX_LENGTH) {
+    return { ok: false, error: `descrição muito longa (máximo ${PROVIDER_DESCRIPTION_MAX_LENGTH} caracteres)` };
+  }
+  if (!location || typeof location !== "string" || !location.trim()) {
+    return { ok: false, error: "informe a localização" };
+  }
+  if (location.trim().length > REQUEST_LOCATION_MAX_LENGTH) {
+    return { ok: false, error: `localização muito longa (máximo ${REQUEST_LOCATION_MAX_LENGTH} caracteres)` };
+  }
+  if (!whatsapp || typeof whatsapp !== "string" || !whatsapp.trim()) {
+    return { ok: false, error: "informe um WhatsApp pra contato" };
+  }
+  if (whatsapp.trim().length > REQUEST_WHATSAPP_MAX_LENGTH) {
+    return { ok: false, error: `WhatsApp muito longo (máximo ${REQUEST_WHATSAPP_MAX_LENGTH} caracteres)` };
+  }
+  return {
+    ok: true,
+    name: name.trim(),
+    service: service.trim().toLowerCase(),
+    description: hasDescription ? description.trim() : null,
+    location: location.trim(),
+    whatsapp: whatsapp.trim(),
+  };
+}
+
+// Compartilhado entre criar e editar — grava os arquivos recebidos, roda o
+// ajuste automático (sempre) e a troca de fundo (só se marcada), devolvendo
+// o array de fotos no formato já salvo em PROVIDER_PROFILES.
+async function buildPhotosFromFiles(files, dir, id, newBackground) {
+  const photos = [];
+  for (const [index, file] of files.entries()) {
+    const ext = file.mimetype === "image/png" ? "png" : file.mimetype === "image/webp" ? "webp" : "jpg";
+    const filename = `${index}.${ext}`;
+    fs.writeFileSync(path.join(dir, filename), file.buffer);
+    let enhancedUrl = null;
+    const enhancedBuffer = await enhancePhoto(file.buffer, file.mimetype);
+    if (enhancedBuffer) {
+      const enhancedFilename = `${index}-melhorada.png`;
+      fs.writeFileSync(path.join(dir, enhancedFilename), enhancedBuffer);
+      enhancedUrl = `/uploads/providers/${id}/${enhancedFilename}`;
+    }
+    // Fundo novo é opcional — só roda se a pessoa marcar no formulário,
+    // nunca automático (às vezes o fundo original importa pro trabalho).
+    let newBackgroundUrl = null;
+    if (newBackground === "true" || newBackground === "on") {
+      const bgBuffer = await applyNewBackground(file.buffer);
+      if (bgBuffer) {
+        const bgFilename = `${index}-fundo-novo.png`;
+        fs.writeFileSync(path.join(dir, bgFilename), bgBuffer);
+        newBackgroundUrl = `/uploads/providers/${id}/${bgFilename}`;
+      }
+    }
+    photos.push({ url: `/uploads/providers/${id}/${filename}`, enhancedUrl, newBackgroundUrl });
+  }
+  return photos;
+}
+
 // Pilar 4.12 — perfil profissional gerado por IA: a pessoa manda fotos e
 // descreve o que faz, a IA escreve a bio e as fotos recebem ajuste técnico
 // automático (sempre) mais edição por IA generativa (se GEMINI_API_KEY
@@ -887,36 +962,9 @@ app.post("/api/providers", (req, res, next) => {
   }
   next();
 }, uploadProviderPhotos, async (req, res) => {
-  const { name, service, description, location, whatsapp, newBackground } = req.body || {};
-
-  if (!name || typeof name !== "string" || !name.trim()) {
-    return res.status(400).json({ error: "informe seu nome" });
-  }
-  if (name.trim().length > PROVIDER_NAME_MAX_LENGTH) {
-    return res.status(400).json({ error: `nome muito longo (máximo ${PROVIDER_NAME_MAX_LENGTH} caracteres)` });
-  }
-  if (!service || typeof service !== "string" || !service.trim()) {
-    return res.status(400).json({ error: "informe o serviço que você presta" });
-  }
-  if (!description || typeof description !== "string" || !description.trim()) {
-    return res.status(400).json({ error: "descreva o que você faz" });
-  }
-  if (description.trim().length > PROVIDER_DESCRIPTION_MAX_LENGTH) {
-    return res
-      .status(400)
-      .json({ error: `descrição muito longa (máximo ${PROVIDER_DESCRIPTION_MAX_LENGTH} caracteres)` });
-  }
-  if (!location || typeof location !== "string" || !location.trim()) {
-    return res.status(400).json({ error: "informe a localização" });
-  }
-  if (location.trim().length > REQUEST_LOCATION_MAX_LENGTH) {
-    return res.status(400).json({ error: `localização muito longa (máximo ${REQUEST_LOCATION_MAX_LENGTH} caracteres)` });
-  }
-  if (!whatsapp || typeof whatsapp !== "string" || !whatsapp.trim()) {
-    return res.status(400).json({ error: "informe um WhatsApp pra contato" });
-  }
-  if (whatsapp.trim().length > REQUEST_WHATSAPP_MAX_LENGTH) {
-    return res.status(400).json({ error: `WhatsApp muito longo (máximo ${REQUEST_WHATSAPP_MAX_LENGTH} caracteres)` });
+  const fields = validateProviderFields(req.body || {}, { requireDescription: true });
+  if (!fields.ok) {
+    return res.status(400).json({ error: fields.error });
   }
   if (!req.files || req.files.length === 0) {
     return res.status(400).json({ error: "envie pelo menos uma foto" });
@@ -926,49 +974,24 @@ app.post("/api/providers", (req, res, next) => {
   }
 
   const id = `pf${nextProviderId++}`;
-  const slug = slugify(name.trim());
+  const slug = slugify(fields.name);
   const dir = path.join(UPLOADS_DIR, "providers", id);
+  const { newBackground } = req.body || {};
 
   try {
     fs.mkdirSync(dir, { recursive: true });
-
-    const photos = [];
-    for (const [index, file] of req.files.entries()) {
-      const ext = file.mimetype === "image/png" ? "png" : file.mimetype === "image/webp" ? "webp" : "jpg";
-      const filename = `${index}.${ext}`;
-      fs.writeFileSync(path.join(dir, filename), file.buffer);
-      let enhancedUrl = null;
-      const enhancedBuffer = await enhancePhoto(file.buffer, file.mimetype);
-      if (enhancedBuffer) {
-        const enhancedFilename = `${index}-melhorada.png`;
-        fs.writeFileSync(path.join(dir, enhancedFilename), enhancedBuffer);
-        enhancedUrl = `/uploads/providers/${id}/${enhancedFilename}`;
-      }
-      // Fundo novo é opcional — só roda se a pessoa marcar no formulário,
-      // nunca automático (às vezes o fundo original importa pro trabalho).
-      let newBackgroundUrl = null;
-      if (newBackground === "true" || newBackground === "on") {
-        const bgBuffer = await applyNewBackground(file.buffer);
-        if (bgBuffer) {
-          const bgFilename = `${index}-fundo-novo.png`;
-          fs.writeFileSync(path.join(dir, bgFilename), bgBuffer);
-          newBackgroundUrl = `/uploads/providers/${id}/${bgFilename}`;
-        }
-      }
-      photos.push({ url: `/uploads/providers/${id}/${filename}`, enhancedUrl, newBackgroundUrl });
-    }
-
-    const bio = await writeBio(name.trim(), service.trim(), description.trim());
+    const photos = await buildPhotosFromFiles(req.files, dir, id, newBackground);
+    const bio = await writeBio(fields.name, fields.service, fields.description);
 
     const currentUser = getCurrentUser(req);
     const provider = {
       id,
       slug,
-      name: name.trim(),
-      service: service.trim().toLowerCase(),
+      name: fields.name,
+      service: fields.service,
       bio,
-      location: location.trim(),
-      whatsapp: whatsapp.trim(),
+      location: fields.location,
+      whatsapp: fields.whatsapp,
       photos,
       // Login é opcional (pilar 4.13) — perfil continua podendo ser criado
       // sem logar, só fica sem dono (ownerUserId null) nesse caso.
@@ -980,6 +1003,54 @@ app.post("/api/providers", (req, res, next) => {
   } catch (err) {
     fs.rmSync(dir, { recursive: true, force: true });
     res.status(500).json({ error: "falha ao criar o perfil, tente de novo" });
+  }
+});
+
+// Pilar 4.13 — editar perfil (só quem logou e é dono do perfil). Descrição
+// e fotos são opcionais aqui: manda só o que quer trocar, o resto (bio,
+// fotos) continua como estava. Slug/id/dono nunca mudam — é o mesmo link
+// de antes, só o conteúdo é atualizado.
+app.put("/api/providers/:slug", uploadProviderPhotos, async (req, res) => {
+  const currentUser = getCurrentUser(req);
+  if (!currentUser) {
+    return res.status(401).json({ error: "faça login pra editar seu perfil" });
+  }
+  const provider = PROVIDER_PROFILES.find((p) => p.slug === req.params.slug);
+  if (!provider) {
+    return res.status(404).json({ error: "perfil não encontrado" });
+  }
+  if (provider.ownerUserId !== currentUser.id) {
+    return res.status(403).json({ error: "esse perfil não é seu" });
+  }
+
+  const fields = validateProviderFields(req.body || {}, { requireDescription: false });
+  if (!fields.ok) {
+    return res.status(400).json({ error: fields.error });
+  }
+  if (req.files && req.files.length > 0 && !req.files.every((file) => matchesImageSignature(file.buffer, file.mimetype))) {
+    return res.status(400).json({ error: "um dos arquivos enviados não é uma imagem válida" });
+  }
+
+  const { newBackground } = req.body || {};
+  const dir = path.join(UPLOADS_DIR, "providers", provider.id);
+
+  try {
+    if (req.files && req.files.length > 0) {
+      fs.rmSync(dir, { recursive: true, force: true });
+      fs.mkdirSync(dir, { recursive: true });
+      provider.photos = await buildPhotosFromFiles(req.files, dir, provider.id, newBackground);
+    }
+    if (fields.description) {
+      provider.bio = await writeBio(fields.name, fields.service, fields.description);
+    }
+    provider.name = fields.name;
+    provider.service = fields.service;
+    provider.location = fields.location;
+    provider.whatsapp = fields.whatsapp;
+    provider.updatedAt = new Date().toISOString();
+    res.json({ provider });
+  } catch (err) {
+    res.status(500).json({ error: "falha ao salvar as alterações, tente de novo" });
   }
 });
 
