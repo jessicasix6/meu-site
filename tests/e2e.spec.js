@@ -126,11 +126,12 @@ test.describe("Top3Profissional - fluxo básico", () => {
     expect(top3[0].distanceKm).toBeLessThan(1);
   });
 
-  test("painel de benefícios mostra TeraBox em destaque e MEGA, com links pra conectar", async ({ page }) => {
+  test("painel de benefícios mostra TeraBox em destaque, MEGA, Canva e Recibo Gratuito, com links pra conectar", async ({ page }) => {
     await page.goto("/");
     const featured = page.locator(".benefit-card--featured");
     await expect(featured).toContainText("TeraBox");
-    await expect(page.locator(".benefit-card")).toHaveCount(2);
+    await expect(page.locator(".benefit-card")).toHaveCount(4);
+    await expect(page.locator(".benefit-card")).toContainText(["TeraBox", "MEGA", "Canva", "Recibo Gratuito"]);
     for (const link of await page.locator(".benefit-connect").all()) {
       await expect(link).toHaveAttribute("href", /^https:\/\//);
       await expect(link).toHaveAttribute("target", "_blank");
