@@ -165,6 +165,13 @@
           <button type="button" class="mode-btn group-category-btn" data-category="servico">Serviço</button>
           <button type="button" class="mode-btn group-category-btn" data-category="curso">Curso</button>
           <button type="button" class="mode-btn group-category-btn" data-category="assinatura">Assinatura</button>
+          <button type="button" class="mode-btn group-category-btn" data-category="carona">Carona</button>
+        </div>
+        <div id="carona-search-extra" class="carona-search-extra" hidden>
+          <input id="carona-search-origem" type="text" placeholder="Origem" aria-label="Filtrar por origem" />
+          <input id="carona-search-destino" type="text" placeholder="Destino" aria-label="Filtrar por destino" />
+          <input id="carona-search-data" type="date" aria-label="Filtrar por data" />
+          <button type="button" id="carona-search-location">Ordenar por perto de mim</button>
         </div>
         <ul id="groups-list" class="groups-list" aria-live="polite"></ul>
         <button type="button" id="group-create-toggle" class="cta-secondary">+ Criar um grupo</button>
@@ -182,24 +189,82 @@
               <option value="servico" selected>serviço local em grupo</option>
               <option value="curso">curso/evento</option>
               <option value="assinatura">assinatura compartilhada</option>
+              <option value="carona">carona compartilhada</option>
             </select>
           </div>
-          <div class="post-field">
+          <div class="post-field" id="group-city-field">
             <label for="group-city">Cidade/bairro</label>
             <input id="group-city" name="city" type="text" placeholder="ex: Centro, Belo Horizonte" required />
           </div>
-          <div class="post-field">
+          <div class="post-field" id="group-target-field">
             <label for="group-target">Quantas pessoas no total</label>
             <input id="group-target" name="targetMembers" type="number" min="2" max="50" step="1" placeholder="ex: 4" required />
           </div>
-          <div class="post-field">
+          <div class="post-field" id="group-price-field">
             <label for="group-price">Valor estimado por pessoa (R$, opcional)</label>
             <input id="group-price" name="estimatedIndividualPrice" type="number" min="0" step="1" placeholder="ex: 55" />
           </div>
-          <div class="post-field">
+          <div class="post-field" id="group-deadline-field">
             <label for="group-deadline">Prazo (opcional)</label>
             <input id="group-deadline" name="deadline" type="text" placeholder="ex: até sexta-feira" />
           </div>
+
+          <fieldset id="group-carona-fields" class="post-field post-field--wide group-carona-fieldset" hidden>
+            <legend>Detalhes da carona</legend>
+            <div class="post-field">
+              <label for="carona-tipo">Você é</label>
+              <select id="carona-tipo" name="tipo">
+                <option value="motorista">motorista (tenho vaga)</option>
+                <option value="passageiro">passageiro (procuro carona)</option>
+              </select>
+            </div>
+            <div class="post-field">
+              <label for="carona-origem">Origem</label>
+              <input id="carona-origem" name="origemTexto" type="text" placeholder="ex: Bom Despacho, MG" />
+            </div>
+            <div class="post-field">
+              <label for="carona-destino">Destino</label>
+              <input id="carona-destino" name="destinoTexto" type="text" placeholder="ex: Belo Horizonte, MG" />
+            </div>
+            <div class="post-field">
+              <label for="carona-data">Data da viagem</label>
+              <input id="carona-data" name="dataViagem" type="date" />
+            </div>
+            <div class="post-field">
+              <label for="carona-horario">Horário aproximado (opcional)</label>
+              <input id="carona-horario" name="horarioAproximado" type="text" placeholder="ex: 08h" />
+            </div>
+            <div class="post-field post-field--checkbox">
+              <button type="button" id="carona-use-location" class="cta-secondary">📍 Usar minha localização atual</button>
+              <span id="carona-location-status" class="post-status"></span>
+              <input id="carona-lat" name="lat" type="hidden" />
+              <input id="carona-lng" name="lng" type="hidden" />
+            </div>
+            <div id="carona-motorista-fields">
+              <div class="post-field">
+                <label for="carona-vagas">Vagas pra passageiro</label>
+                <input id="carona-vagas" name="vagasTotais" type="number" min="1" max="8" step="1" placeholder="ex: 3" />
+              </div>
+              <p class="carona-docs-notice">Esses dados aparecem pro passageiro antes de ele confirmar — não são verificados contra nenhuma base oficial, só coletados e exibidos.</p>
+              <div class="post-field">
+                <label for="carona-cnh">Número da CNH</label>
+                <input id="carona-cnh" name="cnhNumero" type="text" placeholder="ex: 12345678900" />
+              </div>
+              <div class="post-field">
+                <label for="carona-placa">Placa do veículo</label>
+                <input id="carona-placa" name="veiculoPlaca" type="text" placeholder="ex: ABC1D23" />
+              </div>
+              <div class="post-field">
+                <label for="carona-modelo">Modelo do veículo</label>
+                <input id="carona-modelo" name="veiculoModelo" type="text" placeholder="ex: Onix" />
+              </div>
+              <div class="post-field">
+                <label for="carona-cor">Cor do veículo</label>
+                <input id="carona-cor" name="veiculoCor" type="text" placeholder="ex: Prata" />
+              </div>
+            </div>
+          </fieldset>
+
           <div class="post-field">
             <label for="group-whatsapp">Seu WhatsApp</label>
             <input id="group-whatsapp" name="whatsapp" type="tel" placeholder="ex: (31) 99999-0000" required />

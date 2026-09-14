@@ -992,7 +992,16 @@ app.post("/api/requests/:id/rate", (req, res) => {
 // O front-end mostra um aviso fixo nos grupos dessa categoria (ver
 // docs/futuro-assinaturas-e-pagamentos.md pro que continua fora de escopo:
 // reputação/denúncia, que depende de login que o site ainda não tem aqui).
-const GROUP_CATEGORIES = ["compra", "frete", "viagem", "servico", "curso", "assinatura"];
+// "carona" (2026-09-14, task-002): carona compartilhada AGENDADA (não
+// corrida sob demanda) — motorista posta rota com vagas, passageiro posta
+// rota desejada, o site conecta. Sem verificação contra base oficial
+// (DETRAN), sem rastreamento contínuo, sem pagamento — só coleta e exibe o
+// que o motorista declarou (CNH/placa/veículo), pro passageiro decidir com
+// informação antes de embarcar. Ver docs/visao-produto.md pilar 4.14 pro
+// contexto jurídico (carona solidária x transporte remunerado) e
+// docs/futuro-assinaturas-e-pagamentos.md pro que fica de fora (app de
+// corrida sob demanda com GPS ao vivo/despacho/pagamento pro motorista).
+const GROUP_CATEGORIES = ["compra", "frete", "viagem", "servico", "curso", "assinatura", "carona"];
 const GROUP_CATEGORY_LABELS = {
   compra: "Compra coletiva",
   frete: "Frete compartilhado",
@@ -1000,10 +1009,104 @@ const GROUP_CATEGORY_LABELS = {
   servico: "Serviço local em grupo",
   curso: "Curso/evento",
   assinatura: "Assinatura compartilhada",
+  carona: "Carona compartilhada",
 };
 const GROUP_TITLE_MAX_LENGTH = 100;
 const GROUP_MIN_TARGET_MEMBERS = 2;
 const GROUP_MAX_TARGET_MEMBERS = 50;
+
+const CARONA_TIPOS = ["motorista", "passageiro"];
+const CARONA_TEXT_MAX_LENGTH = 80;
+const CARONA_DOC_MAX_LENGTH = 40;
+const CARONA_MAX_VAGAS = 8;
+
+// Valida os campos extras que só existem pra categoria "carona" — separado
+// de validateGroupFields porque a forma é genuinamente diferente (motorista
+// x passageiro têm campos obrigatórios diferentes), não porque a regra de
+// negócio muda.
+function validateCaronaFields({ tipo, origemTexto, destinoTexto, dataViagem, horarioAproximado, lat, lng, vagasTotais, cnhNumero, veiculoPlaca, veiculoModelo, veiculoCor }) {
+  if (!CARONA_TIPOS.includes(tipo)) {
+    return { ok: false, error: `tipo precisa ser: ${CARONA_TIPOS.join(" ou ")}` };
+  }
+  if (!origemTexto || typeof origemTexto !== "string" || !origemTexto.trim()) {
+    return { ok: false, error: "informe a origem" };
+  }
+  if (origemTexto.trim().length > CARONA_TEXT_MAX_LENGTH) {
+    return { ok: false, error: `origem muito longa (máximo ${CARONA_TEXT_MAX_LENGTH} caracteres)` };
+  }
+  if (!destinoTexto || typeof destinoTexto !== "string" || !destinoTexto.trim()) {
+    return { ok: false, error: "informe o destino" };
+  }
+  if (destinoTexto.trim().length > CARONA_TEXT_MAX_LENGTH) {
+    return { ok: false, error: `destino muito longo (máximo ${CARONA_TEXT_MAX_LENGTH} caracteres)` };
+  }
+  if (!dataViagem || typeof dataViagem !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dataViagem.trim())) {
+    return { ok: false, error: "data da viagem inválida (use AAAA-MM-DD)" };
+  }
+  let latNum = null;
+  let lngNum = null;
+  if (lat !== undefined && lat !== null && lat !== "") {
+    latNum = Number(lat);
+    if (!Number.isFinite(latNum) || Math.abs(latNum) > 90) return { ok: false, error: "localização inválida" };
+  }
+  if (lng !== undefined && lng !== null && lng !== "") {
+    lngNum = Number(lng);
+    if (!Number.isFinite(lngNum) || Math.abs(lngNum) > 180) return { ok: false, error: "localização inválida" };
+  }
+  const normalizedHorario = (typeof horarioAproximado === "string" && horarioAproximado.trim().slice(0, 20)) || null;
+
+  if (tipo === "passageiro") {
+    return {
+      ok: true,
+      tipo,
+      origemTexto: origemTexto.trim(),
+      destinoTexto: destinoTexto.trim(),
+      dataViagem: dataViagem.trim(),
+      horarioAproximado: normalizedHorario,
+      lat: latNum,
+      lng: lngNum,
+      vagasTotais: null,
+      cnhNumero: null,
+      veiculoPlaca: null,
+      veiculoModelo: null,
+      veiculoCor: null,
+    };
+  }
+
+  // motorista — CNH/placa/veículo são auto-declarados (sem checar contra
+  // DETRAN ou qualquer base oficial), só exigidos e exibidos pro passageiro
+  // antes de decidir (ver task-002).
+  const vagasNum = Number(vagasTotais);
+  if (!Number.isInteger(vagasNum) || vagasNum < 1 || vagasNum > CARONA_MAX_VAGAS) {
+    return { ok: false, error: `vagas precisa ser um número inteiro entre 1 e ${CARONA_MAX_VAGAS}` };
+  }
+  const docs = { cnhNumero, veiculoPlaca, veiculoModelo, veiculoCor };
+  const docLabels = { cnhNumero: "a CNH", veiculoPlaca: "a placa do veículo", veiculoModelo: "o modelo do veículo", veiculoCor: "a cor do veículo" };
+  for (const key of Object.keys(docs)) {
+    const val = docs[key];
+    if (!val || typeof val !== "string" || !val.trim()) {
+      return { ok: false, error: `informe ${docLabels[key]}` };
+    }
+    if (val.trim().length > CARONA_DOC_MAX_LENGTH) {
+      return { ok: false, error: `${docLabels[key]} está muito longo (máximo ${CARONA_DOC_MAX_LENGTH} caracteres)` };
+    }
+  }
+  return {
+    ok: true,
+    tipo,
+    origemTexto: origemTexto.trim(),
+    destinoTexto: destinoTexto.trim(),
+    dataViagem: dataViagem.trim(),
+    horarioAproximado: normalizedHorario,
+    lat: latNum,
+    lng: lngNum,
+    vagasTotais: vagasNum,
+    cnhNumero: cnhNumero.trim(),
+    veiculoPlaca: veiculoPlaca.trim(),
+    veiculoModelo: veiculoModelo.trim(),
+    veiculoCor: veiculoCor.trim(),
+  };
+}
 
 const GROUP_OPPORTUNITIES = [];
 let nextGroupId = 1;
@@ -1072,12 +1175,18 @@ function validateGroupFields({ category, title, city, targetMembers, estimatedIn
 
 // Mesma janela de 1h por IP já usada em /api/providers (makeHourlyRateLimiter
 // acima) — reduz o mesmo tipo de risco (fraude/spam) que a Jéssica apontou
-// pra esse recurso, sem reinventar a lógica de rate limit.
-const isGroupCreateRateLimited = makeHourlyRateLimiter(20);
-const isGroupJoinRateLimited = makeHourlyRateLimiter(40);
+// pra esse recurso, sem reinventar a lógica de rate limit. Criar grupo é
+// mais barato que criar perfil (não processa imagem/IA), então o teto é
+// mais folgado que o de /api/providers — 40, não 20.
+const isGroupCreateRateLimited = makeHourlyRateLimiter(40);
+const isGroupJoinRateLimited = makeHourlyRateLimiter(60);
 
-// Visão resumida (sem contato de ninguém) pra listagem pública — usada tanto
-// em GET /api/groups quanto dentro da resposta de criar/entrar num grupo.
+// Visão resumida (sem contato de ninguém, sem CNH/placa) pra listagem
+// pública — usada tanto em GET /api/groups quanto dentro da resposta de
+// criar/entrar num grupo. Pra "carona", só a parte pública do motorista
+// (nunca os documentos) — esses só aparecem no detalhe (ver
+// GET /api/groups/:id), a mesma regra de "informação de verdade só na
+// página do grupo específico" já usada pro resto do mecanismo.
 function groupSummary(group) {
   return {
     id: group.id,
@@ -1091,24 +1200,68 @@ function groupSummary(group) {
     deadline: group.deadline,
     status: group.status,
     createdAt: group.createdAt,
+    carona: group.carona
+      ? {
+          tipo: group.carona.tipo,
+          origemTexto: group.carona.origemTexto,
+          destinoTexto: group.carona.destinoTexto,
+          dataViagem: group.carona.dataViagem,
+          horarioAproximado: group.carona.horarioAproximado,
+          // targetMembers do motorista já inclui o próprio motorista (ver
+          // handleCreateCaronaGroup) — a diferença é exatamente os assentos
+          // de passageiro ainda livres.
+          vagasRestantes: group.carona.tipo === "motorista" ? group.targetMembers - group.members.length : null,
+        }
+      : null,
   };
 }
 
 app.get("/api/groups", (req, res) => {
   const categoryFilter = typeof req.query.category === "string" ? req.query.category.trim().toLowerCase() : "";
+  const origemFilter = typeof req.query.origem === "string" ? req.query.origem.trim().toLowerCase() : "";
+  const destinoFilter = typeof req.query.destino === "string" ? req.query.destino.trim().toLowerCase() : "";
+  const dataFilter = typeof req.query.data === "string" ? req.query.data.trim() : "";
+  const lat = Number(req.query.lat);
+  const lng = Number(req.query.lng);
+  const hasLocation = Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+
   // "encerrado" (grupo esvaziado, ver /leave) não tem nada útil pra mostrar
   // numa listagem de "entre nesse grupo" — fica de fora daqui, mas continua
   // consultável direto por GET /api/groups/:id.
-  const pool = GROUP_OPPORTUNITIES.filter((g) => g.status !== "encerrado" && (!categoryFilter || g.category === categoryFilter));
+  let pool = GROUP_OPPORTUNITIES.filter((g) => g.status !== "encerrado" && (!categoryFilter || g.category === categoryFilter));
+  if (origemFilter) pool = pool.filter((g) => g.carona && g.carona.origemTexto.toLowerCase().includes(origemFilter));
+  if (destinoFilter) pool = pool.filter((g) => g.carona && g.carona.destinoTexto.toLowerCase().includes(destinoFilter));
+  if (dataFilter) pool = pool.filter((g) => g.carona && g.carona.dataViagem === dataFilter);
+
+  // Ordenação por proximidade só faz sentido pra carona (único lugar com
+  // lat/lng) — quando a pessoa não usou localização, cai pra ordenar por
+  // data da viagem (mais relevante que "mais recente publicado" pra esse
+  // caso específico); outras categorias mantêm a ordem padrão (mais novo
+  // primeiro), sem esses parâmetros de busca fazerem diferença nelas.
+  if (hasLocation) {
+    pool = pool
+      .map((g) => ({
+        g,
+        distanceKm: g.carona && g.carona.lat != null && g.carona.lng != null ? haversineKm(lat, lng, g.carona.lat, g.carona.lng) : null,
+      }))
+      .sort((a, b) => compareNullsLast(a.distanceKm, b.distanceKm, (x, y) => x - y))
+      .map((x) => x.g);
+  } else if (origemFilter || destinoFilter || dataFilter) {
+    pool = [...pool].sort((a, b) =>
+      compareNullsLast(a.carona && a.carona.dataViagem, b.carona && b.carona.dataViagem, (x, y) => (x < y ? -1 : x > y ? 1 : 0))
+    );
+  }
+
   res.json({ groups: pool.map(groupSummary) });
 });
 
-// Contato só aparece aqui (na página do grupo específico), nunca na
-// listagem geral — e só o do criador enquanto o grupo ainda está aberto
-// (pra quem tem dúvida poder perguntar antes de entrar); a lista completa de
-// contatos só libera quando o grupo fecha (todo mundo que entrou já sabia
-// que isso ia acontecer ao entrar — mesmo consentimento implícito que já
-// existe hoje quando alguém aceita um pedido do quadro geral).
+// Contato (e, pra motorista de carona, CNH/placa/veículo) só aparece aqui
+// (na página do grupo específico), nunca na listagem geral — e só o do
+// criador enquanto o grupo ainda está aberto (pra quem tem dúvida poder
+// perguntar/decidir antes de entrar); a lista completa de contatos só
+// libera quando o grupo fecha (todo mundo que entrou já sabia que isso ia
+// acontecer ao entrar — mesmo consentimento implícito que já existe hoje
+// quando alguém aceita um pedido do quadro geral).
 app.get("/api/groups/:id", (req, res) => {
   const group = GROUP_OPPORTUNITIES.find((g) => g.id === req.params.id);
   if (!group) return res.status(404).json({ error: "grupo não encontrado" });
@@ -1120,12 +1273,104 @@ app.get("/api/groups/:id", (req, res) => {
       : group.members.length > 0
         ? [{ name: group.members[0].name, whatsapp: group.members[0].whatsapp }]
         : [];
-  res.json({ ...groupSummary(group), members: visibleMembers });
+  const summary = groupSummary(group);
+  const carona =
+    group.carona && group.carona.tipo === "motorista"
+      ? {
+          ...summary.carona,
+          cnhNumero: group.carona.cnhNumero,
+          veiculoPlaca: group.carona.veiculoPlaca,
+          veiculoModelo: group.carona.veiculoModelo,
+          veiculoCor: group.carona.veiculoCor,
+        }
+      : summary.carona;
+  res.json({ ...summary, carona, members: visibleMembers });
 });
+
+// Criar grupo de carona é um caminho à parte (task-002) — a forma dos dados
+// é genuinamente diferente (motorista x passageiro têm campos obrigatórios
+// diferentes, e "vagas" tem um significado específico), então não força
+// isso dentro de validateGroupFields/criação genérica; reaproveita só o que
+// já é igual (rate limit, título, cidade, WhatsApp, eventos, resposta).
+function handleCreateCaronaGroup(req, res) {
+  const caronaFields = validateCaronaFields(req.body || {});
+  if (!caronaFields.ok) {
+    return res.status(400).json({ error: caronaFields.error });
+  }
+  const { title, city, whatsapp, name } = req.body || {};
+  if (!title || typeof title !== "string" || !title.trim()) {
+    return res.status(400).json({ error: "descreva o post (ex: 'Bom Despacho → BH')" });
+  }
+  if (title.trim().length > GROUP_TITLE_MAX_LENGTH) {
+    return res.status(400).json({ error: `descrição muito longa (máximo ${GROUP_TITLE_MAX_LENGTH} caracteres)` });
+  }
+  if (!city || typeof city !== "string" || !city.trim()) {
+    return res.status(400).json({ error: "informe a cidade/região" });
+  }
+  if (city.trim().length > REQUEST_LOCATION_MAX_LENGTH) {
+    return res.status(400).json({ error: `cidade/região muito longa (máximo ${REQUEST_LOCATION_MAX_LENGTH} caracteres)` });
+  }
+  if (!whatsapp || typeof whatsapp !== "string" || !whatsapp.trim()) {
+    return res.status(400).json({ error: "informe um WhatsApp pra contato" });
+  }
+  const normalizedWhatsapp = whatsapp.trim();
+  if (normalizedWhatsapp.length > REQUEST_WHATSAPP_MAX_LENGTH) {
+    return res.status(400).json({ error: `WhatsApp muito longo (máximo ${REQUEST_WHATSAPP_MAX_LENGTH} caracteres)` });
+  }
+
+  // Motorista: "vagas" são assentos de PASSAGEIRO — o motorista não é um
+  // deles, então targetMembers = vagas + o próprio motorista (que já entra
+  // como membro na criação, igual todo o resto do mecanismo). Isso deixa
+  // "vagas restantes" = targetMembers - currentMembers automaticamente
+  // certo, reaproveitando o join/leave que já existe sem precisar de um
+  // conceito de "assento" à parte.
+  // Passageiro: o post inteiro É a "vaga" (a própria pessoa) — sempre 1.
+  const targetMembers = caronaFields.tipo === "motorista" ? caronaFields.vagasTotais + 1 : 1;
+
+  const group = {
+    id: `g${nextGroupId++}`,
+    category: "carona",
+    title: title.trim(),
+    city: city.trim(),
+    targetMembers,
+    estimatedIndividualPrice: null,
+    deadline: caronaFields.dataViagem,
+    status: "aberto",
+    members: [{ whatsapp: normalizedWhatsapp, name: (typeof name === "string" && name.trim().slice(0, 60)) || "Quem criou o post", joinedAt: new Date().toISOString() }],
+    createdAt: new Date().toISOString(),
+    carona: {
+      tipo: caronaFields.tipo,
+      origemTexto: caronaFields.origemTexto,
+      destinoTexto: caronaFields.destinoTexto,
+      dataViagem: caronaFields.dataViagem,
+      horarioAproximado: caronaFields.horarioAproximado,
+      lat: caronaFields.lat,
+      lng: caronaFields.lng,
+      cnhNumero: caronaFields.cnhNumero,
+      veiculoPlaca: caronaFields.veiculoPlaca,
+      veiculoModelo: caronaFields.veiculoModelo,
+      veiculoCor: caronaFields.veiculoCor,
+    },
+  };
+  // Passageiro (targetMembers=1) já nasce "completo" — não é uma conquista,
+  // é só o jeito do mecanismo genérico marcar "não aceita entrada por
+  // /join" pra um post que é, por natureza, individual (o front-end não
+  // mostra esse post com a aparência de "grupo fechado", mostra como o que
+  // é: alguém procurando carona).
+  if (group.members.length >= group.targetMembers) group.status = "completo";
+  GROUP_OPPORTUNITIES.unshift(group);
+  recordGroupEvent(group.id, "created");
+  if (group.status === "completo") recordGroupEvent(group.id, "completed");
+  res.status(201).json(groupSummary(group));
+}
 
 app.post("/api/groups", (req, res) => {
   if (isGroupCreateRateLimited(req.ip)) {
     return res.status(429).json({ error: "muitos grupos criados recentemente a partir daqui — tente de novo mais tarde" });
+  }
+  const normalizedCategory = typeof (req.body || {}).category === "string" ? req.body.category.trim().toLowerCase() : "";
+  if (normalizedCategory === "carona") {
+    return handleCreateCaronaGroup(req, res);
   }
   const fields = validateGroupFields(req.body || {});
   if (!fields.ok) {

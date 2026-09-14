@@ -960,6 +960,183 @@ test.describe("Top3Profissional - grupos de economia (pilar 4.14)", () => {
   });
 });
 
+test.describe("Top3Profissional - grupos de economia, categoria carona (task-002)", () => {
+  function uniqueSuffix() {
+    return Math.random().toString(36).slice(2, 10);
+  }
+
+  function motoristaPayload(overrides = {}) {
+    return {
+      category: "carona",
+      tipo: "motorista",
+      title: `BH -> Bom Despacho ${uniqueSuffix()}`,
+      city: "BH",
+      origemTexto: "BH",
+      destinoTexto: "Bom Despacho",
+      dataViagem: "2026-09-20",
+      horarioAproximado: "08h",
+      vagasTotais: 3,
+      cnhNumero: "12345678900",
+      veiculoPlaca: "ABC1D23",
+      veiculoModelo: "Onix",
+      veiculoCor: "Prata",
+      whatsapp: "31955551001",
+      name: "Carlos",
+      ...overrides,
+    };
+  }
+
+  function passageiroPayload(overrides = {}) {
+    return {
+      category: "carona",
+      tipo: "passageiro",
+      title: `Procuro carona ${uniqueSuffix()}`,
+      city: "BH",
+      origemTexto: "BH",
+      destinoTexto: "Contagem",
+      dataViagem: "2026-09-21",
+      whatsapp: "31955552002",
+      name: "Fernanda",
+      ...overrides,
+    };
+  }
+
+  test("motorista sem CNH/placa/veículo é rejeitado", async ({ request }) => {
+    const { cnhNumero, ...payload } = motoristaPayload();
+    const res = await request.post("/api/groups", { data: payload });
+    expect(res.status()).toBe(400);
+    expect((await res.json()).error).toMatch(/CNH/);
+  });
+
+  test("motorista: vagasRestantes conta só assento de passageiro, não o próprio motorista", async ({ request }) => {
+    const create = await request.post("/api/groups", { data: motoristaPayload({ vagasTotais: 3 }) });
+    expect(create.status()).toBe(201);
+    const group = await create.json();
+    expect(group.currentMembers).toBe(1); // só o motorista
+    expect(group.carona.vagasRestantes).toBe(3); // 3 vagas de passageiro, nenhuma ocupada ainda
+  });
+
+  test("CNH/placa/veículo não aparecem na listagem, só no detalhe do post", async ({ request }) => {
+    const create = await request.post("/api/groups", { data: motoristaPayload() });
+    const group = await create.json();
+
+    const list = await (await request.get("/api/groups?category=carona")).json();
+    const inList = list.groups.find((g) => g.id === group.id);
+    expect(inList.carona.cnhNumero).toBeUndefined();
+    expect(inList.carona.veiculoPlaca).toBeUndefined();
+
+    const detail = await (await request.get(`/api/groups/${group.id}`)).json();
+    expect(detail.carona.cnhNumero).toBe("12345678900");
+    expect(detail.carona.veiculoPlaca).toBe("ABC1D23");
+  });
+
+  test("passageiro: post nasce como 'a própria vaga' — ninguém mais consegue entrar nele", async ({ request }) => {
+    const create = await request.post("/api/groups", { data: passageiroPayload() });
+    expect(create.status()).toBe(201);
+    const group = await create.json();
+    expect(group.currentMembers).toBe(1);
+    expect(group.carona.vagasRestantes).toBeNull();
+
+    const join = await request.post(`/api/groups/${group.id}/join`, { data: { whatsapp: "31900009999" } });
+    expect(join.status()).toBe(409);
+  });
+
+  test("passageiro não exige nem aceita CNH/placa/veículo", async ({ request }) => {
+    const create = await request.post("/api/groups", { data: passageiroPayload() });
+    expect(create.status()).toBe(201);
+    const group = await create.json();
+    const detail = await (await request.get(`/api/groups/${group.id}`)).json();
+    expect(detail.carona.tipo).toBe("passageiro");
+    expect(detail.carona.cnhNumero).toBeUndefined();
+  });
+
+  test("motorista de carona aceita passageiro pelo /join normal, igual as outras categorias", async ({ request }) => {
+    const create = await request.post("/api/groups", { data: motoristaPayload({ vagasTotais: 1 }) });
+    const group = await create.json();
+    const join = await request.post(`/api/groups/${group.id}/join`, { data: { whatsapp: "31900008888", name: "Passageira" } });
+    expect(join.status()).toBe(200);
+    const joined = await join.json();
+    expect(joined.status).toBe("completo");
+    expect(joined.carona.vagasRestantes).toBe(0);
+  });
+
+  test("filtro por origem/destino/data só retorna carona compatível", async ({ request }) => {
+    const title = `Rota única ${uniqueSuffix()}`;
+    const destino = `Destinoteste${uniqueSuffix()}`;
+    const create = await request.post("/api/groups", { data: motoristaPayload({ title, destinoTexto: destino, dataViagem: "2026-10-05" }) });
+    expect(create.status()).toBe(201);
+
+    const matchDestino = await (await request.get(`/api/groups?category=carona&destino=${destino}`)).json();
+    expect(matchDestino.groups.some((g) => g.title === title)).toBe(true);
+
+    const noMatch = await (await request.get(`/api/groups?category=carona&destino=NaoExiste${uniqueSuffix()}`)).json();
+    expect(noMatch.groups.some((g) => g.title === title)).toBe(false);
+
+    const matchData = await (await request.get("/api/groups?category=carona&data=2026-10-05")).json();
+    expect(matchData.groups.some((g) => g.title === title)).toBe(true);
+  });
+
+  test("ordenação por proximidade quando lat/lng são enviados", async ({ request }) => {
+    const near = motoristaPayload({ title: `Perto ${uniqueSuffix()}`, lat: -19.9245, lng: -43.9352 });
+    const far = motoristaPayload({ title: `Longe ${uniqueSuffix()}`, lat: -8.05, lng: -34.9 }); // Recife, bem mais longe
+    expect((await request.post("/api/groups", { data: far })).status()).toBe(201);
+    expect((await request.post("/api/groups", { data: near })).status()).toBe(201);
+
+    const res = await (await request.get("/api/groups?category=carona&lat=-19.9245&lng=-43.9352")).json();
+    const nearIndex = res.groups.findIndex((g) => g.title === near.title);
+    const farIndex = res.groups.findIndex((g) => g.title === far.title);
+    expect(nearIndex).toBeGreaterThanOrEqual(0);
+    expect(farIndex).toBeGreaterThanOrEqual(0);
+    expect(nearIndex).toBeLessThan(farIndex);
+  });
+
+  test("fluxo completo pela interface: criar post de motorista, aviso fixo aparece, 'Ver detalhes' revela CNH e WhatsApp", async ({
+    page,
+    request,
+  }) => {
+    const title = `BH -> Sete Lagoas ${uniqueSuffix()}`;
+    await page.goto("/#grupos");
+
+    await page.locator("#group-create-toggle").click();
+    await page.locator("#group-title").fill(title);
+    await page.locator("#group-category").selectOption("carona");
+    await page.locator("#group-city").fill("BH");
+    await page.locator("#carona-tipo").selectOption("motorista");
+    await page.locator("#carona-origem").fill("BH");
+    await page.locator("#carona-destino").fill("Sete Lagoas");
+    await page.locator("#carona-data").fill("2026-09-22");
+    await page.locator("#carona-vagas").fill("2");
+    await page.locator("#carona-cnh").fill("99988877766");
+    await page.locator("#carona-placa").fill("XYZ9A87");
+    await page.locator("#carona-modelo").fill("HB20");
+    await page.locator("#carona-cor").fill("Branco");
+    await page.locator("#group-whatsapp").fill("31955559000");
+    await page.locator("#group-form button[type=submit]").click();
+
+    await expect(page.locator("#group-status")).toHaveText("Grupo criado!");
+    const card = page.locator(".group-card", { hasText: title });
+    await expect(card).toContainText("2 vagas restantes");
+    await expect(card).toContainText("O TOP3 apenas conecta pessoas para carona compartilhada");
+
+    await card.locator(".group-carona-detail-btn").click();
+    await expect(card.locator(".group-carona-details")).toContainText("99988877766");
+    await expect(card.locator(".group-carona-details")).toContainText("XYZ9A87");
+    await expect(card.locator(".group-carona-details a", { hasText: "Falar no WhatsApp" })).toHaveAttribute(
+      "href",
+      "https://wa.me/31955559000"
+    );
+  });
+
+  test("post de passageiro pela interface não mostra botão 'Participar' (post é individual)", async ({ page, request }) => {
+    const title = `Procuro carona interface ${uniqueSuffix()}`;
+    expect((await request.post("/api/groups", { data: passageiroPayload({ title }) })).status()).toBe(201);
+    await page.goto("/#grupos");
+    const card = page.locator(".group-card", { hasText: title });
+    await expect(card.locator(".group-join-btn")).toHaveCount(0);
+    await expect(card).toContainText("passageiro procurando carona");
+  });
+});
+
 test.describe("Top3Profissional - login com Google (pilar 4.13)", () => {
   test("sem GOOGLE_CLIENT_ID configurada, tudo continua funcionando sem login", async ({ page, request }) => {
     const config = await (await request.get("/api/auth/config")).json();
