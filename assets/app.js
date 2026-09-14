@@ -1224,36 +1224,53 @@ document.querySelectorAll(".example-chip").forEach((chip) => {
 const googleSigninSlot = document.getElementById("google-signin-slot");
 const userPanel = document.getElementById("user-panel");
 
-// Painel pessoal (pilar 4.13, "próxima etapa"): lista os perfis que a
-// pessoa logada criou, com atalho pra ver ou editar cada um. Guardado aqui
-// pra não precisar buscar de novo toda vez que o painel abre/fecha.
+// Painel pessoal (pilar 4.13): lista os perfis e os grupos que a pessoa
+// logada criou, com atalho pra ver/editar cada um. Guardado aqui pra não
+// precisar buscar de novo toda vez que o painel abre/fecha. "Meus pedidos"
+// (REQUESTS) continua fora — esses nascem via chat/WhatsApp também, sem
+// sessão de navegador pra amarrar de forma confiável, diferente de
+// perfil/grupo que só nascem pelo formulário do site.
 let ownProviders = [];
+let ownGroups = [];
 
-function renderProviderPanel() {
-  if (ownProviders.length === 0) {
-    userPanel.innerHTML = `
-      <h3>Meus perfis</h3>
-      <p class="user-panel-empty">Você ainda não criou nenhum perfil. Use "Criar meu perfil" no menu.</p>
-    `;
-    return;
-  }
-  const items = ownProviders
-    .map(
-      (p) => `
-      <li class="user-panel-item">
-        <span>${escapeHtml(p.name)} <span class="user-panel-empty">· ${escapeHtml(p.service)}</span></span>
-        <span class="user-panel-item-actions">
-          <a href="/prestador/${encodeURIComponent(p.slug)}" target="_blank" rel="noopener">Ver</a>
-          <button type="button" data-edit-slug="${escapeHtml(p.slug)}">Editar</button>
-        </span>
-      </li>`
-    )
-    .join("");
-  userPanel.innerHTML = `<h3>Meus perfis</h3><ul class="user-panel-list">${items}</ul>`;
+function renderUserPanel() {
+  const providersHtml =
+    ownProviders.length === 0
+      ? '<p class="user-panel-empty">Você ainda não criou nenhum perfil. Use "Criar meu perfil" no menu.</p>'
+      : `<ul class="user-panel-list">${ownProviders
+          .map(
+            (p) => `
+          <li class="user-panel-item">
+            <span>${escapeHtml(p.name)} <span class="user-panel-empty">· ${escapeHtml(p.service)}</span></span>
+            <span class="user-panel-item-actions">
+              <a href="/prestador/${encodeURIComponent(p.slug)}" target="_blank" rel="noopener">Ver</a>
+              <button type="button" data-edit-slug="${escapeHtml(p.slug)}">Editar</button>
+            </span>
+          </li>`
+          )
+          .join("")}</ul>`;
+
+  const groupsHtml =
+    ownGroups.length === 0
+      ? '<p class="user-panel-empty">Você ainda não criou nenhum grupo. Use "Grupos" no menu.</p>'
+      : `<ul class="user-panel-list">${ownGroups
+          .map(
+            (g) => `
+          <li class="user-panel-item">
+            <span>${escapeHtml(g.title)} <span class="user-panel-empty">· ${escapeHtml(g.categoryLabel)} · ${g.status}</span></span>
+            <span class="user-panel-item-actions">
+              <button type="button" data-view-group-category="${escapeHtml(g.category)}">Ver</button>
+            </span>
+          </li>`
+          )
+          .join("")}</ul>`;
+
+  userPanel.innerHTML = `<h3>Meus perfis</h3>${providersHtml}<h3>Meus grupos</h3>${groupsHtml}`;
 }
 
-function renderLoggedInUser(user, providers) {
+function renderLoggedInUser(user, providers, groups) {
   ownProviders = providers || [];
+  ownGroups = groups || [];
   googleSigninSlot.innerHTML = `
     <button type="button" class="user-chip" id="user-chip-toggle">
       ${user.picture ? `<img src="${escapeHtml(user.picture)}" alt="" />` : ""}
@@ -1261,7 +1278,7 @@ function renderLoggedInUser(user, providers) {
     </button>
     <button type="button" class="user-logout" id="google-logout-btn">Sair</button>
   `;
-  renderProviderPanel();
+  renderUserPanel();
 }
 
 googleSigninSlot.addEventListener("click", (event) => {
@@ -1282,9 +1299,18 @@ document.addEventListener("click", (event) => {
 
 userPanel.addEventListener("click", (event) => {
   const editBtn = event.target.closest("[data-edit-slug]");
-  if (!editBtn) return;
-  userPanel.hidden = true;
-  startEditingProvider(editBtn.dataset.editSlug);
+  if (editBtn) {
+    userPanel.hidden = true;
+    startEditingProvider(editBtn.dataset.editSlug);
+    return;
+  }
+  const viewGroupBtn = event.target.closest("[data-view-group-category]");
+  if (viewGroupBtn) {
+    userPanel.hidden = true;
+    const categoryBtn = document.querySelector(`.group-category-btn[data-category="${viewGroupBtn.dataset.viewGroupCategory}"]`);
+    if (categoryBtn) categoryBtn.click();
+    highlightSection(document.getElementById("grupos"));
+  }
 });
 
 async function handleGoogleCredential(response) {
@@ -1296,11 +1322,12 @@ async function handleGoogleCredential(response) {
     });
     if (!res.ok) return;
     const { user } = await res.json();
-    // /api/auth/google não devolve os perfis (usuário pode ser novo) — busca
-    // em seguida pra já abrir com o painel certo, sem precisar recarregar.
+    // /api/auth/google não devolve os perfis/grupos (usuário pode ser novo)
+    // — busca em seguida pra já abrir com o painel certo, sem precisar
+    // recarregar.
     const meRes = await fetch("/api/auth/me");
-    const providers = meRes.ok ? (await meRes.json()).providers : [];
-    renderLoggedInUser(user, providers);
+    const me = meRes.ok ? await meRes.json() : { providers: [], groups: [] };
+    renderLoggedInUser(user, me.providers, me.groups);
   } catch (err) {
     // Login é só um extra opcional — falha aqui não deve incomodar quem só
     // quer usar o site sem logar.
@@ -1342,8 +1369,8 @@ fetch("/api/auth/config")
     // quem já está logado (o GIS não limpa o próprio slot ao renderizar).
     const meRes = await fetch("/api/auth/me");
     if (meRes.ok) {
-      const { user, providers } = await meRes.json();
-      renderLoggedInUser(user, providers);
+      const { user, providers, groups } = await meRes.json();
+      renderLoggedInUser(user, providers, groups);
       return;
     }
     await loadGisScript();

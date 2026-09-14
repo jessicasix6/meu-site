@@ -958,6 +958,20 @@ test.describe("Top3Profissional - grupos de economia (pilar 4.14)", () => {
 
     await expect(card).toContainText("Completo ✓");
   });
+
+  test("ownerUserId (dono do grupo pro painel pessoal) nunca aparece em resposta pública", async ({ request }) => {
+    const create = await request.post("/api/groups", {
+      data: { category: "compra", title: uniqueTitle("Privacidade dono"), city: "BH", targetMembers: 2, whatsapp: "31900000080" },
+    });
+    const group = await create.json();
+    expect(group.ownerUserId).toBeUndefined();
+
+    const list = await (await request.get("/api/groups")).json();
+    expect(list.groups.find((g) => g.id === group.id).ownerUserId).toBeUndefined();
+
+    const detail = await (await request.get(`/api/groups/${group.id}`)).json();
+    expect(detail.ownerUserId).toBeUndefined();
+  });
 });
 
 test.describe("Top3Profissional - grupos de economia, categoria carona (task-002)", () => {
