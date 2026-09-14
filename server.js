@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const { OAuth2Client } = require("google-auth-library");
+const bcrypt = require("bcryptjs");
 const multer = require("multer");
 const sharp = require("sharp");
 const ort = require("onnxruntime-node");
@@ -549,6 +550,37 @@ function getCurrentUser(req) {
   return USERS.find((u) => u.id === session.userId) || null;
 }
 
+// Compartilhado entre login com Google e login por email/senha (task-003)
+// — os dois caminhos terminam no mesmo tipo de sessão, cookie httpOnly de
+// 30 dias, mesma lógica de expiração no servidor.
+function startSession(req, res, user) {
+  const token = crypto.randomBytes(24).toString("hex");
+  SESSIONS.set(token, { userId: user.id, expiresAt: Date.now() + SESSION_MAX_AGE_MS });
+  res.cookie(SESSION_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: req.secure,
+    maxAge: SESSION_MAX_AGE_MS,
+  });
+}
+
+// Só os campos seguros pra devolver ao cliente — nunca passwordHash, nunca
+// reputacaoScore numérico (interno, task-004).
+function publicUserFields(user) {
+  return {
+    name: user.name,
+    email: user.email,
+    picture: user.picture,
+    whatsapp: user.whatsapp,
+    tipoUso: user.tipoUso,
+    motorista: user.motorista,
+    disponibilidade: user.disponibilidade,
+    mediaAvaliacao: user.mediaAvaliacao,
+    totalAvaliacoes: user.totalAvaliacoes,
+    status: user.status,
+  };
+}
+
 app.get("/api/auth/config", (req, res) => {
   res.json({ googleClientId: process.env.GOOGLE_CLIENT_ID || null });
 });
@@ -564,26 +596,210 @@ app.post("/api/auth/google", async (req, res) => {
     const payload = ticket.getPayload();
     let user = USERS.find((u) => u.googleId === payload.sub);
     if (!user) {
-      user = { id: `u${nextUserId++}`, googleId: payload.sub, email: payload.email, name: payload.name, picture: payload.picture };
-      USERS.push(user);
+      // Mesmo e-mail já cadastrado por senha (task-003) — evita duas contas
+      // separadas pra mesma pessoa por acidente.
+      const existingByEmail = USERS.find((u) => u.email && u.email.toLowerCase() === (payload.email || "").toLowerCase());
+      if (existingByEmail) {
+        existingByEmail.googleId = payload.sub;
+        existingByEmail.picture = existingByEmail.picture || payload.picture;
+        user = existingByEmail;
+      } else {
+        user = createUser({ googleId: payload.sub, email: payload.email, name: payload.name, picture: payload.picture });
+      }
     }
-    const token = crypto.randomBytes(24).toString("hex");
-    SESSIONS.set(token, { userId: user.id, expiresAt: Date.now() + SESSION_MAX_AGE_MS });
-    res.cookie(SESSION_COOKIE, token, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: req.secure,
-      maxAge: SESSION_MAX_AGE_MS,
-    });
-    res.json({ user: { name: user.name, email: user.email, picture: user.picture } });
+    startSession(req, res, user);
+    res.json({ user: publicUserFields(user) });
   } catch (err) {
     res.status(401).json({ error: "credencial do Google inválida" });
   }
 });
 
-app.get("/api/auth/me", (req, res) => {
+// Login simples por email/senha (task-003) — alternativa que não depende de
+// GOOGLE_CLIENT_ID configurada, sempre disponível.
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PASSWORD_MIN_LENGTH = 8;
+const NAME_MAX_LENGTH = 60;
+const BCRYPT_ROUNDS = 10;
+
+function normalizeEmail(email) {
+  return typeof email === "string" ? email.trim().toLowerCase() : "";
+}
+
+// Cria usuário com todos os campos de perfil (task-003) e reputação
+// (task-004) já inicializados — usado tanto pelo login com Google quanto
+// pelo cadastro por email/senha, pra nunca deixar um caminho com campo
+// faltando que o outro tem.
+function createUser({ googleId = null, passwordHash = null, email, name, picture = null, whatsapp = null }) {
+  const user = {
+    id: `u${nextUserId++}`,
+    googleId,
+    passwordHash,
+    email,
+    name,
+    picture,
+    whatsapp,
+    tipoUso: null,
+    motorista: null,
+    disponibilidade: [],
+    mediaAvaliacao: null,
+    totalAvaliacoes: 0,
+    reputacaoScore: 100,
+    status: "ativo",
+  };
+  USERS.push(user);
+  return user;
+}
+
+const isSignupRateLimited = makeHourlyRateLimiter(20);
+const isLoginRateLimited = makeHourlyRateLimiter(30);
+
+app.post("/api/auth/signup", async (req, res) => {
+  if (isSignupRateLimited(req.ip)) {
+    return res.status(429).json({ error: "muitas tentativas de cadastro a partir daqui — tente de novo mais tarde" });
+  }
+  const { name, email, password, whatsapp } = req.body || {};
+  if (!name || typeof name !== "string" || !name.trim()) {
+    return res.status(400).json({ error: "informe seu nome" });
+  }
+  if (name.trim().length > NAME_MAX_LENGTH) {
+    return res.status(400).json({ error: `nome muito longo (máximo ${NAME_MAX_LENGTH} caracteres)` });
+  }
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail || !EMAIL_PATTERN.test(normalizedEmail)) {
+    return res.status(400).json({ error: "informe um e-mail válido" });
+  }
+  if (!password || typeof password !== "string" || password.length < PASSWORD_MIN_LENGTH) {
+    return res.status(400).json({ error: `senha precisa ter pelo menos ${PASSWORD_MIN_LENGTH} caracteres` });
+  }
+  if (!whatsapp || typeof whatsapp !== "string" || !whatsapp.trim()) {
+    return res.status(400).json({ error: "informe seu WhatsApp" });
+  }
+  const normalizedWhatsapp = whatsapp.trim();
+  if (normalizedWhatsapp.length > REQUEST_WHATSAPP_MAX_LENGTH) {
+    return res.status(400).json({ error: `WhatsApp muito longo (máximo ${REQUEST_WHATSAPP_MAX_LENGTH} caracteres)` });
+  }
+  if (USERS.some((u) => u.email && u.email.toLowerCase() === normalizedEmail)) {
+    return res.status(409).json({ error: "já existe conta com esse e-mail — tente entrar em vez de cadastrar" });
+  }
+
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  const user = createUser({ passwordHash, email: normalizedEmail, name: name.trim(), whatsapp: normalizedWhatsapp });
+  startSession(req, res, user);
+  res.status(201).json({ user: publicUserFields(user) });
+});
+
+app.post("/api/auth/login", async (req, res) => {
+  if (isLoginRateLimited(req.ip)) {
+    return res.status(429).json({ error: "muitas tentativas de login a partir daqui — tente de novo mais tarde" });
+  }
+  const { email, password } = req.body || {};
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail || typeof password !== "string" || !password) {
+    return res.status(400).json({ error: "informe e-mail e senha" });
+  }
+  const user = USERS.find((u) => u.email && u.email.toLowerCase() === normalizedEmail && u.passwordHash);
+  // Mesma mensagem de erro pra "não existe" e "senha errada" — não dar pista
+  // pra quem tenta adivinhar e-mails cadastrados.
+  if (!user) {
+    return res.status(401).json({ error: "e-mail ou senha incorretos" });
+  }
+  const passwordMatches = await bcrypt.compare(password, user.passwordHash);
+  if (!passwordMatches) {
+    return res.status(401).json({ error: "e-mail ou senha incorretos" });
+  }
+  startSession(req, res, user);
+  res.json({ user: publicUserFields(user) });
+});
+
+const AVAILABLE_DAYS = ["segunda", "terca", "quarta", "quinta", "sexta", "sabado", "domingo"];
+
+function validateDisponibilidade(disponibilidade) {
+  if (disponibilidade === undefined || disponibilidade === null) return { ok: true, value: [] };
+  if (!Array.isArray(disponibilidade)) return { ok: false, error: "disponibilidade inválida" };
+  const value = [];
+  for (const janela of disponibilidade) {
+    if (!janela || typeof janela !== "object") return { ok: false, error: "janela de disponibilidade inválida" };
+    const { dia, inicio, fim } = janela;
+    if (!AVAILABLE_DAYS.includes(dia)) {
+      return { ok: false, error: `dia inválido (use: ${AVAILABLE_DAYS.join(", ")})` };
+    }
+    if (!inicio || !fim) continue; // dia em branco = indisponível, ignora a janela
+    if (!/^\d{2}:\d{2}$/.test(inicio) || !/^\d{2}:\d{2}$/.test(fim)) {
+      return { ok: false, error: "horário inválido (use HH:MM)" };
+    }
+    value.push({ dia, inicio, fim });
+  }
+  return { ok: true, value };
+}
+
+function validateMotorista(motorista) {
+  if (motorista === undefined || motorista === null) return { ok: true, value: null };
+  if (typeof motorista !== "object") return { ok: false, error: "dados de motorista inválidos" };
+  const { cnhNumero, veiculoPlaca, veiculoModelo, veiculoCor } = motorista;
+  const fields = { cnhNumero, veiculoPlaca, veiculoModelo, veiculoCor };
+  const labels = { cnhNumero: "a CNH", veiculoPlaca: "a placa do veículo", veiculoModelo: "o modelo do veículo", veiculoCor: "a cor do veículo" };
+  // Só grava se pelo menos um campo foi preenchido — pessoa pode não querer
+  // oferecer carona nunca, e nesse caso o formulário fica vazio mesmo.
+  const anyFilled = Object.values(fields).some((v) => typeof v === "string" && v.trim());
+  if (!anyFilled) return { ok: true, value: null };
+  const value = {};
+  for (const key of Object.keys(fields)) {
+    const val = fields[key];
+    if (!val || typeof val !== "string" || !val.trim()) {
+      return { ok: false, error: `informe ${labels[key]} (ou deixe todos os campos de veículo em branco)` };
+    }
+    if (val.trim().length > CARONA_DOC_MAX_LENGTH) {
+      return { ok: false, error: `${labels[key]} está muito longo (máximo ${CARONA_DOC_MAX_LENGTH} caracteres)` };
+    }
+    value[key] = val.trim();
+  }
+  return { ok: true, value };
+}
+
+const TIPO_USO_VALUES = ["solicitante", "prestador", "ambos"];
+
+app.put("/api/auth/profile", async (req, res) => {
   const user = getCurrentUser(req);
   if (!user) return res.status(401).json({ error: "não autenticado" });
+
+  const { name, whatsapp, tipoUso, motorista, disponibilidade } = req.body || {};
+  if (name !== undefined) {
+    if (typeof name !== "string" || !name.trim()) return res.status(400).json({ error: "nome inválido" });
+    if (name.trim().length > NAME_MAX_LENGTH) return res.status(400).json({ error: `nome muito longo (máximo ${NAME_MAX_LENGTH} caracteres)` });
+  }
+  if (whatsapp !== undefined) {
+    if (typeof whatsapp !== "string" || !whatsapp.trim()) return res.status(400).json({ error: "WhatsApp inválido" });
+    if (whatsapp.trim().length > REQUEST_WHATSAPP_MAX_LENGTH) {
+      return res.status(400).json({ error: `WhatsApp muito longo (máximo ${REQUEST_WHATSAPP_MAX_LENGTH} caracteres)` });
+    }
+  }
+  if (tipoUso !== undefined && tipoUso !== null && !TIPO_USO_VALUES.includes(tipoUso)) {
+    return res.status(400).json({ error: `tipo de uso inválido (use: ${TIPO_USO_VALUES.join(", ")})` });
+  }
+  const motoristaResult = validateMotorista(motorista);
+  if (!motoristaResult.ok) return res.status(400).json({ error: motoristaResult.error });
+  const disponibilidadeResult = validateDisponibilidade(disponibilidade);
+  if (!disponibilidadeResult.ok) return res.status(400).json({ error: disponibilidadeResult.error });
+
+  if (name !== undefined) user.name = name.trim();
+  if (whatsapp !== undefined) user.whatsapp = whatsapp.trim();
+  if (tipoUso !== undefined) user.tipoUso = tipoUso;
+  if (motorista !== undefined) user.motorista = motoristaResult.value;
+  if (disponibilidade !== undefined) user.disponibilidade = disponibilidadeResult.value;
+
+  res.json({ user: publicUserFields(user) });
+});
+
+// Status 200 mesmo sem sessão (user: null) — esse endpoint é consultado sem
+// condição a cada carregamento de página pra saber se já existe uma sessão
+// (task-003: login por email/senha, ao contrário do Google, não tem como o
+// próprio front-end saber se está configurado, então sempre pergunta). Um
+// 401 aqui apareceria como "Failed to load resource" no console de todo
+// visitante anônimo — não é um erro de verdade, é o caso normal de "ninguém
+// logado".
+app.get("/api/auth/me", (req, res) => {
+  const user = getCurrentUser(req);
+  if (!user) return res.json({ user: null, providers: [], groups: [], requests: [] });
   const providers = PROVIDER_PROFILES.filter((p) => p.ownerUserId === user.id).map((p) => ({ name: p.name, service: p.service, slug: p.slug }));
   const groups = GROUP_OPPORTUNITIES.filter((g) => g.ownerUserId === user.id).map((g) => ({
     id: g.id,
@@ -602,7 +818,7 @@ app.get("/api/auth/me", (req, res) => {
     title: r.title,
     status: r.status,
   }));
-  res.json({ user: { name: user.name, email: user.email, picture: user.picture }, providers, groups, requests });
+  res.json({ user: publicUserFields(user), providers, groups, requests });
 });
 
 app.post("/api/auth/logout", (req, res) => {

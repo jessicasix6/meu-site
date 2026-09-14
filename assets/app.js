@@ -193,7 +193,12 @@ rankingList.addEventListener("click", (event) => {
 const requesterView = document.getElementById("requester-view");
 const providerView = document.getElementById("provider-view");
 const requestsList = document.getElementById("requests-list");
-const modeButtons = document.querySelectorAll(".mode-btn");
+// [data-mode] restringe aos botões "Solicito serviço"/"Presto serviço" —
+// .mode-btn sozinho pegaria também as tabs de categoria de grupo, tipo de
+// corrida e entrar/criar conta (task-003), que reusam a mesma classe visual
+// mas não têm nada a ver com esse toggle (sem o filtro, clicar numa dessas
+// outras tabs tirava o destaque "ativo" do toggle de baixo, sem motivo).
+const modeButtons = document.querySelectorAll(".mode-btn[data-mode]");
 let requestsLoaded = false;
 
 const SEARCH_PLACEHOLDER_BY_MODE = {
@@ -679,8 +684,41 @@ function renderCaronaGroupCard(g) {
     </li>`;
 }
 
+// Data local no formato do <input type="date"> (YYYY-MM-DD), sem passar por
+// UTC (toISOString viraria o dia errado perto da meia-noite em fusos a oeste
+// de Greenwich, que é o caso do Brasil inteiro).
+function dateInputValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function todayDateInputValue() {
+  return dateInputValue(new Date());
+}
+
+function tomorrowDateInputValue() {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return dateInputValue(tomorrow);
+}
+
 function renderGroupsList(groups) {
   if (groups.length === 0) {
+    // Categoria carona com filtro de data em "hoje" (o padrão, task-003) e
+    // sem nenhum resultado: sugere já ver amanhã em vez de só dizer "vazio"
+    // — a pessoa não devia precisar adivinhar que dá pra trocar a data.
+    if (currentGroupCategory === "carona" && caronaSearchData.value === todayDateInputValue()) {
+      groupsList.innerHTML =
+        '<li class="requests-error">Nenhuma carona hoje.' +
+        ' <button type="button" id="carona-see-tomorrow" class="cta-secondary">Ver amanhã →</button></li>';
+      document.getElementById("carona-see-tomorrow").addEventListener("click", () => {
+        caronaSearchData.value = tomorrowDateInputValue();
+        loadGroups();
+      });
+      return;
+    }
     groupsList.innerHTML = '<li class="requests-error">Nenhum grupo aberto nessa categoria ainda — crie o primeiro.</li>';
     return;
   }
@@ -703,8 +741,17 @@ groupCategoryButtons.forEach((btn) => {
     currentGroupCategory = btn.dataset.category;
     groupCategoryButtons.forEach((b) => b.classList.toggle("is-active", b === btn));
     caronaSearchExtra.hidden = currentGroupCategory !== "carona";
+    // Data padrão "hoje" ao abrir a busca de carona (task-003) — só na
+    // primeira vez que a pessoa entra nessa categoria; se ela já trocou a
+    // data (inclusive limpou o campo de propósito), não sobrescreve de novo.
+    if (currentGroupCategory === "carona" && !caronaSearchData.value && !caronaSearchData.dataset.touched) {
+      caronaSearchData.value = todayDateInputValue();
+    }
     loadGroups();
   });
+});
+caronaSearchData.addEventListener("input", () => {
+  caronaSearchData.dataset.touched = "1";
 });
 
 const debouncedLoadGroups = debounce(loadGroups, 350);
@@ -821,7 +868,11 @@ groupsList.addEventListener("submit", async (event) => {
 
 groupCreateToggle.addEventListener("click", () => {
   groupForm.hidden = !groupForm.hidden;
-  if (!groupForm.hidden) document.getElementById("group-title").focus();
+  if (!groupForm.hidden) {
+    document.getElementById("group-title").focus();
+    prefillGroupFormFromProfile();
+    if (caronaTipoSelect.value === "motorista") prefillMotoristaFieldsFromProfile();
+  }
 });
 
 // Campos condicionais do formulário de criar (task-002): categoria "carona"
@@ -845,10 +896,61 @@ const caronaCnhInput = document.getElementById("carona-cnh");
 const caronaPlacaInput = document.getElementById("carona-placa");
 const caronaModeloInput = document.getElementById("carona-modelo");
 const caronaCorInput = document.getElementById("carona-cor");
+const caronaHorarioInput = document.getElementById("carona-horario");
+const groupWhatsappInput = document.getElementById("group-whatsapp");
+const groupNameInput = document.getElementById("group-name");
 const caronaUseLocationBtn = document.getElementById("carona-use-location");
 const caronaLocationStatus = document.getElementById("carona-location-status");
 const caronaLatInput = document.getElementById("carona-lat");
 const caronaLngInput = document.getElementById("carona-lng");
+
+// Pré-preenchimento a partir do perfil (task-003) — só entra em campo
+// vazio, nunca sobrescreve o que a pessoa já digitou, e continua 100%
+// editável depois de preenchido.
+function prefillGroupFormFromProfile() {
+  if (!currentUserProfile) return;
+  if (!groupWhatsappInput.value && currentUserProfile.whatsapp) groupWhatsappInput.value = currentUserProfile.whatsapp;
+  if (!groupNameInput.value && currentUserProfile.name) groupNameInput.value = currentUserProfile.name;
+}
+
+function prefillMotoristaFieldsFromProfile() {
+  if (!currentUserProfile || !currentUserProfile.motorista) return;
+  const m = currentUserProfile.motorista;
+  if (!caronaCnhInput.value && m.cnhNumero) caronaCnhInput.value = m.cnhNumero;
+  if (!caronaPlacaInput.value && m.veiculoPlaca) caronaPlacaInput.value = m.veiculoPlaca;
+  if (!caronaModeloInput.value && m.veiculoModelo) caronaModeloInput.value = m.veiculoModelo;
+  if (!caronaCorInput.value && m.veiculoCor) caronaCorInput.value = m.veiculoCor;
+}
+
+const WEEKDAY_NAMES = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
+
+function weekdayNameFromDateInput(dateStr) {
+  if (!dateStr) return null;
+  const [year, month, day] = dateStr.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  // Monta a data no fuso local (não usa new Date(string), que interpreta
+  // "YYYY-MM-DD" como meia-noite UTC e pode virar o dia da semana errado
+  // pra quem está no Brasil).
+  return WEEKDAY_NAMES[new Date(year, month - 1, day).getDay()];
+}
+
+caronaHorarioInput.addEventListener("input", () => {
+  caronaHorarioInput.dataset.touched = "1";
+});
+
+// Sugere o horário da primeira janela de disponibilidade que bate com o dia
+// da semana da data escolhida (task-003) — só enquanto a pessoa não digitou
+// nada nesse campo com a própria mão.
+function suggestHorarioFromProfile() {
+  if (!currentUserProfile || !Array.isArray(currentUserProfile.disponibilidade)) return;
+  if (caronaHorarioInput.dataset.touched) return;
+  const dia = weekdayNameFromDateInput(caronaDataInput.value);
+  if (!dia) return;
+  const janela = currentUserProfile.disponibilidade.find((j) => j.dia === dia);
+  caronaHorarioInput.value = janela ? janela.inicio : "";
+}
+
+caronaDataInput.addEventListener("change", suggestHorarioFromProfile);
 
 function updateCaronaTipoFields() {
   const isMotorista = caronaTipoSelect.value === "motorista";
@@ -858,6 +960,7 @@ function updateCaronaTipoFields() {
   caronaPlacaInput.required = isMotorista;
   caronaModeloInput.required = isMotorista;
   caronaCorInput.required = isMotorista;
+  if (isMotorista) prefillMotoristaFieldsFromProfile();
 }
 
 function updateGroupFormFieldsForCategory() {
@@ -922,6 +1025,7 @@ groupForm.addEventListener("submit", async (event) => {
     groupStatus.className = "post-status post-status--ok";
     groupForm.reset();
     updateGroupFormFieldsForCategory();
+    delete caronaHorarioInput.dataset.touched;
     caronaLocationStatus.textContent = "";
     groupForm.hidden = true;
     await loadGroups();
@@ -1224,6 +1328,72 @@ document.querySelectorAll(".example-chip").forEach((chip) => {
 const googleSigninSlot = document.getElementById("google-signin-slot");
 const userPanel = document.getElementById("user-panel");
 
+// Login por email/senha (task-003) — alternativa sempre disponível, não
+// depende de GOOGLE_CLIENT_ID. Mesmo painel serve pra "Entrar" e "Criar
+// conta", só troca quais campos aparecem (ver princípios de UI/UX da seção
+// 10: um controle por ação, não dois formulários fazendo quase a mesma
+// coisa).
+const emailAuthToggle = document.getElementById("email-auth-toggle");
+const emailAuthPanel = document.getElementById("email-auth-panel");
+const emailAuthTabs = document.querySelectorAll(".email-auth-tab");
+const emailAuthForm = document.getElementById("email-auth-form");
+const emailAuthSubmit = document.getElementById("email-auth-submit");
+const emailAuthStatus = document.getElementById("email-auth-status");
+let emailAuthMode = "login";
+
+function updateEmailAuthMode() {
+  const isSignup = emailAuthMode === "signup";
+  emailAuthForm.querySelector('[data-auth-field="name"]').hidden = !isSignup;
+  emailAuthForm.querySelector('[data-auth-field="whatsapp"]').hidden = !isSignup;
+  document.getElementById("auth-name").required = isSignup;
+  document.getElementById("auth-whatsapp").required = isSignup;
+  emailAuthSubmit.textContent = isSignup ? "Criar conta" : "Entrar";
+  emailAuthTabs.forEach((tab) => tab.classList.toggle("is-active", tab.dataset.authMode === emailAuthMode));
+}
+
+emailAuthToggle.addEventListener("click", () => {
+  emailAuthPanel.hidden = !emailAuthPanel.hidden;
+  if (!emailAuthPanel.hidden) document.getElementById("auth-email").focus();
+});
+
+emailAuthTabs.forEach((tab) => {
+  tab.addEventListener("click", () => {
+    emailAuthMode = tab.dataset.authMode;
+    updateEmailAuthMode();
+  });
+});
+updateEmailAuthMode();
+
+emailAuthForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const data = new FormData(emailAuthForm);
+  emailAuthStatus.textContent = emailAuthMode === "signup" ? "criando conta…" : "entrando…";
+  emailAuthStatus.className = "post-status";
+  emailAuthSubmit.disabled = true;
+  try {
+    const res = await fetch(`/api/auth/${emailAuthMode === "signup" ? "signup" : "login"}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(Object.fromEntries(data)),
+    });
+    const result = await res.json();
+    if (!res.ok) {
+      emailAuthStatus.textContent = result.error || "Não consegui completar.";
+      emailAuthStatus.className = "post-status post-status--error";
+      return;
+    }
+    const meRes = await fetch("/api/auth/me");
+    const me = meRes.ok ? await meRes.json() : { providers: [], groups: [], requests: [] };
+    renderLoggedInUser(result.user, me.providers, me.groups, me.requests);
+    emailAuthForm.reset();
+  } catch (err) {
+    emailAuthStatus.textContent = "Falha de conexão. Tente de novo.";
+    emailAuthStatus.className = "post-status post-status--error";
+  } finally {
+    emailAuthSubmit.disabled = false;
+  }
+});
+
 // Painel pessoal (pilar 4.13): lista os perfis, grupos e pedidos que a
 // pessoa logada criou, com atalho pra ver/editar cada um. Guardado aqui pra
 // não precisar buscar de novo toda vez que o painel abre/fecha. "Meus
@@ -1281,13 +1451,63 @@ function renderUserPanel() {
           )
           .join("")}</ul>`;
 
-  userPanel.innerHTML = `<h3>Meus perfis</h3>${providersHtml}<h3>Meus grupos</h3>${groupsHtml}<h3>Meus pedidos</h3>${requestsHtml}`;
+  userPanel.innerHTML = `
+    <button type="button" id="edit-profile-btn" class="cta-secondary">Meus dados</button>
+    <h3>Meus perfis</h3>${providersHtml}<h3>Meus grupos</h3>${groupsHtml}<h3>Meus pedidos</h3>${requestsHtml}`;
 }
+
+// Perfil completo de quem está logado (task-003) — guardado aqui pra
+// pré-preencher formulário de Grupos sem precisar buscar de novo toda hora.
+let currentUserProfile = null;
+
+// Sugestão discreta de login (task-003) nas telas de "Quero solicitar"/
+// "Quero prestar" — nunca bloqueia o uso anônimo, só aparece pra quem ainda
+// não está logado e ainda não dispensou (localStorage, por navegador —
+// dispensar aqui não afeta outro aparelho nem outra pessoa).
+const LOGIN_SUGGESTION_DISMISSED_KEY = "top3_login_suggestion_dismissed";
+const loginSuggestionBanner = document.getElementById("login-suggestion-banner");
+const loginSuggestionCta = document.getElementById("login-suggestion-cta");
+const loginSuggestionDismiss = document.getElementById("login-suggestion-dismiss");
+
+function wasLoginSuggestionDismissed() {
+  try {
+    return localStorage.getItem(LOGIN_SUGGESTION_DISMISSED_KEY) === "1";
+  } catch (err) {
+    return false;
+  }
+}
+
+function showLoginSuggestionBannerIfApplicable() {
+  if (currentUserProfile || wasLoginSuggestionDismissed()) return;
+  loginSuggestionBanner.hidden = false;
+}
+
+function hideLoginSuggestionBanner() {
+  loginSuggestionBanner.hidden = true;
+}
+
+loginSuggestionCta.addEventListener("click", () => {
+  hideLoginSuggestionBanner();
+  emailAuthPanel.hidden = false;
+  emailAuthToggle.scrollIntoView({ behavior: "smooth", block: "center" });
+  document.getElementById("auth-email").focus();
+});
+
+loginSuggestionDismiss.addEventListener("click", () => {
+  hideLoginSuggestionBanner();
+  try {
+    localStorage.setItem(LOGIN_SUGGESTION_DISMISSED_KEY, "1");
+  } catch (err) {
+    // localStorage indisponível (modo privado, storage bloqueado) — sem
+    // problema, o banner só volta a aparecer nessa mesma visita.
+  }
+});
 
 function renderLoggedInUser(user, providers, groups, requests) {
   ownProviders = providers || [];
   ownGroups = groups || [];
   ownRequests = requests || [];
+  currentUserProfile = user;
   googleSigninSlot.innerHTML = `
     <button type="button" class="user-chip" id="user-chip-toggle">
       ${user.picture ? `<img src="${escapeHtml(user.picture)}" alt="" />` : ""}
@@ -1295,8 +1515,105 @@ function renderLoggedInUser(user, providers, groups, requests) {
     </button>
     <button type="button" class="user-logout" id="google-logout-btn">Sair</button>
   `;
+  emailAuthToggle.hidden = true;
+  emailAuthPanel.hidden = true;
+  hideLoginSuggestionBanner();
   renderUserPanel();
 }
+
+// Edição de perfil (task-003) — WhatsApp, tipo de uso, dados de motorista e
+// disponibilidade semanal. Mesmo formulário serve só de "editar" (não tem
+// "criar", a conta já existe desde o cadastro) — reaproveita os estilos
+// .post-form/.post-field do resto do site em vez de inventar um layout novo.
+const profileEditPanel = document.getElementById("profile-edit-panel");
+const profileEditForm = document.getElementById("profile-edit-form");
+const profileEditStatus = document.getElementById("profile-edit-status");
+const profileWhatsappInput = document.getElementById("profile-whatsapp");
+const profileTipoUsoSelect = document.getElementById("profile-tipo-uso");
+const profileCnhInput = document.getElementById("profile-cnh");
+const profilePlacaInput = document.getElementById("profile-placa");
+const profileModeloInput = document.getElementById("profile-modelo");
+const profileCorInput = document.getElementById("profile-cor");
+const profileAvailabilityRows = document.querySelectorAll(".profile-availability-row");
+
+function openProfileEditPanel() {
+  if (!currentUserProfile) return;
+  profileWhatsappInput.value = currentUserProfile.whatsapp || "";
+  profileTipoUsoSelect.value = currentUserProfile.tipoUso || "";
+  const m = currentUserProfile.motorista || {};
+  profileCnhInput.value = m.cnhNumero || "";
+  profilePlacaInput.value = m.veiculoPlaca || "";
+  profileModeloInput.value = m.veiculoModelo || "";
+  profileCorInput.value = m.veiculoCor || "";
+  const disponibilidade = Array.isArray(currentUserProfile.disponibilidade) ? currentUserProfile.disponibilidade : [];
+  profileAvailabilityRows.forEach((row) => {
+    const janela = disponibilidade.find((j) => j.dia === row.dataset.day);
+    row.querySelector(".profile-availability-inicio").value = janela ? janela.inicio : "";
+    row.querySelector(".profile-availability-fim").value = janela ? janela.fim : "";
+  });
+  profileEditStatus.textContent = "";
+  profileEditStatus.className = "post-status";
+  profileEditPanel.hidden = false;
+}
+
+profileEditForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const submitBtn = profileEditForm.querySelector("button[type=submit]");
+  submitBtn.disabled = true;
+  profileEditStatus.textContent = "salvando…";
+  profileEditStatus.className = "post-status";
+
+  const motoristaFields = {
+    cnhNumero: profileCnhInput.value.trim(),
+    veiculoPlaca: profilePlacaInput.value.trim(),
+    veiculoModelo: profileModeloInput.value.trim(),
+    veiculoCor: profileCorInput.value.trim(),
+  };
+  // Só manda o objeto motorista se pelo menos um campo foi preenchido — em
+  // branco os quatro significa "não ofereço carona", que o servidor grava
+  // como null (mesma regra de validateMotorista em server.js).
+  const motorista = Object.values(motoristaFields).some(Boolean) ? motoristaFields : null;
+
+  const disponibilidade = [];
+  profileAvailabilityRows.forEach((row) => {
+    const inicio = row.querySelector(".profile-availability-inicio").value;
+    const fim = row.querySelector(".profile-availability-fim").value;
+    if (inicio && fim) disponibilidade.push({ dia: row.dataset.day, inicio, fim });
+  });
+
+  try {
+    const res = await fetch("/api/auth/profile", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        whatsapp: profileWhatsappInput.value.trim(),
+        tipoUso: profileTipoUsoSelect.value || null,
+        motorista,
+        disponibilidade,
+      }),
+    });
+    const result = await res.json();
+    if (!res.ok) {
+      profileEditStatus.textContent = result.error || "Não consegui salvar.";
+      profileEditStatus.className = "post-status post-status--error";
+      return;
+    }
+    currentUserProfile = result.user;
+    profileEditStatus.textContent = "Salvo!";
+    profileEditStatus.className = "post-status post-status--ok";
+  } catch (err) {
+    profileEditStatus.textContent = "Falha de conexão. Tente de novo.";
+    profileEditStatus.className = "post-status post-status--error";
+  } finally {
+    submitBtn.disabled = false;
+  }
+});
+
+document.addEventListener("click", (event) => {
+  if (profileEditPanel.hidden) return;
+  if (event.target.closest("#profile-edit-panel") || event.target.closest("#edit-profile-btn")) return;
+  profileEditPanel.hidden = true;
+});
 
 googleSigninSlot.addEventListener("click", (event) => {
   if (event.target.closest("#google-logout-btn")) {
@@ -1315,6 +1632,11 @@ document.addEventListener("click", (event) => {
 });
 
 userPanel.addEventListener("click", (event) => {
+  if (event.target.closest("#edit-profile-btn")) {
+    userPanel.hidden = true;
+    openProfileEditPanel();
+    return;
+  }
   const editBtn = event.target.closest("[data-edit-slug]");
   if (editBtn) {
     userPanel.hidden = true;
@@ -1389,17 +1711,25 @@ function initGoogleSignIn(clientId, attemptsLeft) {
 fetch("/api/auth/config")
   .then((res) => res.json())
   .then(async (config) => {
-    if (!config.googleClientId) return;
-    // Confere se já tinha sessão de uma visita anterior ANTES de montar o
-    // botão de login — sem isso, o botão podia aparecer do lado do nome de
-    // quem já está logado (o GIS não limpa o próprio slot ao renderizar).
+    // Confere se já tinha sessão de uma visita anterior ANTES de montar
+    // qualquer botão de login — sem isso, o botão podia aparecer do lado do
+    // nome de quem já está logado (o GIS não limpa o próprio slot ao
+    // renderizar). Login por email/senha é sempre disponível (task-003),
+    // então essa checagem roda independente de GOOGLE_CLIENT_ID estar
+    // configurada — diferente de antes, que só checava sessão quando
+    // Google estava ativo (bug: sessão feita por email/senha não
+    // sobrevivia a um F5 quando Google não estava configurado).
     const meRes = await fetch("/api/auth/me");
     if (meRes.ok) {
       const { user, providers, groups, requests } = await meRes.json();
-      renderLoggedInUser(user, providers, groups, requests);
-      return;
+      if (user) {
+        renderLoggedInUser(user, providers, groups, requests);
+        return;
+      }
     }
+    if (!config.googleClientId) return;
     await loadGisScript();
     initGoogleSignIn(config.googleClientId, 20);
   })
-  .catch(() => {});
+  .catch(() => {})
+  .finally(() => showLoginSuggestionBannerIfApplicable());

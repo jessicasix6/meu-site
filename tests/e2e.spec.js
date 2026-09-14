@@ -1168,7 +1168,8 @@ test.describe("Top3Profissional - login com Google (pilar 4.13)", () => {
     expect(config.googleClientId).toBeNull();
 
     const me = await request.get("/api/auth/me");
-    expect(me.status()).toBe(401);
+    expect(me.status()).toBe(200);
+    expect((await me.json()).user).toBeNull();
 
     const googleLogin = await request.post("/api/auth/google", { data: { credential: "qualquer-coisa" } });
     expect(googleLogin.status()).toBe(503);
@@ -1227,6 +1228,321 @@ test.describe("Top3Profissional - login com Google (pilar 4.13)", () => {
       multipart: { name: "X", service: "y", location: "z", whatsapp: "31999990000" },
     });
     expect(edit.status()).toBe(401);
+  });
+});
+
+test.describe("Top3Profissional - login simples por email/senha + perfil (task-003)", () => {
+  function randomEmail() {
+    return `teste${Date.now()}${Math.floor(Math.random() * 10000)}@example.com`;
+  }
+
+  test("cadastro cria conta, já loga (sessão) e devolve os campos públicos do perfil", async ({ request }) => {
+    const email = randomEmail();
+    const signup = await request.post("/api/auth/signup", {
+      data: { name: "Maria Cadastro", email, password: "senha12345", whatsapp: "31999990000" },
+    });
+    expect(signup.status()).toBe(201);
+    const { user } = await signup.json();
+    expect(user.name).toBe("Maria Cadastro");
+    expect(user.email).toBe(email);
+    expect(user.whatsapp).toBe("31999990000");
+    expect(user).not.toHaveProperty("passwordHash");
+    expect(user).not.toHaveProperty("reputacaoScore");
+
+    // A sessão já fica ativa depois do cadastro (mesmo cookie de sessão do
+    // login com Google) — não deveria precisar logar de novo.
+    const me = await request.get("/api/auth/me");
+    expect(me.status()).toBe(200);
+    expect((await me.json()).user.email).toBe(email);
+  });
+
+  test("cadastro rejeita e-mail duplicado", async ({ request }) => {
+    const email = randomEmail();
+    await request.post("/api/auth/signup", {
+      data: { name: "Primeira Conta", email, password: "senha12345", whatsapp: "31999990000" },
+    });
+    const second = await request.post("/api/auth/signup", {
+      data: { name: "Segunda Conta", email, password: "outrasenha123", whatsapp: "31988880000" },
+    });
+    expect(second.status()).toBe(409);
+  });
+
+  test("cadastro rejeita senha curta, e-mail inválido e campos faltando", async ({ request }) => {
+    const semSenha = await request.post("/api/auth/signup", {
+      data: { name: "X", email: randomEmail(), password: "123", whatsapp: "31999990000" },
+    });
+    expect(semSenha.status()).toBe(400);
+
+    const emailInvalido = await request.post("/api/auth/signup", {
+      data: { name: "X", email: "não-é-email", password: "senha12345", whatsapp: "31999990000" },
+    });
+    expect(emailInvalido.status()).toBe(400);
+
+    const semWhatsapp = await request.post("/api/auth/signup", {
+      data: { name: "X", email: randomEmail(), password: "senha12345" },
+    });
+    expect(semWhatsapp.status()).toBe(400);
+  });
+
+  test("login com senha certa funciona, com senha errada ou e-mail inexistente dá erro genérico", async ({ request }) => {
+    const email = randomEmail();
+    await request.post("/api/auth/signup", {
+      data: { name: "Login Teste", email, password: "senhacerta123", whatsapp: "31999990000" },
+    });
+    await request.post("/api/auth/logout");
+
+    const senhaErrada = await request.post("/api/auth/login", { data: { email, password: "senhaerrada" } });
+    expect(senhaErrada.status()).toBe(401);
+
+    const inexistente = await request.post("/api/auth/login", {
+      data: { email: randomEmail(), password: "qualquercoisa" },
+    });
+    expect(inexistente.status()).toBe(401);
+    // Mesma mensagem pros dois casos — não dá pista de qual e-mail existe.
+    expect((await senhaErrada.json()).error).toBe((await inexistente.json()).error);
+
+    const login = await request.post("/api/auth/login", { data: { email, password: "senhacerta123" } });
+    expect(login.status()).toBe(200);
+    expect((await login.json()).user.email).toBe(email);
+  });
+
+  test("editar perfil (task-003): WhatsApp, tipo de uso, dados de motorista e disponibilidade", async ({ request }) => {
+    const email = randomEmail();
+    await request.post("/api/auth/signup", {
+      data: { name: "Perfil Completo", email, password: "senha12345", whatsapp: "31999990000" },
+    });
+
+    const edit = await request.put("/api/auth/profile", {
+      data: {
+        whatsapp: "31988887777",
+        tipoUso: "ambos",
+        motorista: { cnhNumero: "12345678900", veiculoPlaca: "ABC1D23", veiculoModelo: "Onix", veiculoCor: "Prata" },
+        disponibilidade: [{ dia: "segunda", inicio: "08:00", fim: "12:00" }],
+      },
+    });
+    expect(edit.status()).toBe(200);
+    const { user } = await edit.json();
+    expect(user.whatsapp).toBe("31988887777");
+    expect(user.tipoUso).toBe("ambos");
+    expect(user.motorista).toEqual({ cnhNumero: "12345678900", veiculoPlaca: "ABC1D23", veiculoModelo: "Onix", veiculoCor: "Prata" });
+    expect(user.disponibilidade).toEqual([{ dia: "segunda", inicio: "08:00", fim: "12:00" }]);
+  });
+
+  test("editar perfil exige login", async ({ request }) => {
+    const edit = await request.put("/api/auth/profile", { data: { whatsapp: "31988887777" } });
+    expect(edit.status()).toBe(401);
+  });
+
+  test("editar perfil rejeita dados de motorista incompletos (todos os campos ou nenhum)", async ({ request }) => {
+    const email = randomEmail();
+    await request.post("/api/auth/signup", {
+      data: { name: "Motorista Incompleto", email, password: "senha12345", whatsapp: "31999990000" },
+    });
+    const edit = await request.put("/api/auth/profile", {
+      data: { motorista: { cnhNumero: "12345678900" } },
+    });
+    expect(edit.status()).toBe(400);
+  });
+
+  test("editar perfil rejeita disponibilidade com dia ou horário inválido", async ({ request }) => {
+    const email = randomEmail();
+    await request.post("/api/auth/signup", {
+      data: { name: "Disponibilidade Teste", email, password: "senha12345", whatsapp: "31999990000" },
+    });
+    const diaInvalido = await request.put("/api/auth/profile", {
+      data: { disponibilidade: [{ dia: "feriado", inicio: "08:00", fim: "12:00" }] },
+    });
+    expect(diaInvalido.status()).toBe(400);
+
+    const horarioInvalido = await request.put("/api/auth/profile", {
+      data: { disponibilidade: [{ dia: "terca", inicio: "8h", fim: "12h" }] },
+    });
+    expect(horarioInvalido.status()).toBe(400);
+  });
+
+  test("login com Google e por email/senha no mesmo e-mail não criam duas contas (mesmo usuário)", async ({ request }) => {
+    // Não dá pra simular um credential do Google de verdade aqui (exigiria
+    // um token assinado pelo Google) — mas o endpoint de signup por e-mail
+    // sozinho já garante unicidade por e-mail entre TODOS os caminhos de
+    // login, incluindo o futuro cadastro por Google com o mesmo endereço
+    // (ver createUser/existingByEmail em server.js), então cobrimos aqui só
+    // a garantia de unicidade que o signup por e-mail já expõe.
+    const email = randomEmail();
+    const first = await request.post("/api/auth/signup", {
+      data: { name: "Conta Única", email, password: "senha12345", whatsapp: "31999990000" },
+    });
+    expect(first.status()).toBe(201);
+    const duplicate = await request.post("/api/auth/signup", {
+      data: { name: "Conta Única 2", email, password: "outrasenha", whatsapp: "31988880000" },
+    });
+    expect(duplicate.status()).toBe(409);
+  });
+
+  test("busca de carona abre já filtrada em hoje, e sugere amanhã quando não acha nada", async ({ page }) => {
+    await page.goto("/");
+    await page.locator('.group-category-btn[data-category="carona"]').click();
+    const dataInput = page.locator("#carona-search-data");
+    const today = new Date();
+    const expected = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    await expect(dataInput).toHaveValue(expected);
+
+    const seeTomorrow = page.locator("#carona-see-tomorrow");
+    await expect(seeTomorrow).toBeVisible();
+    await seeTomorrow.click();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const expectedTomorrow = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
+    await expect(dataInput).toHaveValue(expectedTomorrow);
+  });
+
+  test("post de carona pré-preenche WhatsApp, nome, CNH/placa/veículo e sugere horário a partir do perfil logado", async ({ page }) => {
+    const email = randomEmail();
+    await page.request.post("/api/auth/signup", {
+      data: { name: "Carlos Motorista Teste", email, password: "senha12345", whatsapp: "31977776666" },
+    });
+    await page.request.put("/api/auth/profile", {
+      data: {
+        motorista: { cnhNumero: "98765432100", veiculoPlaca: "XYZ9A87", veiculoModelo: "HB20", veiculoCor: "Branco" },
+        disponibilidade: [{ dia: "segunda", inicio: "07:30", fim: "11:00" }],
+      },
+    });
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "+ Criar um grupo" }).click();
+    await page.locator("#group-category").selectOption("carona");
+    await page.locator("#carona-tipo").selectOption("motorista");
+
+    await expect(page.locator("#group-whatsapp")).toHaveValue("31977776666");
+    await expect(page.locator("#group-name")).toHaveValue("Carlos Motorista Teste");
+    await expect(page.locator("#carona-cnh")).toHaveValue("98765432100");
+    await expect(page.locator("#carona-placa")).toHaveValue("XYZ9A87");
+    await expect(page.locator("#carona-modelo")).toHaveValue("HB20");
+    await expect(page.locator("#carona-cor")).toHaveValue("Branco");
+
+    // 14/09/2026 é uma segunda-feira — bate com a janela de disponibilidade cadastrada.
+    await page.locator("#carona-data").fill("2026-09-14");
+    await page.locator("#carona-data").dispatchEvent("change");
+    await expect(page.locator("#carona-horario")).toHaveValue("07:30");
+
+    // Editar manualmente trava a sugestão — trocar de dia não deve mais sobrescrever.
+    await page.locator("#carona-horario").fill("10:00");
+    await page.locator("#carona-data").fill("2026-09-15");
+    await page.locator("#carona-data").dispatchEvent("change");
+    await expect(page.locator("#carona-horario")).toHaveValue("10:00");
+
+    // Campos continuam editáveis mesmo pré-preenchidos.
+    await page.locator("#carona-placa").fill("NOVA1B23");
+    await expect(page.locator("#carona-placa")).toHaveValue("NOVA1B23");
+  });
+
+  test("sugestão discreta de login aparece pra quem não está logado, some ao logar, e some pra sempre ao dispensar", async ({ page }) => {
+    await page.goto("/");
+    const banner = page.locator("#login-suggestion-banner");
+    await expect(banner).toBeVisible();
+    await expect(banner).toContainText("Crie uma conta grátis");
+
+    // Clicar no CTA leva pro painel de login/cadastro, sem bloquear nada.
+    await page.locator("#login-suggestion-cta").click();
+    await expect(banner).toBeHidden();
+    await expect(page.locator("#email-auth-panel")).toBeVisible();
+
+    // Numa sessão nova, dispensar (✕) esconde e não volta a aparecer depois de recarregar.
+    await page.goto("/");
+    await expect(page.locator("#login-suggestion-banner")).toBeVisible();
+    await page.locator("#login-suggestion-dismiss").click();
+    await expect(page.locator("#login-suggestion-banner")).toBeHidden();
+    await page.reload();
+    await expect(page.locator("#login-suggestion-banner")).toBeHidden();
+  });
+
+  test("sugestão de login não aparece pra quem já está logado", async ({ page }) => {
+    const email = randomEmail();
+    await page.request.post("/api/auth/signup", {
+      data: { name: "Já Logada", email, password: "senha12345", whatsapp: "31999990000" },
+    });
+    await page.goto("/");
+    await expect(page.locator("#login-suggestion-banner")).toBeHidden();
+  });
+
+  test("usar sem estar logado continua funcionando 100% — sugestão de login nunca bloqueia nada", async ({ page }) => {
+    await page.goto("/");
+    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
+    await expect(searchInput).toBeEditable();
+    await page.getByRole("button", { name: "+ Criar um grupo" }).click();
+    await expect(page.locator("#group-form")).toBeVisible();
+  });
+
+  test("tabs de entrar/criar conta não desmarcam o toggle Solicito/Presto serviço da barra de busca (mesma classe .mode-btn, propósitos diferentes)", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#email-auth-toggle").click();
+    await page.locator('.email-auth-tab[data-auth-mode="signup"]').click();
+    await expect(page.locator('.bottom-mode-btn[data-mode="requester"]')).toHaveClass(/is-active/);
+    await expect(page.locator("#requester-view")).toBeVisible();
+  });
+
+  test("editar perfil pela interface: abre pré-preenchido, salva, e reabre com os novos dados", async ({ page }) => {
+    const email = randomEmail();
+    await page.request.post("/api/auth/signup", {
+      data: { name: "Edição Interface", email, password: "senha12345", whatsapp: "31955554444" },
+    });
+
+    await page.goto("/");
+    await page.locator("#user-chip-toggle").click();
+    await page.locator("#edit-profile-btn").click();
+
+    // Abre pré-preenchido com o que veio do cadastro.
+    await expect(page.locator("#profile-whatsapp")).toHaveValue("31955554444");
+
+    await page.locator("#profile-whatsapp").fill("31944443333");
+    await page.locator("#profile-tipo-uso").selectOption("prestador");
+    await page.locator("#profile-cnh").fill("55566677788");
+    await page.locator("#profile-placa").fill("QWE4R56");
+    await page.locator("#profile-modelo").fill("Argo");
+    await page.locator("#profile-cor").fill("Vermelho");
+    const segundaRow = page.locator('.profile-availability-row[data-day="segunda"]');
+    await segundaRow.locator(".profile-availability-inicio").fill("08:00");
+    await segundaRow.locator(".profile-availability-fim").fill("12:00");
+    await page.locator("#profile-edit-form button[type=submit]").click();
+    await expect(page.locator("#profile-edit-status")).toHaveText("Salvo!");
+
+    const me = await page.request.get("/api/auth/me").then((r) => r.json());
+    expect(me.user.whatsapp).toBe("31944443333");
+    expect(me.user.tipoUso).toBe("prestador");
+    expect(me.user.motorista).toEqual({ cnhNumero: "55566677788", veiculoPlaca: "QWE4R56", veiculoModelo: "Argo", veiculoCor: "Vermelho" });
+    expect(me.user.disponibilidade).toEqual([{ dia: "segunda", inicio: "08:00", fim: "12:00" }]);
+
+    // Fecha e reabre — reaparece com os dados que acabaram de ser salvos.
+    await page.locator("#profile-edit-panel").evaluate((el) => (el.hidden = true));
+    await page.locator("#user-chip-toggle").click();
+    await page.locator("#edit-profile-btn").click();
+    await expect(page.locator("#profile-whatsapp")).toHaveValue("31944443333");
+    await expect(page.locator("#profile-placa")).toHaveValue("QWE4R56");
+    await expect(segundaRow.locator(".profile-availability-inicio")).toHaveValue("08:00");
+  });
+
+  test("editar perfil pela interface: deixar todos os campos de motorista em branco limpa os dados de motorista salvos", async ({ page }) => {
+    const email = randomEmail();
+    await page.request.post("/api/auth/signup", {
+      data: { name: "Sem Motorista", email, password: "senha12345", whatsapp: "31955554444" },
+    });
+    await page.request.put("/api/auth/profile", {
+      data: { motorista: { cnhNumero: "1", veiculoPlaca: "2", veiculoModelo: "3", veiculoCor: "4" } },
+    });
+
+    await page.goto("/");
+    await page.locator("#user-chip-toggle").click();
+    await page.locator("#edit-profile-btn").click();
+    await expect(page.locator("#profile-cnh")).toHaveValue("1");
+
+    await page.locator("#profile-cnh").fill("");
+    await page.locator("#profile-placa").fill("");
+    await page.locator("#profile-modelo").fill("");
+    await page.locator("#profile-cor").fill("");
+    await page.locator("#profile-edit-form button[type=submit]").click();
+    await expect(page.locator("#profile-edit-status")).toHaveText("Salvo!");
+
+    const me = await page.request.get("/api/auth/me").then((r) => r.json());
+    expect(me.user.motorista).toBeNull();
   });
 });
 

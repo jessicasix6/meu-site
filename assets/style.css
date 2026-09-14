@@ -50,6 +50,15 @@
   box-sizing: border-box;
 }
 
+/* Garante que o atributo hidden sempre esconda, mesmo em elementos cuja
+   própria classe define display (flex/grid/block) — sem isso, campos com
+   "hidden" alternado por JS (ex: campos condicionais de formulário) ficam
+   visíveis mesmo escondidos, porque a regra da classe empata em
+   especificidade com o estilo padrão do navegador pra [hidden]. */
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -173,6 +182,44 @@ a {
   border-color: var(--text-dim);
 }
 
+.login-suggestion-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.7rem 1.5rem;
+  background: var(--accent-dim);
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+}
+
+.login-suggestion-banner p {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.login-suggestion-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+#login-suggestion-dismiss {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.2rem 0.4rem;
+}
+
+#login-suggestion-dismiss:hover {
+  color: var(--text);
+}
+
 .user-panel {
   position: absolute;
   top: calc(100% + 0.6rem);
@@ -195,6 +242,52 @@ a {
 
 .user-panel h3:first-child {
   margin-top: 0;
+}
+
+.profile-edit-panel {
+  width: min(90vw, 480px);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.profile-edit-intro {
+  margin: 0 0 0.8rem;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+}
+
+.profile-edit-panel .post-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  max-width: none;
+}
+
+.profile-availability-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.profile-availability-row {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr auto 1fr;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.profile-availability-day {
+  color: var(--text-dim);
+}
+
+.profile-availability-row input[type="time"] {
+  padding: 0.4rem 0.5rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  color: var(--text);
+  font-family: inherit;
 }
 
 .user-panel-empty {
