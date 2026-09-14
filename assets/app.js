@@ -551,6 +551,7 @@ const GROUP_CATEGORY_ICONS = {
   servico: "🧰",
   curso: "🎓",
   assinatura: "📺",
+  carona: "🚗",
 };
 
 // Aviso fixo só pra grupos de assinatura (task-001) — deixa claro que o
@@ -559,6 +560,12 @@ const GROUP_CATEGORY_ICONS = {
 const GROUP_ASSINATURA_NOTICE =
   "O TOP3 só ajuda vocês a se encontrarem. Combinem entre vocês e sigam sempre as regras oficiais do serviço (ex: assinante extra da Netflix).";
 
+// Aviso fixo pra carona (task-002) — mesma lógica do aviso de assinatura:
+// deixa claro que o site conecta, não verifica motorista nem intermedeia
+// nada.
+const GROUP_CARONA_NOTICE =
+  "O TOP3 apenas conecta pessoas para carona compartilhada. Confirme identidade, placa e combine tudo antes de embarcar — o site não verifica motoristas, não intermedeia pagamento e não se responsabiliza pela viagem.";
+
 const groupsList = document.getElementById("groups-list");
 const groupCategoryButtons = document.querySelectorAll(".group-category-btn");
 const groupCreateToggle = document.getElementById("group-create-toggle");
@@ -566,45 +573,123 @@ const groupForm = document.getElementById("group-form");
 const groupStatus = document.getElementById("group-status");
 let currentGroupCategory = "";
 
+// Busca extra de carona (origem/destino/data/perto de mim) — só aparece
+// quando a categoria "carona" está selecionada no filtro (ver toggle mais
+// abaixo). Localização é sempre opcional e pedida na hora, nunca salva além
+// do necessário pra ordenar essa busca (task-002, seção 2).
+const caronaSearchExtra = document.getElementById("carona-search-extra");
+const caronaSearchOrigem = document.getElementById("carona-search-origem");
+const caronaSearchDestino = document.getElementById("carona-search-destino");
+const caronaSearchData = document.getElementById("carona-search-data");
+const caronaSearchLocationBtn = document.getElementById("carona-search-location");
+let caronaSearchLat = null;
+let caronaSearchLng = null;
+
+function debounce(fn, waitMs) {
+  let timeoutId;
+  return (...args) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), waitMs);
+  };
+}
+
+function buildGroupsQueryUrl() {
+  const params = new URLSearchParams();
+  if (currentGroupCategory) params.set("category", currentGroupCategory);
+  if (currentGroupCategory === "carona") {
+    if (caronaSearchOrigem.value.trim()) params.set("origem", caronaSearchOrigem.value.trim());
+    if (caronaSearchDestino.value.trim()) params.set("destino", caronaSearchDestino.value.trim());
+    if (caronaSearchData.value) params.set("data", caronaSearchData.value);
+    if (caronaSearchLat != null && caronaSearchLng != null) {
+      params.set("lat", caronaSearchLat);
+      params.set("lng", caronaSearchLng);
+    }
+  }
+  const qs = params.toString();
+  return qs ? `/api/groups?${qs}` : "/api/groups";
+}
+
+function renderGenericGroupCard(g) {
+  const vagas = g.targetMembers - g.currentMembers;
+  const vagasText = g.status === "completo" ? "grupo completo" : vagas === 1 ? "falta 1 pessoa" : `faltam ${vagas} pessoas`;
+  const priceText = typeof g.estimatedIndividualPrice === "number" ? `R$ ${g.estimatedIndividualPrice} por pessoa (estimado)` : "";
+  const deadlineText = g.deadline ? `até ${escapeHtml(g.deadline)}` : "";
+  const actionArea =
+    g.status === "completo"
+      ? '<span class="request-provider">Completo ✓</span>'
+      : `<button type="button" class="accept-btn group-join-btn" data-group-id="${escapeHtml(g.id)}">Participar</button>
+         <button type="button" class="group-leave-link" data-group-id="${escapeHtml(g.id)}">já participa? sair</button>`;
+  const noticeHtml = g.category === "assinatura" ? `<p class="group-assinatura-notice">${escapeHtml(GROUP_ASSINATURA_NOTICE)}</p>` : "";
+  return `
+    <li class="request-item group-card" data-group-id="${escapeHtml(g.id)}">
+      <span class="request-icon">${GROUP_CATEGORY_ICONS[g.category] || "👥"}</span>
+      <span class="request-info">
+        <strong>${escapeHtml(g.title)}</strong>
+        <br />
+        <span class="request-meta">${escapeHtml(g.city)} · ${g.currentMembers} de ${g.targetMembers} vagas ocupadas · ${vagasText}</span>
+        <br />
+        <span class="request-meta">${[priceText, deadlineText].filter(Boolean).join(" · ")}</span>
+        ${noticeHtml}
+      </span>
+      <span class="request-action group-action">${actionArea}</span>
+    </li>`;
+}
+
+// Carona (task-002) tem cara própria: motorista tem vaga/participar (reusa
+// o join/leave que já existe, só muda o texto), passageiro é um post
+// individual — não dá pra "participar" dele (motorista entra em contato
+// direto pelo WhatsApp, revelado em "Ver detalhes"). CNH/placa/veículo só
+// aparecem em "Ver detalhes" (busca GET /api/groups/:id), nunca na lista —
+// mesma regra de "informação sensível só no detalhe" do resto do mecanismo.
+function renderCaronaGroupCard(g) {
+  const c = g.carona;
+  const isMotorista = c.tipo === "motorista";
+  const routeText = `${escapeHtml(c.origemTexto)} → ${escapeHtml(c.destinoTexto)}`;
+  const whenText = `${escapeHtml(c.dataViagem)}${c.horarioAproximado ? " · " + escapeHtml(c.horarioAproximado) : ""}`;
+  const vagasText = isMotorista
+    ? c.vagasRestantes === 0
+      ? "sem vagas"
+      : c.vagasRestantes === 1
+        ? "1 vaga restante"
+        : `${c.vagasRestantes} vagas restantes`
+    : "passageiro procurando carona";
+  const joinArea = !isMotorista
+    ? ""
+    : g.status === "completo"
+      ? '<span class="request-provider">Completo ✓</span>'
+      : `<button type="button" class="accept-btn group-join-btn" data-group-id="${escapeHtml(g.id)}">Participar</button>
+         <button type="button" class="group-leave-link" data-group-id="${escapeHtml(g.id)}">já participa? sair</button>`;
+
+  return `
+    <li class="request-item group-card" data-group-id="${escapeHtml(g.id)}">
+      <span class="request-icon">${GROUP_CATEGORY_ICONS.carona}</span>
+      <span class="request-info">
+        <strong>${escapeHtml(g.title)}</strong>
+        <br />
+        <span class="request-meta">${routeText} · ${whenText}</span>
+        <br />
+        <span class="request-meta">${escapeHtml(g.city)} · ${vagasText}</span>
+        <p class="group-assinatura-notice">${escapeHtml(GROUP_CARONA_NOTICE)}</p>
+        <div class="group-carona-details" hidden></div>
+      </span>
+      <span class="request-action group-action">
+        <button type="button" class="group-carona-detail-btn" data-group-id="${escapeHtml(g.id)}">Ver detalhes</button>
+        ${joinArea}
+      </span>
+    </li>`;
+}
+
 function renderGroupsList(groups) {
   if (groups.length === 0) {
     groupsList.innerHTML = '<li class="requests-error">Nenhum grupo aberto nessa categoria ainda — crie o primeiro.</li>';
     return;
   }
-  groupsList.innerHTML = groups
-    .map((g) => {
-      const vagas = g.targetMembers - g.currentMembers;
-      const vagasText = g.status === "completo" ? "grupo completo" : vagas === 1 ? "falta 1 pessoa" : `faltam ${vagas} pessoas`;
-      const priceText = typeof g.estimatedIndividualPrice === "number" ? `R$ ${g.estimatedIndividualPrice} por pessoa (estimado)` : "";
-      const deadlineText = g.deadline ? `até ${escapeHtml(g.deadline)}` : "";
-      const actionArea =
-        g.status === "completo"
-          ? '<span class="request-provider">Completo ✓</span>'
-          : `<button type="button" class="accept-btn group-join-btn" data-group-id="${escapeHtml(g.id)}">Participar</button>
-             <button type="button" class="group-leave-link" data-group-id="${escapeHtml(g.id)}">já participa? sair</button>`;
-      const noticeHtml =
-        g.category === "assinatura" ? `<p class="group-assinatura-notice">${escapeHtml(GROUP_ASSINATURA_NOTICE)}</p>` : "";
-      return `
-        <li class="request-item group-card" data-group-id="${escapeHtml(g.id)}">
-          <span class="request-icon">${GROUP_CATEGORY_ICONS[g.category] || "👥"}</span>
-          <span class="request-info">
-            <strong>${escapeHtml(g.title)}</strong>
-            <br />
-            <span class="request-meta">${escapeHtml(g.city)} · ${g.currentMembers} de ${g.targetMembers} vagas ocupadas · ${vagasText}</span>
-            <br />
-            <span class="request-meta">${[priceText, deadlineText].filter(Boolean).join(" · ")}</span>
-            ${noticeHtml}
-          </span>
-          <span class="request-action group-action">${actionArea}</span>
-        </li>`;
-    })
-    .join("");
+  groupsList.innerHTML = groups.map((g) => (g.category === "carona" ? renderCaronaGroupCard(g) : renderGenericGroupCard(g))).join("");
 }
 
 async function loadGroups() {
   try {
-    const url = currentGroupCategory ? `/api/groups?category=${encodeURIComponent(currentGroupCategory)}` : "/api/groups";
-    const res = await fetch(url);
+    const res = await fetch(buildGroupsQueryUrl());
     if (!res.ok) return;
     const { groups } = await res.json();
     renderGroupsList(groups);
@@ -617,8 +702,69 @@ groupCategoryButtons.forEach((btn) => {
   btn.addEventListener("click", () => {
     currentGroupCategory = btn.dataset.category;
     groupCategoryButtons.forEach((b) => b.classList.toggle("is-active", b === btn));
+    caronaSearchExtra.hidden = currentGroupCategory !== "carona";
     loadGroups();
   });
+});
+
+const debouncedLoadGroups = debounce(loadGroups, 350);
+caronaSearchOrigem.addEventListener("input", debouncedLoadGroups);
+caronaSearchDestino.addEventListener("input", debouncedLoadGroups);
+caronaSearchData.addEventListener("change", loadGroups);
+
+caronaSearchLocationBtn.addEventListener("click", () => {
+  if (!navigator.geolocation) return;
+  const originalText = caronaSearchLocationBtn.textContent;
+  caronaSearchLocationBtn.textContent = "obtendo localização…";
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      caronaSearchLat = pos.coords.latitude;
+      caronaSearchLng = pos.coords.longitude;
+      caronaSearchLocationBtn.textContent = "ordenado por perto de você ✓";
+      loadGroups();
+    },
+    () => {
+      caronaSearchLocationBtn.textContent = originalText;
+    }
+  );
+});
+
+// "Ver detalhes" (carona): busca CNH/placa/veículo (se motorista) e o
+// contato pra "Falar no WhatsApp" — só na hora que a pessoa pede, nunca na
+// listagem geral (task-002: esses dados só aparecem "na tela de detalhe do
+// post, antes de confirmar interesse").
+groupsList.addEventListener("click", async (event) => {
+  const detailBtn = event.target.closest(".group-carona-detail-btn");
+  if (!detailBtn) return;
+  const card = detailBtn.closest(".group-card");
+  const detailsDiv = card.querySelector(".group-carona-details");
+  if (!detailsDiv.hidden) {
+    detailsDiv.hidden = true;
+    return;
+  }
+  detailsDiv.hidden = false;
+  detailsDiv.textContent = "carregando…";
+  try {
+    const res = await fetch(`/api/groups/${encodeURIComponent(detailBtn.dataset.groupId)}`);
+    const detail = await res.json();
+    if (!res.ok) {
+      detailsDiv.textContent = detail.error || "Não consegui carregar os detalhes.";
+      return;
+    }
+    const c = detail.carona;
+    const docsHtml =
+      c && c.tipo === "motorista"
+        ? `<p class="request-meta">CNH: ${escapeHtml(c.cnhNumero)} · Placa: ${escapeHtml(c.veiculoPlaca)} · ${escapeHtml(c.veiculoModelo)} ${escapeHtml(c.veiculoCor)}</p>`
+        : "";
+    const contact = detail.members && detail.members[0];
+    const whatsappDigits = contact ? String(contact.whatsapp).replace(/\D/g, "") : "";
+    const whatsappHtml = whatsappDigits
+      ? `<a class="accept-btn" href="https://wa.me/${encodeURIComponent(whatsappDigits)}" target="_blank" rel="noopener noreferrer">Falar no WhatsApp</a>`
+      : "";
+    detailsDiv.innerHTML = `${docsHtml}${whatsappHtml}`;
+  } catch (err) {
+    detailsDiv.textContent = "Falha de conexão.";
+  }
 });
 
 groupsList.addEventListener("click", (event) => {
@@ -678,6 +824,80 @@ groupCreateToggle.addEventListener("click", () => {
   if (!groupForm.hidden) document.getElementById("group-title").focus();
 });
 
+// Campos condicionais do formulário de criar (task-002): categoria "carona"
+// troca os campos genéricos (vagas/preço/prazo) pelos campos de carona;
+// dentro de carona, "motorista" exige CNH/placa/veículo, "passageiro" não.
+// required é alternado junto — senão o navegador bloqueia o envio por causa
+// de campo escondido ainda marcado obrigatório.
+const groupCategorySelect = document.getElementById("group-category");
+const groupTargetField = document.getElementById("group-target-field");
+const groupPriceField = document.getElementById("group-price-field");
+const groupDeadlineField = document.getElementById("group-deadline-field");
+const groupTargetInput = document.getElementById("group-target");
+const groupCaronaFields = document.getElementById("group-carona-fields");
+const caronaTipoSelect = document.getElementById("carona-tipo");
+const caronaOrigemInput = document.getElementById("carona-origem");
+const caronaDestinoInput = document.getElementById("carona-destino");
+const caronaDataInput = document.getElementById("carona-data");
+const caronaMotoristaFields = document.getElementById("carona-motorista-fields");
+const caronaVagasInput = document.getElementById("carona-vagas");
+const caronaCnhInput = document.getElementById("carona-cnh");
+const caronaPlacaInput = document.getElementById("carona-placa");
+const caronaModeloInput = document.getElementById("carona-modelo");
+const caronaCorInput = document.getElementById("carona-cor");
+const caronaUseLocationBtn = document.getElementById("carona-use-location");
+const caronaLocationStatus = document.getElementById("carona-location-status");
+const caronaLatInput = document.getElementById("carona-lat");
+const caronaLngInput = document.getElementById("carona-lng");
+
+function updateCaronaTipoFields() {
+  const isMotorista = caronaTipoSelect.value === "motorista";
+  caronaMotoristaFields.hidden = !isMotorista;
+  caronaVagasInput.required = isMotorista;
+  caronaCnhInput.required = isMotorista;
+  caronaPlacaInput.required = isMotorista;
+  caronaModeloInput.required = isMotorista;
+  caronaCorInput.required = isMotorista;
+}
+
+function updateGroupFormFieldsForCategory() {
+  const isCarona = groupCategorySelect.value === "carona";
+  groupTargetField.hidden = isCarona;
+  groupPriceField.hidden = isCarona;
+  groupDeadlineField.hidden = isCarona;
+  groupTargetInput.required = !isCarona;
+  groupCaronaFields.hidden = !isCarona;
+  caronaOrigemInput.required = isCarona;
+  caronaDestinoInput.required = isCarona;
+  caronaDataInput.required = isCarona;
+  if (isCarona) updateCaronaTipoFields();
+}
+
+groupCategorySelect.addEventListener("change", updateGroupFormFieldsForCategory);
+caronaTipoSelect.addEventListener("change", updateCaronaTipoFields);
+updateGroupFormFieldsForCategory();
+
+// Localização é sempre opcional e pedida na hora (nunca salva além do que
+// preenche esses dois campos escondidos, usados só pra ordenar a busca —
+// task-002, seção 2).
+caronaUseLocationBtn.addEventListener("click", () => {
+  if (!navigator.geolocation) {
+    caronaLocationStatus.textContent = "seu navegador não suporta localização";
+    return;
+  }
+  caronaLocationStatus.textContent = "obtendo localização…";
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      caronaLatInput.value = pos.coords.latitude;
+      caronaLngInput.value = pos.coords.longitude;
+      caronaLocationStatus.textContent = "localização atual usada ✓";
+    },
+    () => {
+      caronaLocationStatus.textContent = "não consegui obter sua localização — preencha a origem manualmente";
+    }
+  );
+});
+
 groupForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const data = new FormData(groupForm);
@@ -701,6 +921,8 @@ groupForm.addEventListener("submit", async (event) => {
     groupStatus.textContent = "Grupo criado!";
     groupStatus.className = "post-status post-status--ok";
     groupForm.reset();
+    updateGroupFormFieldsForCategory();
+    caronaLocationStatus.textContent = "";
     groupForm.hidden = true;
     await loadGroups();
   } catch (err) {

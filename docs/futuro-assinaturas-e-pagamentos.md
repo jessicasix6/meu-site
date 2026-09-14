@@ -152,3 +152,23 @@ Denuncia
 
 1. Login/conta de usuário existir no site (hoje "Grupos" funciona só com WhatsApp, sem conta obrigatória — ver pilar 4.14).
 2. Primeiros usuários reais rodando o mecanismo de Grupos sem essa camada, pra validar que o básico funciona antes de empilhar reputação em cima.
+
+---
+
+## App de corrida sob demanda (task-002, 2026-09-14)
+
+**Status: NÃO IMPLEMENTAR.** Diferente da carona compartilhada agendada (pilar 4.14, implementada) — isso aqui é motorista aceitando corrida em tempo real, passageiro solicitando na hora, acompanhando o motorista chegando (placa, cor, posição no mapa ao vivo), com pagamento integrado ao site indo pro motorista.
+
+### Por que fica de fora por enquanto
+
+1. **Categoria jurídica diferente da carona compartilhada.** Transporte remunerado individual sob demanda é regulado pela Lei federal 13.640/2018 + regras municipais específicas. Em várias cidades, não é só o motorista que precisa de autorização — a própria plataforma que despacha corridas também precisa de registro no órgão de transporte municipal. Isso exige pesquisa jurídica cidade a cidade antes de existir código.
+2. **Engenharia de outra ordem de grandeza.** GPS ao vivo, motor de despacho, mapa em tempo real, é um projeto à parte — não um incremento no mecanismo de Grupos atual.
+3. **Pagamento indo pro motorista** reabre exatamente o problema de intermediação de pagamento (regulado pelo Banco Central) que já foi adiado nas outras categorias (assinatura, grupos em geral — ver seção acima).
+
+### Retomar quando
+
+Houver decisão de virar um produto de transporte de verdade (não mais só conectar pessoas), com orçamento e tempo pra:
+- Pesquisa jurídica municipal (cidade por cidade de lançamento).
+- Cadastro/verificação de motorista (CNH, veículo, antecedentes) — dessa vez contra base oficial de verdade, não só auto-declarado como na carona agendada.
+- Infra de localização em tempo real e motor de despacho.
+- Resolver a parte de pagamento como projeto de compliance financeiro separado.

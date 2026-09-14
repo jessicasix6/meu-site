@@ -1373,6 +1373,100 @@ a {
   max-width: 40ch;
 }
 
+/* carona (task-002) */
+
+.carona-search-extra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.carona-search-extra input {
+  background: var(--bg-raised);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.85rem;
+  font-family: var(--font-body);
+}
+
+.carona-search-extra button {
+  padding: 0.5rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: var(--font-body);
+}
+
+.carona-search-extra button:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+.group-carona-fieldset {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 1.25rem 0.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.group-carona-fieldset legend {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  padding: 0 0.4rem;
+}
+
+.carona-docs-notice {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--text-faint);
+  max-width: 55ch;
+}
+
+#carona-motorista-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  flex-basis: 100%;
+}
+
+.group-carona-detail-btn {
+  padding: 0.5rem 1rem;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.group-carona-detail-btn:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+.group-carona-details {
+  margin-top: 0.5rem;
+}
+
+.group-carona-details .accept-btn {
+  display: inline-block;
+  text-decoration: none;
+  margin-top: 0.4rem;
+}
+
 .ride-form {
   display: flex;
   align-items: center;
