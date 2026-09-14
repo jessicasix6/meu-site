@@ -45,6 +45,7 @@ A Jéssica sugeriu usar "A Arte da Guerra" (Sun Tzu) como parte da fonte da verd
   - Produto/imóvel (terreno, carro): cards com foto, preço, localização, link de origem.
 - Resultado inicial: **as 3 melhores recomendações** (o "Top 3" que já é o nome do produto), com um botão "mostrar mais" pra expandir.
 - **Filtros**: mais barato, mais perto (usa geolocalização do navegador, com permissão explícita da pessoa).
+- **Melhoria (2026-09-14, pedido da Jéssica):** placeholder da barra muda por modo — "Descreva o que você gostaria de solicitar..." no modo "Solicito serviço" (o padrão), texto diferente no modo "Presto serviço". O hero também ganhou uma linha de "Exemplos" clicáveis (manicure, eletricista, terreno, corrida, carro usado) pra quem chega no site sem saber o que digitar — clicar preenche e dispara a mesma busca de sempre, sem formulário novo (princípio da seção 10: um controle por ação).
 
 ### 4.2 O loop de duas mãos: oferta + demanda, em qualquer categoria
 

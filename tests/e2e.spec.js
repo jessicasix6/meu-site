@@ -14,10 +14,34 @@ test.describe("Top3Profissional - fluxo básico", () => {
 
   test("barra de busca fixa embaixo existe e aceita texto", async ({ page }) => {
     await page.goto("/");
-    const searchInput = page.getByPlaceholder("O que você precisa?");
+    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
     await expect(searchInput).toBeVisible();
     await searchInput.fill("manicure amanhã em BH");
     await expect(searchInput).toHaveValue("manicure amanhã em BH");
+  });
+
+  test("exemplos clicáveis no hero preenchem e disparam a busca (mesma barra, sem formulário novo)", async ({ page }) => {
+    await page.goto("/");
+    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
+    // "eletricista hoje" é um serviço cadastrado — clicar no exemplo deve
+    // rotear pro ranking, igual uma busca digitada à mão faria.
+    await page.locator('.example-chip[data-example="eletricista hoje"]').click();
+    await expect(page.locator("#top3")).toBeInViewport();
+    await expect(searchInput).toHaveValue("");
+  });
+
+  test("placeholder da busca muda conforme o modo ('Solicito serviço' vs 'Presto serviço')", async ({ page }) => {
+    await page.goto("/");
+    // Locator por id (não por placeholder) porque é exatamente o atributo
+    // que este teste está conferindo mudar.
+    const searchInput = page.locator("#bottom-search-input");
+    await expect(searchInput).toHaveAttribute("placeholder", "Descreva o que você gostaria de solicitar...");
+
+    await page.locator('.mode-btn[data-mode="provider"]').click();
+    await expect(searchInput).toHaveAttribute("placeholder", /Solicito serviço/);
+
+    await page.locator('.mode-btn[data-mode="requester"]').click();
+    await expect(searchInput).toHaveAttribute("placeholder", "Descreva o que você gostaria de solicitar...");
   });
 
   test("busca: bloqueia uma segunda busca (ex: 'Chamar agora' no ranking) enquanto a primeira está em andamento", async ({
@@ -43,7 +67,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
     });
 
     await page.goto("/");
-    const bottomInput = page.getByPlaceholder("O que você precisa?");
+    const bottomInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
     const bottomSubmit = page.locator("#bottom-search-form button[type=submit]");
 
     await bottomInput.fill("primeira busca");
@@ -226,7 +250,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
     test.skip(!process.env.ANTHROPIC_API_KEY, "precisa de ANTHROPIC_API_KEY pra testar o agente de verdade");
 
     await page.goto("/");
-    const searchInput = page.getByPlaceholder("O que você precisa?");
+    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
     // Fora dos serviços cadastrados e sem palavra de corrida/carona — cai no
     // texto de IA (ranking e corridas são testados à parte, sem gastar
     // chamada de IA pra isso).
@@ -240,7 +264,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
 
   test("busca por serviço cadastrado mostra o ranking filtrado — sem gastar chamada de IA", async ({ page }) => {
     await page.goto("/");
-    const searchInput = page.getByPlaceholder("O que você precisa?");
+    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
     await searchInput.fill("preciso de um eletricista hoje");
     await searchInput.press("Enter");
 
@@ -262,7 +286,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
     page,
   }) => {
     await page.goto("/");
-    const searchInput = page.getByPlaceholder("O que você precisa?");
+    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
     await searchInput.fill("corrida do Centro pra Rodoviária");
     await searchInput.press("Enter");
 
@@ -279,7 +303,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
     );
 
     await page.goto("/");
-    const searchInput = page.getByPlaceholder("O que você precisa?");
+    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
     await searchInput.fill("terreno barato em Contagem");
     await searchInput.press("Enter");
 
@@ -335,7 +359,7 @@ test.describe("Top3Profissional - mobile", () => {
     });
 
     await page.goto("/");
-    await expect(page.getByPlaceholder("O que você precisa?")).toBeVisible();
+    await expect(page.getByPlaceholder("Descreva o que você gostaria de solicitar...")).toBeVisible();
 
     await page.getByRole("tab", { name: /presto um serviço/i }).click();
     await expect(page.locator(".request-item").first()).toBeVisible();
@@ -665,7 +689,7 @@ test.describe("Top3Profissional - perfil profissional (pilar 4.12)", () => {
 
   test("busca por 'criar meu perfil' rola até a seção certa, sem gastar chamada de IA", async ({ page }) => {
     await page.goto("/");
-    const searchInput = page.getByPlaceholder("O que você precisa?");
+    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
     await searchInput.fill("quero criar meu perfil profissional");
     await searchInput.press("Enter");
 
@@ -698,7 +722,7 @@ test.describe("Top3Profissional - perfil profissional (pilar 4.12)", () => {
     await page.goto("/");
     await servicesResponse; // espera o front-end aprender sobre o serviço novo antes de buscar
 
-    const searchInput = page.getByPlaceholder("O que você precisa?");
+    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
     await searchInput.fill(`preciso de ${uniqueService} hoje`);
     await searchInput.press("Enter");
 
