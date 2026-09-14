@@ -614,15 +614,31 @@ function buildGroupsQueryUrl() {
   return qs ? `/api/groups?${qs}` : "/api/groups";
 }
 
+// "concluido" (task-004) é um sub-estado de "completo" — grupo que já
+// fechou E a atividade em si já aconteceu (viagem/prazo passou, ou alguém
+// marcou manualmente via POST .../complete). Pra tudo que já valia pra
+// "completo" (não aceita mais entrada, mostra "Completo ✓"), "concluido"
+// tem que valer igual — só muda pra habilitar avaliação/denúncia.
+function isGroupClosed(g) {
+  return g.status === "completo" || g.status === "concluido";
+}
+
+// "Avaliar / Relatar problema" (task-004) só faz sentido depois que o grupo
+// fecha — antes disso não existe ninguém confirmado pra avaliar ou
+// denunciar ainda. Reusa o mesmo botão/painel em qualquer categoria.
+function reviewButtonHtml(g) {
+  if (!isGroupClosed(g)) return "";
+  return `<button type="button" class="group-review-btn" data-group-id="${escapeHtml(g.id)}">Avaliar / Relatar problema</button>`;
+}
+
 function renderGenericGroupCard(g) {
   const vagas = g.targetMembers - g.currentMembers;
-  const vagasText = g.status === "completo" ? "grupo completo" : vagas === 1 ? "falta 1 pessoa" : `faltam ${vagas} pessoas`;
+  const vagasText = isGroupClosed(g) ? "grupo completo" : vagas === 1 ? "falta 1 pessoa" : `faltam ${vagas} pessoas`;
   const priceText = typeof g.estimatedIndividualPrice === "number" ? `R$ ${g.estimatedIndividualPrice} por pessoa (estimado)` : "";
   const deadlineText = g.deadline ? `até ${escapeHtml(g.deadline)}` : "";
-  const actionArea =
-    g.status === "completo"
-      ? '<span class="request-provider">Completo ✓</span>'
-      : `<button type="button" class="accept-btn group-join-btn" data-group-id="${escapeHtml(g.id)}">Participar</button>
+  const actionArea = isGroupClosed(g)
+    ? '<span class="request-provider">Completo ✓</span>'
+    : `<button type="button" class="accept-btn group-join-btn" data-group-id="${escapeHtml(g.id)}">Participar</button>
          <button type="button" class="group-leave-link" data-group-id="${escapeHtml(g.id)}">já participa? sair</button>`;
   const noticeHtml = g.category === "assinatura" ? `<p class="group-assinatura-notice">${escapeHtml(GROUP_ASSINATURA_NOTICE)}</p>` : "";
   return `
@@ -635,8 +651,9 @@ function renderGenericGroupCard(g) {
         <br />
         <span class="request-meta">${[priceText, deadlineText].filter(Boolean).join(" · ")}</span>
         ${noticeHtml}
+        <div class="group-review-panel" hidden></div>
       </span>
-      <span class="request-action group-action">${actionArea}</span>
+      <span class="request-action group-action">${actionArea}${reviewButtonHtml(g)}</span>
     </li>`;
 }
 
@@ -660,7 +677,7 @@ function renderCaronaGroupCard(g) {
     : "passageiro procurando carona";
   const joinArea = !isMotorista
     ? ""
-    : g.status === "completo"
+    : isGroupClosed(g)
       ? '<span class="request-provider">Completo ✓</span>'
       : `<button type="button" class="accept-btn group-join-btn" data-group-id="${escapeHtml(g.id)}">Participar</button>
          <button type="button" class="group-leave-link" data-group-id="${escapeHtml(g.id)}">já participa? sair</button>`;
@@ -676,10 +693,12 @@ function renderCaronaGroupCard(g) {
         <span class="request-meta">${escapeHtml(g.city)} · ${vagasText}</span>
         <p class="group-assinatura-notice">${escapeHtml(GROUP_CARONA_NOTICE)}</p>
         <div class="group-carona-details" hidden></div>
+        <div class="group-review-panel" hidden></div>
       </span>
       <span class="request-action group-action">
         <button type="button" class="group-carona-detail-btn" data-group-id="${escapeHtml(g.id)}">Ver detalhes</button>
         ${joinArea}
+        ${reviewButtonHtml(g)}
       </span>
     </li>`;
 }
@@ -862,6 +881,197 @@ groupsList.addEventListener("submit", async (event) => {
     await loadGroups();
   } catch (err) {
     form.insertAdjacentHTML("afterend", '<p class="post-status post-status--error">Falha de conexão. Tente de novo.</p>');
+    submitBtn.disabled = false;
+  }
+});
+
+// Avaliação e denúncia (task-004) — só aparece depois que o grupo fecha
+// (completo/concluído). "Avaliar" é um botão por participante confirmado
+// (exceto a própria pessoa); "Relatar problema" é sempre visível, não
+// depende de ter concluído (dá pra denunciar assim que o grupo fecha —
+// ex: motorista sumiu antes da viagem acontecer de verdade).
+const GROUP_REVIEW_FIXED_NOTICE =
+  "Avaliações são baseadas em histórico real de grupos. O TOP3 não garante nem intermedeia pagamentos — sempre combine e confirme antes de pagar ou embarcar.";
+const DENUNCIA_MOTIVO_LABELS = {
+  nao_entregou: "Não entregou o combinado",
+  sumiu_apos_combinado: "Sumiu depois de combinar",
+  valor_diferente: "Cobrou/pagou valor diferente",
+  outro: "Outro motivo",
+};
+
+function renderGroupReviewPanel(detail) {
+  if (!currentUserProfile) {
+    return '<p class="user-panel-empty">Entre com sua conta pra avaliar ou relatar um problema — precisa ter participado desse grupo logado.</p>';
+  }
+  if (!detail.currentUserIsConfirmedMember) {
+    return '<p class="user-panel-empty">Só quem participou desse grupo logado pode avaliar ou relatar um problema.</p>';
+  }
+  const others = detail.members.filter((m) => m.userId && m.userId !== currentUserProfile.id);
+  const membersHtml = others.length
+    ? others
+        .map((m) => {
+          const stars =
+            typeof m.mediaAvaliacao === "number"
+              ? `${m.mediaAvaliacao.toFixed(1)} ⭐ (${m.totalAvaliacoes} ${m.totalAvaliacoes === 1 ? "avaliação" : "avaliações"})`
+              : "sem avaliação ainda";
+          return `
+        <li class="user-panel-item">
+          <span>${escapeHtml(m.name)} <span class="user-panel-empty">· ${escapeHtml(stars)}</span></span>
+          <span class="user-panel-item-actions">
+            <button type="button" class="group-avaliar-btn" data-user-id="${escapeHtml(m.userId)}" data-user-name="${escapeHtml(m.name)}">Avaliar</button>
+          </span>
+        </li>`;
+        })
+        .join("")
+    : '<p class="user-panel-empty">Ninguém mais desse grupo participou logado.</p>';
+  return `
+    <ul class="user-panel-list">${membersHtml}</ul>
+    <button type="button" class="cta-secondary group-denunciar-btn">Relatar problema</button>
+    <p class="carona-docs-notice">${escapeHtml(GROUP_REVIEW_FIXED_NOTICE)}</p>
+    <div class="group-review-form-slot"></div>
+  `;
+}
+
+function avaliacaoFormHtml(userId, userName) {
+  return `
+    <form class="group-avaliacao-form" data-group-avaliado-id="${escapeHtml(userId)}">
+      <div class="post-field">
+        <label for="avaliacao-nota">Nota pra ${escapeHtml(userName)}</label>
+        <select id="avaliacao-nota" name="nota" required>
+          <option value="5">5 — ótimo</option>
+          <option value="4">4 — bom</option>
+          <option value="3">3 — ok</option>
+          <option value="2">2 — ruim</option>
+          <option value="1">1 — péssimo</option>
+        </select>
+      </div>
+      <div class="post-field">
+        <label for="avaliacao-comentario">Comentário (opcional, até 200 caracteres)</label>
+        <input id="avaliacao-comentario" name="comentario" type="text" maxlength="200" />
+      </div>
+      <button type="submit" class="post-submit">Enviar avaliação</button>
+      <p class="post-status group-review-status" aria-live="polite"></p>
+    </form>`;
+}
+
+function denunciaFormHtml() {
+  const options = Object.entries(DENUNCIA_MOTIVO_LABELS)
+    .map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`)
+    .join("");
+  return `
+    <form class="group-denuncia-form">
+      <div class="post-field post-field--wide">
+        <label for="denuncia-denunciado">Sobre quem é o problema</label>
+        <select id="denuncia-denunciado" name="denunciadoId" required></select>
+      </div>
+      <div class="post-field post-field--wide">
+        <label for="denuncia-motivo">Motivo</label>
+        <select id="denuncia-motivo" name="motivo" required>${options}</select>
+      </div>
+      <div class="post-field post-field--wide">
+        <label for="denuncia-descricao">O que aconteceu</label>
+        <input id="denuncia-descricao" name="descricao" type="text" maxlength="500" required />
+      </div>
+      <div class="post-field post-field--wide">
+        <label for="denuncia-evidencia">Evidência (opcional — link, print, o que tiver)</label>
+        <input id="denuncia-evidencia" name="evidencia" type="text" maxlength="300" />
+      </div>
+      <button type="submit" class="post-submit">Enviar denúncia</button>
+      <p class="post-status group-review-status" aria-live="polite"></p>
+    </form>`;
+}
+
+async function loadGroupReviewPanel(groupId, panel) {
+  panel.innerHTML = "carregando…";
+  try {
+    const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}`);
+    const detail = await res.json();
+    if (!res.ok) {
+      panel.textContent = detail.error || "Não consegui carregar.";
+      return;
+    }
+    panel.dataset.groupId = groupId;
+    panel.dataset.members = JSON.stringify(detail.members.filter((m) => m.userId));
+    panel.innerHTML = renderGroupReviewPanel(detail);
+  } catch (err) {
+    panel.textContent = "Falha de conexão.";
+  }
+}
+
+groupsList.addEventListener("click", async (event) => {
+  const reviewBtn = event.target.closest(".group-review-btn");
+  if (reviewBtn) {
+    const card = reviewBtn.closest(".group-card");
+    const panel = card.querySelector(".group-review-panel");
+    if (!panel.hidden) {
+      panel.hidden = true;
+      return;
+    }
+    panel.hidden = false;
+    await loadGroupReviewPanel(reviewBtn.dataset.groupId, panel);
+    return;
+  }
+
+  const avaliarBtn = event.target.closest(".group-avaliar-btn");
+  if (avaliarBtn) {
+    const slot = avaliarBtn.closest(".group-review-panel").querySelector(".group-review-form-slot");
+    slot.innerHTML = avaliacaoFormHtml(avaliarBtn.dataset.userId, avaliarBtn.dataset.userName);
+    slot.querySelector("select, input").focus();
+    return;
+  }
+
+  const denunciarBtn = event.target.closest(".group-denunciar-btn");
+  if (denunciarBtn) {
+    const panel = denunciarBtn.closest(".group-review-panel");
+    const slot = panel.querySelector(".group-review-form-slot");
+    slot.innerHTML = denunciaFormHtml();
+    const members = JSON.parse(panel.dataset.members || "[]").filter((m) => m.userId !== currentUserProfile.id);
+    const select = slot.querySelector("#denuncia-denunciado");
+    select.innerHTML = members.map((m) => `<option value="${escapeHtml(m.userId)}">${escapeHtml(m.name)}</option>`).join("");
+    return;
+  }
+});
+
+groupsList.addEventListener("submit", async (event) => {
+  const avaliacaoForm = event.target.closest(".group-avaliacao-form");
+  const denunciaForm = event.target.closest(".group-denuncia-form");
+  if (!avaliacaoForm && !denunciaForm) return;
+  event.preventDefault();
+  const form = avaliacaoForm || denunciaForm;
+  const panel = form.closest(".group-review-panel");
+  const groupId = panel.dataset.groupId;
+  const status = form.querySelector(".group-review-status");
+  const submitBtn = form.querySelector("button[type=submit]");
+  submitBtn.disabled = true;
+  status.textContent = "enviando…";
+  status.className = "post-status group-review-status";
+
+  const path = avaliacaoForm ? "avaliacoes" : "denuncias";
+  const body = avaliacaoForm
+    ? { avaliadoId: avaliacaoForm.dataset.groupAvaliadoId, nota: Number(new FormData(form).get("nota")), comentario: new FormData(form).get("comentario") }
+    : Object.fromEntries(new FormData(form));
+
+  try {
+    const res = await fetch(`/api/groups/${encodeURIComponent(groupId)}/${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const result = await res.json();
+    if (!res.ok) {
+      status.textContent = result.error || "Não consegui enviar.";
+      status.className = "post-status group-review-status post-status--error";
+      submitBtn.disabled = false;
+      return;
+    }
+    status.textContent = avaliacaoForm ? "Avaliação enviada!" : "Denúncia registrada.";
+    status.className = "post-status group-review-status post-status--ok";
+    // Recarrega o painel pra já refletir a nova média/lista, sem precisar
+    // fechar e abrir de novo.
+    setTimeout(() => loadGroupReviewPanel(groupId, panel), 800);
+  } catch (err) {
+    status.textContent = "Falha de conexão. Tente de novo.";
+    status.className = "post-status group-review-status post-status--error";
     submitBtn.disabled = false;
   }
 });

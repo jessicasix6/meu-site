@@ -48,6 +48,7 @@ npm start
 | `BRAVE_SEARCH_API_KEY` | não | Chave da [Brave Search API](https://api-dashboard.search.brave.com/register). Fallback pago: só é usado se `SEARXNG_URL` não estiver configurada ou a busca local falhar. Sem nenhum dos dois, o agente responde só com o catálogo interno de profissionais (mock). Tem um limite mensal de segurança no código (`BRAVE_SEARCH_MONTHLY_LIMIT` em `server.js`) pra não estourar orçamento, caso o fallback seja usado com frequência. |
 | `GEMINI_API_KEY` | não | Chave do [Google AI Studio](https://aistudio.google.com/apikey) (Gemini API), usada só pra melhorar automaticamente as fotos do perfil profissional (pilar 4.12 — modelo `gemini-3.1-flash-image`, "Nano Banana"). Tem tier grátis (500 imagens/dia). Sem ela, o perfil é criado normalmente, só com a foto como foi enviada. Tem um limite mensal de segurança (`PHOTO_ENHANCE_MONTHLY_LIMIT` em `server.js`) pra não estourar orçamento. |
 | `GOOGLE_CLIENT_ID` | não | Client ID OAuth do [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (pilar 4.13 — login com Google, opcional). Sem ela, o botão de login simplesmente não aparece — o resto do site (inclusive criar perfil) funciona normalmente sem login. |
+| `ADMIN_SECRET` | não | Chave pra resolver denúncia (task-004, `PATCH /api/denuncias/:id`, header `X-Admin-Key`) — capacidade só-API nesta v1, sem tela própria. Sem ela, essa rota fica desativada (503); o resto do site funciona normalmente. |
 
 ## Integração com WhatsApp
 

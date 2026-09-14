@@ -1,4 +1,4 @@
-const { test, expect } = require("@playwright/test");
+const { test, expect, request: apiRequest } = require("@playwright/test");
 
 test.describe("Top3Profissional - fluxo básico", () => {
   test("carrega a página sem erros de console", async ({ page }) => {
@@ -1543,6 +1543,385 @@ test.describe("Top3Profissional - login simples por email/senha + perfil (task-0
 
     const me = await page.request.get("/api/auth/me").then((r) => r.json());
     expect(me.user.motorista).toBeNull();
+  });
+});
+
+test.describe("Top3Profissional - avaliações e denúncia (task-004)", () => {
+  function randomEmail(prefix) {
+    return `${prefix}${Date.now()}${Math.floor(Math.random() * 100000)}@example.com`;
+  }
+
+  // Dois usuários logados (cada um no seu próprio APIRequestContext, pra não
+  // misturar cookie de sessão), um grupo genérico com os dois dentro,
+  // marcado como concluído — o cenário base que quase todo teste desta
+  // seção precisa pra sequer chegar na regra que está testando.
+  async function setupConcludedGroup(baseURL) {
+    const userA = await apiRequest.newContext({ baseURL });
+    const userB = await apiRequest.newContext({ baseURL });
+    const emailA = randomEmail("avaliador");
+    const emailB = randomEmail("avaliado");
+    const signupA = await userA.post("/api/auth/signup", {
+      data: { name: "Dono do Grupo", email: emailA, password: "senha12345", whatsapp: "31911110000" },
+    });
+    const { user: dataA } = await signupA.json();
+    const signupB = await userB.post("/api/auth/signup", {
+      data: { name: "Participante", email: emailB, password: "senha12345", whatsapp: "31922220000" },
+    });
+    const { user: dataB } = await signupB.json();
+
+    const createRes = await userA.post("/api/groups", {
+      data: { category: "compra", title: "Compra em grupo teste", city: "BH", targetMembers: 2, whatsapp: "31911110000", name: "Dono" },
+    });
+    const group = await createRes.json();
+    await userB.post(`/api/groups/${group.id}/join`, { data: { whatsapp: "31922220000", name: "Participante" } });
+    const completeRes = await userA.post(`/api/groups/${group.id}/complete`);
+    expect(completeRes.status()).toBe(200);
+
+    return { userA, userB, idA: dataA.id, idB: dataB.id, groupId: group.id };
+  }
+
+  test("não dá pra avaliar antes do grupo estar concluído", async ({ request }) => {
+    const emailA = randomEmail("cedo");
+    const emailB = randomEmail("cedo2");
+    const a = await request.post("/api/auth/signup", { data: { name: "A", email: emailA, password: "senha12345", whatsapp: "31911110000" } });
+    const { user: userA } = await a.json();
+    const createRes = await request.post("/api/groups", {
+      data: { category: "compra", title: "Grupo aberto", city: "BH", targetMembers: 5, whatsapp: "31911110000", name: "A" },
+    });
+    const group = await createRes.json();
+    // Grupo ainda "aberto" (target=5, só 1 membro) — nem completo, nem concluído.
+    const avaliar = await request.post(`/api/groups/${group.id}/avaliacoes`, { data: { avaliadoId: "u999", nota: 5 } });
+    expect(avaliar.status()).toBe(409);
+  });
+
+  test("avaliação mútua funciona, calcula média corretamente, e um par não avalia duas vezes no mesmo grupo", async ({ request, baseURL }) => {
+    const { userA, userB, idA, idB, groupId } = await setupConcludedGroup(baseURL);
+
+    const avA = await userA.post(`/api/groups/${groupId}/avaliacoes`, { data: { avaliadoId: idB, nota: 5, comentario: "Ótimo!" } });
+    expect(avA.status()).toBe(201);
+    const avB = await userB.post(`/api/groups/${groupId}/avaliacoes`, { data: { avaliadoId: idA, nota: 4 } });
+    expect(avB.status()).toBe(201);
+
+    const perfilB = await request.get(`/api/users/${idB}/avaliacoes`).then((r) => r.json());
+    expect(perfilB.mediaAvaliacao).toBe(5);
+    expect(perfilB.totalAvaliacoes).toBe(1);
+    expect(perfilB.recentes[0]).toEqual({ nota: 5, comentario: "Ótimo!", createdAt: expect.any(String) });
+
+    const duplicada = await userA.post(`/api/groups/${groupId}/avaliacoes`, { data: { avaliadoId: idB, nota: 1 } });
+    expect(duplicada.status()).toBe(409);
+  });
+
+  test("não dá pra se autoavaliar, nem avaliar quem não participou do grupo", async ({ request, baseURL }) => {
+    const { userA, idA, groupId } = await setupConcludedGroup(baseURL);
+
+    const auto = await userA.post(`/api/groups/${groupId}/avaliacoes`, { data: { avaliadoId: idA, nota: 5 } });
+    expect(auto.status()).toBe(400);
+
+    const foraDoGrupo = await userA.post(`/api/groups/${groupId}/avaliacoes`, { data: { avaliadoId: "u_inexistente", nota: 5 } });
+    expect(foraDoGrupo.status()).toBe(400);
+  });
+
+  test("só quem participou do grupo (confirmado) pode avaliar", async ({ request, baseURL }) => {
+    const { userB, idB, groupId } = await setupConcludedGroup(baseURL);
+    const outsider = await apiRequest.newContext({ baseURL });
+    await outsider.post("/api/auth/signup", {
+      data: { name: "De Fora", email: randomEmail("fora"), password: "senha12345", whatsapp: "31933330000" },
+    });
+    const res = await outsider.post(`/api/groups/${groupId}/avaliacoes`, { data: { avaliadoId: idB, nota: 5 } });
+    expect(res.status()).toBe(403);
+  });
+
+  test("avaliação exige login, nota de 1 a 5, e comentário até 200 caracteres", async ({ request, baseURL }) => {
+    const { userA, idB, groupId } = await setupConcludedGroup(baseURL);
+
+    const semLogin = await request.post(`/api/groups/${groupId}/avaliacoes`, { data: { avaliadoId: idB, nota: 5 } });
+    expect(semLogin.status()).toBe(401);
+
+    const notaInvalida = await userA.post(`/api/groups/${groupId}/avaliacoes`, { data: { avaliadoId: idB, nota: 6 } });
+    expect(notaInvalida.status()).toBe(400);
+    const notaZero = await userA.post(`/api/groups/${groupId}/avaliacoes`, { data: { avaliadoId: idB, nota: 0 } });
+    expect(notaZero.status()).toBe(400);
+
+    const comentarioLongo = await userA.post(`/api/groups/${groupId}/avaliacoes`, {
+      data: { avaliadoId: idB, nota: 5, comentario: "a".repeat(201) },
+    });
+    expect(comentarioLongo.status()).toBe(400);
+  });
+
+  test("denúncia: aberta não afeta reputação, resolução procedente aplica -25 e pode restringir a conta", async ({ request, baseURL }) => {
+    const { userA, userB, idA, idB, groupId } = await setupConcludedGroup(baseURL);
+
+    const denuncia = await userA.post(`/api/groups/${groupId}/denuncias`, {
+      data: { denunciadoId: idB, motivo: "nao_entregou", descricao: "Não entregou o combinado." },
+    });
+    expect(denuncia.status()).toBe(201);
+    const { id: denunciaId } = await denuncia.json();
+
+    // Aberta: sem efeito nenhum na conta de B.
+    let meB = await userB.get("/api/auth/me").then((r) => r.json());
+    expect(meB.user.status).toBe("ativo");
+    let confirmadas = await request.get(`/api/users/${idB}/denuncias-confirmadas`).then((r) => r.json());
+    expect(confirmadas.total).toBe(0);
+
+    const resolve = await request.patch(`/api/denuncias/${denunciaId}`, {
+      headers: { "X-Admin-Key": "test-admin-secret-nao-usar-em-producao" },
+      data: { status: "procedente" },
+    });
+    expect(resolve.status()).toBe(200);
+
+    confirmadas = await request.get(`/api/users/${idB}/denuncias-confirmadas`).then((r) => r.json());
+    expect(confirmadas.total).toBe(1);
+    meB = await userB.get("/api/auth/me").then((r) => r.json());
+    expect(meB.user.status).toBe("ativo"); // 100 - 25 = 75, ainda acima do limiar de 40
+
+    // Resolver de novo não é permitido.
+    const resolveDeNovo = await request.patch(`/api/denuncias/${denunciaId}`, {
+      headers: { "X-Admin-Key": "test-admin-secret-nao-usar-em-producao" },
+      data: { status: "improcedente" },
+    });
+    expect(resolveDeNovo.status()).toBe(409);
+  });
+
+  test("denúncia improcedente não tem efeito nenhum na reputação", async ({ request, baseURL }) => {
+    const { userA, idB, groupId } = await setupConcludedGroup(baseURL);
+    const denuncia = await userA.post(`/api/groups/${groupId}/denuncias`, {
+      data: { denunciadoId: idB, motivo: "outro", descricao: "Achei estranho." },
+    });
+    const { id: denunciaId } = await denuncia.json();
+    await request.patch(`/api/denuncias/${denunciaId}`, {
+      headers: { "X-Admin-Key": "test-admin-secret-nao-usar-em-producao" },
+      data: { status: "improcedente" },
+    });
+    const confirmadas = await request.get(`/api/users/${idB}/denuncias-confirmadas`).then((r) => r.json());
+    expect(confirmadas.total).toBe(0);
+  });
+
+  test("resolução de denúncia exige a chave de admin certa", async ({ request, baseURL }) => {
+    const { userA, idB, groupId } = await setupConcludedGroup(baseURL);
+    const denuncia = await userA.post(`/api/groups/${groupId}/denuncias`, {
+      data: { denunciadoId: idB, motivo: "outro", descricao: "Teste." },
+    });
+    const { id: denunciaId } = await denuncia.json();
+
+    const semChave = await request.patch(`/api/denuncias/${denunciaId}`, { data: { status: "procedente" } });
+    expect(semChave.status()).toBe(401);
+
+    const chaveErrada = await request.patch(`/api/denuncias/${denunciaId}`, {
+      headers: { "X-Admin-Key": "chave-errada" },
+      data: { status: "procedente" },
+    });
+    expect(chaveErrada.status()).toBe(401);
+  });
+
+  test("só participante confirmado pode denunciar, não dá pra se autodenunciar, motivo precisa ser um dos válidos", async ({
+    request,
+    baseURL,
+  }) => {
+    const { userA, idA, idB, groupId } = await setupConcludedGroup(baseURL);
+
+    const auto = await userA.post(`/api/groups/${groupId}/denuncias`, { data: { denunciadoId: idA, motivo: "outro", descricao: "x" } });
+    expect(auto.status()).toBe(400);
+
+    const motivoInvalido = await userA.post(`/api/groups/${groupId}/denuncias`, {
+      data: { denunciadoId: idB, motivo: "motivo-que-nao-existe", descricao: "x" },
+    });
+    expect(motivoInvalido.status()).toBe(400);
+
+    const outsider = await apiRequest.newContext({ baseURL });
+    await outsider.post("/api/auth/signup", {
+      data: { name: "De Fora", email: randomEmail("foradenuncia"), password: "senha12345", whatsapp: "31944440000" },
+    });
+    const semParticipar = await outsider.post(`/api/groups/${groupId}/denuncias`, {
+      data: { denunciadoId: idB, motivo: "outro", descricao: "x" },
+    });
+    expect(semParticipar.status()).toBe(403);
+  });
+
+  test("duas denúncias de grupos diferentes, mesmo motivo, mesma pessoa: a segunda vem marcada como prioritária", async ({
+    request,
+    baseURL,
+  }) => {
+    const first = await setupConcludedGroup(baseURL);
+    const denuncia1 = await first.userA.post(`/api/groups/${first.groupId}/denuncias`, {
+      data: { denunciadoId: first.idB, motivo: "sumiu_apos_combinado", descricao: "Sumiu da primeira vez." },
+    });
+    expect((await denuncia1.json()).prioritaria).toBe(false);
+
+    // Segundo grupo, mesmo idB participando de novo (novo signup do lado B
+    // não dá, precisa ser a MESMA pessoa denunciada — então reusa a conta de
+    // B criando um segundo grupo com ela dentro).
+    const emailC = randomEmail("dono2");
+    const userC = await apiRequest.newContext({ baseURL });
+    await userC.post("/api/auth/signup", { data: { name: "Dono 2", email: emailC, password: "senha12345", whatsapp: "31955550000" } });
+    const createRes = await userC.post("/api/groups", {
+      data: { category: "frete", title: "Frete teste", city: "BH", targetMembers: 2, whatsapp: "31955550000", name: "Dono 2" },
+    });
+    const group2 = await createRes.json();
+    await first.userB.post(`/api/groups/${group2.id}/join`, { data: { whatsapp: "31922220000", name: "Participante" } });
+    await userC.post(`/api/groups/${group2.id}/complete`);
+
+    const denuncia2 = await userC.post(`/api/groups/${group2.id}/denuncias`, {
+      data: { denunciadoId: first.idB, motivo: "sumiu_apos_combinado", descricao: "Sumiu de novo, outro grupo." },
+    });
+    expect((await denuncia2.json()).prioritaria).toBe(true);
+  });
+
+  test("conta com status restrito não consegue criar novo grupo nem novo perfil, mas continua participando", async ({
+    request,
+    baseURL,
+  }) => {
+    // Derruba a reputação da MESMA pessoa B abaixo de 40 com três denúncias
+    // procedentes vindas de três grupos diferentes (100-25-25-25=25) — cada
+    // grupo tem um dono (A) diferente, mas o mesmo B participando dos três.
+    const userB = await apiRequest.newContext({ baseURL });
+    const emailB = randomEmail("restrito");
+    const { user: dataB } = await userB.post("/api/auth/signup", {
+      data: { name: "Sempre Denunciado", email: emailB, password: "senha12345", whatsapp: "31922220000" },
+    }).then((r) => r.json());
+    const idB = dataB.id;
+
+    for (let i = 0; i < 3; i++) {
+      const userA = await apiRequest.newContext({ baseURL });
+      await userA.post("/api/auth/signup", {
+        data: { name: `Dono ${i}`, email: randomEmail(`restritoDono${i}`), password: "senha12345", whatsapp: "31911110000" },
+      });
+      const group = await userA
+        .post("/api/groups", { data: { category: "compra", title: `Grupo restrito ${i}`, city: "BH", targetMembers: 2, whatsapp: "31911110000", name: "Dono" } })
+        .then((r) => r.json());
+      await userB.post(`/api/groups/${group.id}/join`, { data: { whatsapp: "31922220000", name: "B" } });
+      await userA.post(`/api/groups/${group.id}/complete`);
+      const denuncia = await userA.post(`/api/groups/${group.id}/denuncias`, {
+        data: { denunciadoId: idB, motivo: "valor_diferente", descricao: "Cobrou diferente do combinado." },
+      });
+      const { id } = await denuncia.json();
+      await request.patch(`/api/denuncias/${id}`, {
+        headers: { "X-Admin-Key": "test-admin-secret-nao-usar-em-producao" },
+        data: { status: "procedente" },
+      });
+    }
+
+    const me = await userB.get("/api/auth/me").then((r) => r.json());
+    expect(me.user.status).toBe("restrito"); // 100 - 75 = 25, entre 20 e 40
+
+    const criarGrupo = await userB.post("/api/groups", {
+      data: { category: "compra", title: "Tentativa bloqueada", city: "BH", targetMembers: 2, whatsapp: "31922220000", name: "B" },
+    });
+    expect(criarGrupo.status()).toBe(403);
+
+    // Continua podendo participar de grupo existente (entra num novo grupo criado por outra pessoa).
+    const outroSetup = await apiRequest.newContext({ baseURL });
+    await outroSetup.post("/api/auth/signup", {
+      data: { name: "Outro Dono", email: randomEmail("outrodono"), password: "senha12345", whatsapp: "31966660000" },
+    });
+    const novoGrupo = await outroSetup
+      .post("/api/groups", { data: { category: "curso", title: "Curso teste", city: "BH", targetMembers: 5, whatsapp: "31966660000", name: "Dono" } })
+      .then((r) => r.json());
+    const entrar = await userB.post(`/api/groups/${novoGrupo.id}/join`, { data: { whatsapp: "31922220000", name: "B ainda participa" } });
+    expect(entrar.status()).toBe(200);
+  });
+
+  test("marcar grupo como concluído exige login, ser participante, e o grupo já estar completo", async ({ request, baseURL }) => {
+    const anon = await apiRequest.newContext({ baseURL });
+    const userA = await apiRequest.newContext({ baseURL });
+    const emailA = randomEmail("concluir");
+    await userA.post("/api/auth/signup", { data: { name: "A", email: emailA, password: "senha12345", whatsapp: "31911110000" } });
+    const createRes = await userA.post("/api/groups", {
+      data: { category: "compra", title: "Grupo aberto pra concluir", city: "BH", targetMembers: 5, whatsapp: "31911110000", name: "A" },
+    });
+    const group = await createRes.json();
+
+    const semLogin = await anon.post(`/api/groups/${group.id}/complete`);
+    expect(semLogin.status()).toBe(401);
+
+    // Logado mas grupo ainda "aberto" (não completo) — não dá pra concluir ainda.
+    const aindaAberto = await userA.post(`/api/groups/${group.id}/complete`);
+    expect(aindaAberto.status()).toBe(409);
+  });
+
+  test("UI: botão 'Avaliar / Relatar problema' só aparece com o grupo fechado, e o fluxo completo funciona pela interface", async ({
+    page,
+  }) => {
+    const titulo = `Curso UI teste ${Date.now()}`;
+    const emailA = randomEmail("uiavaliador");
+    const emailB = randomEmail("uiavaliado");
+
+    await page.request.post("/api/auth/signup", {
+      data: { name: "Fernando UI", email: emailA, password: "senha12345", whatsapp: "31911110000" },
+    });
+    const group = await page.request
+      .post("/api/groups", { data: { category: "curso", title: titulo, city: "BH", targetMembers: 2, whatsapp: "31911110000", name: "Fernando" } })
+      .then((r) => r.json());
+
+    // Ainda "aberto": o card mostra Participar, sem botão de avaliação.
+    await page.goto("/");
+    await page.locator('.group-category-btn[data-category="curso"]').click();
+    const card = page.locator(".group-card", { hasText: titulo });
+    await expect(card.getByRole("button", { name: "Participar" })).toBeVisible();
+    await expect(card.getByRole("button", { name: "Avaliar / Relatar problema" })).toHaveCount(0);
+
+    await page.request.post("/api/auth/logout");
+    await page.request.post("/api/auth/signup", {
+      data: { name: "Gabriela UI", email: emailB, password: "senha12345", whatsapp: "31922220000" },
+    });
+    await page.request.post(`/api/groups/${group.id}/join`, { data: { whatsapp: "31922220000", name: "Gabriela" } });
+    await page.request.post("/api/auth/logout");
+    await page.request.post("/api/auth/login", { data: { email: emailA, password: "senha12345" } });
+    await page.request.post(`/api/groups/${group.id}/complete`);
+
+    await page.goto("/");
+    await page.locator('.group-category-btn[data-category="curso"]').click();
+    const card2 = page.locator(".group-card", { hasText: titulo });
+    await expect(card2.getByRole("button", { name: "Participar" })).toHaveCount(0);
+    await card2.getByRole("button", { name: "Avaliar / Relatar problema" }).click();
+
+    const panel = card2.locator(".group-review-panel");
+    await expect(panel).toContainText("Gabriela");
+    await expect(panel).toContainText("sem avaliação ainda");
+    await expect(panel).toContainText("Avaliações são baseadas em histórico real de grupos");
+
+    await panel.getByRole("button", { name: "Avaliar" }).click();
+    await panel.locator("#avaliacao-nota").selectOption("5");
+    await panel.locator("#avaliacao-comentario").fill("Gente ótima!");
+    await panel.locator(".group-avaliacao-form button[type=submit]").click();
+    await expect(panel.locator(".group-review-status")).toHaveText("Avaliação enviada!");
+    await expect(panel).toContainText("5.0 ⭐ (1 avaliação)", { timeout: 3000 });
+
+    await panel.getByRole("button", { name: "Relatar problema" }).click();
+    await panel.locator("#denuncia-motivo").selectOption("outro");
+    await panel.locator("#denuncia-descricao").fill("Descrição de teste pela interface.");
+    await panel.locator(".group-denuncia-form button[type=submit]").click();
+    await expect(panel.locator(".group-review-status")).toHaveText("Denúncia registrada.");
+  });
+
+  test("UI: quem não participou do grupo vê aviso em vez do formulário de avaliar/denunciar", async ({ page }) => {
+    const titulo = `Frete UI teste ${Date.now()}`;
+    const emailA = randomEmail("uidono");
+    await page.request.post("/api/auth/signup", {
+      data: { name: "Dono UI", email: emailA, password: "senha12345", whatsapp: "31911110000" },
+    });
+    const group = await page.request
+      .post("/api/groups", { data: { category: "frete", title: titulo, city: "BH", targetMembers: 2, whatsapp: "31911110000", name: "Dono" } })
+      .then((r) => r.json());
+
+    await page.request.post("/api/auth/logout");
+    await page.request.post("/api/auth/signup", {
+      data: { name: "Participante UI", email: randomEmail("uiparticipa"), password: "senha12345", whatsapp: "31944440000" },
+    });
+    await page.request.post(`/api/groups/${group.id}/join`, { data: { whatsapp: "31944440000", name: "Participante" } });
+    await page.request.post("/api/auth/logout");
+    await page.request.post("/api/auth/login", { data: { email: emailA, password: "senha12345" } });
+    await page.request.post(`/api/groups/${group.id}/complete`);
+    await page.request.post("/api/auth/logout");
+
+    await page.request.post("/api/auth/signup", {
+      data: { name: "De Fora UI", email: randomEmail("uiforadone"), password: "senha12345", whatsapp: "31933330000" },
+    });
+
+    await page.goto("/");
+    await page.locator('.group-category-btn[data-category="frete"]').click();
+    const card = page.locator(".group-card", { hasText: titulo });
+    await card.getByRole("button", { name: "Avaliar / Relatar problema" }).click();
+    await expect(card.locator(".group-review-panel")).toContainText("Só quem participou desse grupo logado pode avaliar ou relatar um problema.");
   });
 });
 
