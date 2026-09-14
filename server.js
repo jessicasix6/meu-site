@@ -585,7 +585,18 @@ app.get("/api/auth/me", (req, res) => {
   const user = getCurrentUser(req);
   if (!user) return res.status(401).json({ error: "não autenticado" });
   const providers = PROVIDER_PROFILES.filter((p) => p.ownerUserId === user.id).map((p) => ({ name: p.name, service: p.service, slug: p.slug }));
-  res.json({ user: { name: user.name, email: user.email, picture: user.picture }, providers });
+  // "Meus grupos" no painel pessoal (em aberto no pilar 4.13, fechado agora
+  // pra Grupos — REQUESTS continua sem dono porque também nasce via chat/
+  // WhatsApp, sem sessão de navegador pra amarrar; grupo só nasce pelo
+  // formulário do site, então dá pra amarrar limpo).
+  const groups = GROUP_OPPORTUNITIES.filter((g) => g.ownerUserId === user.id).map((g) => ({
+    id: g.id,
+    title: g.title,
+    category: g.category,
+    categoryLabel: GROUP_CATEGORY_LABELS[g.category],
+    status: g.status,
+  }));
+  res.json({ user: { name: user.name, email: user.email, picture: user.picture }, providers, groups });
 });
 
 app.post("/api/auth/logout", (req, res) => {
@@ -1338,6 +1349,9 @@ function handleCreateCaronaGroup(req, res) {
     status: "aberto",
     members: [{ whatsapp: normalizedWhatsapp, name: (typeof name === "string" && name.trim().slice(0, 60)) || "Quem criou o post", joinedAt: new Date().toISOString() }],
     createdAt: new Date().toISOString(),
+    // Login é opcional (pilar 4.13) — grupo continua podendo ser criado sem
+    // logar, só fica sem dono (ownerUserId null) nesse caso, igual perfil.
+    ownerUserId: getCurrentUser(req)?.id || null,
     carona: {
       tipo: caronaFields.tipo,
       origemTexto: caronaFields.origemTexto,
@@ -1388,6 +1402,7 @@ app.post("/api/groups", (req, res) => {
     status: "aberto",
     members: [{ whatsapp: fields.whatsapp, name: (typeof name === "string" && name.trim().slice(0, 60)) || "Quem criou o grupo", joinedAt: new Date().toISOString() }],
     createdAt: new Date().toISOString(),
+    ownerUserId: getCurrentUser(req)?.id || null,
   };
   // Grupo com meta de 2 (o mínimo) já nasce completo com o próprio criador —
   // caso de borda real (ex: "só preciso de mais 1 pessoa" com target=2).

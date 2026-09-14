@@ -189,8 +189,12 @@ a {
 .user-panel h3 {
   font-size: 0.8rem;
   color: var(--text-dim);
-  margin: 0 0 0.6rem;
+  margin: 1rem 0 0.6rem;
   font-weight: 600;
+}
+
+.user-panel h3:first-child {
+  margin-top: 0;
 }
 
 .user-panel-empty {
