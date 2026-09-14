@@ -99,6 +99,7 @@ Esse é o coração diferencial da ideia, mais importante que qualquer integraç
 - **Não é compartilhamento de uma conta paga única** (isso violaria Termos de Uso de praticamente todo serviço que existe, e foi descartado — ver seção 6).
 - É um botão "Conectar" por serviço: quando o serviço oferece OAuth/login social pra terceiros, é literalmente um clique; quando não oferece (caso comum em serviços menores como o Terabox), o botão leva a pessoa direto pra tela de cadastro do serviço, de forma facilitada — e, quando o serviço tiver programa de afiliados, o Top3Profissional pode ganhar uma comissão por cada cadastro, o que ajuda a sustentar o site.
 - Cada pessoa sempre cria e usa a **própria conta individual** em cada serviço — nunca uma conta compartilhada.
+- **Status (2026-09-14): 2 ferramentas novas adicionadas** (pesquisadas e verificadas antes de entrar — ver seção 6, nada de indicar algo sem checar). **Canva** (editor de imagens grátis pra panfleto/post/cartão de visita — plano grátis confirmado, sem cartão, sem prazo) e **Recibo Gratuito** (gera recibo em PDF pra cliente, sem cadastro nem propaganda — verificado que não tem cobrança escondida). Painel continua um processo contínuo, sempre aberto a mais adições.
 
 ### 4.8 Assinatura premium pro prestador (destaque pago) — monetização do site
 
