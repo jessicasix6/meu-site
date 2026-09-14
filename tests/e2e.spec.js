@@ -823,12 +823,40 @@ test.describe("Top3Profissional - grupos de economia (pilar 4.14)", () => {
     return `${prefix} ${Math.random().toString(36).slice(2, 10)}`;
   }
 
-  test("categoria fora do escopo v1 (ex: assinatura/Netflix) é rejeitada", async ({ request }) => {
+  test("categoria fora do escopo v1 é rejeitada", async ({ request }) => {
     const res = await request.post("/api/groups", {
-      data: { category: "assinatura", title: uniqueTitle("Netflix"), city: "BH", targetMembers: 3, whatsapp: "31900000001" },
+      data: { category: "criptomoeda", title: uniqueTitle("Fora do escopo"), city: "BH", targetMembers: 3, whatsapp: "31900000001" },
     });
     expect(res.status()).toBe(400);
     expect((await res.json()).error).toMatch(/categoria inválida/);
+  });
+
+  test("categoria 'assinatura' (task-001) funciona igual as outras, sem engine especial, e mostra o aviso fixo na tela", async ({
+    page,
+    request,
+  }) => {
+    const title = uniqueTitle("Netflix Premium");
+    const create = await request.post("/api/groups", {
+      data: { category: "assinatura", title, city: "BH", targetMembers: 2, estimatedIndividualPrice: 11, whatsapp: "31900000090" },
+    });
+    expect(create.status()).toBe(201);
+    const group = await create.json();
+    expect(group.category).toBe("assinatura");
+
+    await page.goto("/#grupos");
+    const card = page.locator(".group-card", { hasText: title });
+    await expect(card).toContainText("O TOP3 só ajuda vocês a se encontrarem");
+    await expect(card).toContainText("assinante extra da Netflix");
+  });
+
+  test("aviso fixo de assinatura não aparece em grupos de outras categorias", async ({ page, request }) => {
+    const title = uniqueTitle("Frete sem aviso");
+    await request.post("/api/groups", {
+      data: { category: "frete", title, city: "BH", targetMembers: 2, whatsapp: "31900000091" },
+    });
+    await page.goto("/#grupos");
+    const card = page.locator(".group-card", { hasText: title });
+    await expect(card).not.toContainText("O TOP3 só ajuda vocês a se encontrarem");
   });
 
   test("criar grupo, entrar até completar, e o contato de todo mundo só aparece quando completo", async ({ request }) => {

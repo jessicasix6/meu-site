@@ -987,13 +987,19 @@ app.post("/api/requests/:id/rate", (req, res) => {
 // retém pagamento (combinação e pagamento acontecem fora do site, por
 // WhatsApp, igual o resto do site já funciona). Ver seção 4.14 pra por que
 // essas duas coisas ficam de fora de propósito.
-const GROUP_CATEGORIES = ["compra", "frete", "viagem", "servico", "curso"];
+// "assinatura" (2026-09-14, task-001): categoria genérica igual as outras —
+// sem engine especial, sem verificação de credencial, sem reter pagamento.
+// O front-end mostra um aviso fixo nos grupos dessa categoria (ver
+// docs/futuro-assinaturas-e-pagamentos.md pro que continua fora de escopo:
+// reputação/denúncia, que depende de login que o site ainda não tem aqui).
+const GROUP_CATEGORIES = ["compra", "frete", "viagem", "servico", "curso", "assinatura"];
 const GROUP_CATEGORY_LABELS = {
   compra: "Compra coletiva",
   frete: "Frete compartilhado",
   viagem: "Viagem",
   servico: "Serviço local em grupo",
   curso: "Curso/evento",
+  assinatura: "Assinatura compartilhada",
 };
 const GROUP_TITLE_MAX_LENGTH = 100;
 const GROUP_MIN_TARGET_MEMBERS = 2;
