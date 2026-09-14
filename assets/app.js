@@ -455,11 +455,34 @@ const rideFrom = document.getElementById("ride-from");
 const rideTo = document.getElementById("ride-to");
 const rideResults = document.getElementById("ride-results");
 const ridesSection = document.getElementById("corridas");
+const rideTypeButtons = document.querySelectorAll(".ride-type-btn");
 
 // Painel assume "hoje" por padrão (nada pra pessoa escolher) — só mostra a
 // data pra dar contexto, igual um app de caronas de verdade.
 document.getElementById("rides-today").textContent =
   `Hoje, ${new Date().toLocaleDateString("pt-BR", { day: "numeric", month: "long" })} · corrida ou carona compartilhada`;
+
+// Corrida/carona e entrega usam o mesmo mini-app (de → pra), só muda o tipo
+// de pedido filtrado/publicado — evita duplicar a seção inteira pra cada
+// categoria (ver docs/visao-produto.md seção 10: um controle por ação).
+// "Entrega" existe aqui pra cobrir o caso do pilar 4.5: farmácia/comércio
+// sem entregador postando ao lado de gente comum pedindo corrida.
+let rideType = "corrida";
+const RIDE_TYPE_LABEL = { corrida: "corrida", entrega: "entrega" };
+
+rideTypeButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    rideType = btn.dataset.rideType;
+    rideTypeButtons.forEach((b) => {
+      const active = b === btn;
+      b.classList.toggle("is-active", active);
+      b.setAttribute("aria-selected", String(active));
+    });
+    // Já tinha uma busca em andamento nesse trajeto — refaz pro tipo novo,
+    // em vez de deixar resultado do tipo antigo na tela.
+    if (rideFrom.value.trim() && rideTo.value.trim()) rideForm.requestSubmit();
+  });
+});
 
 function renderRideResults(matches) {
   const matchesHtml = matches.length
@@ -474,7 +497,7 @@ function renderRideResults(matches) {
         .join("")}</ul>`
     : `<p class="ride-empty">Nada publicado nesse trajeto ainda — seja a primeira pessoa.</p>`;
 
-  return `${matchesHtml}<button type="button" class="ride-publish-btn" id="ride-publish-btn">Publicar essa corrida</button>`;
+  return `${matchesHtml}<button type="button" class="ride-publish-btn" id="ride-publish-btn">Publicar essa ${RIDE_TYPE_LABEL[rideType]}</button>`;
 }
 
 rideForm.addEventListener("submit", async (event) => {
@@ -492,7 +515,7 @@ rideForm.addEventListener("submit", async (event) => {
     const toLower = to.toLowerCase();
     const matches = requests.filter(
       (r) =>
-        r.type === "corrida" &&
+        r.type === rideType &&
         r.status === "aberto" &&
         r.title.toLowerCase().includes(fromLower) &&
         r.title.toLowerCase().includes(toLower)
@@ -508,7 +531,7 @@ rideResults.addEventListener("click", (event) => {
   if (!btn) return;
   const from = rideFrom.value.trim();
   const to = rideTo.value.trim();
-  document.getElementById("post-type").value = "corrida";
+  document.getElementById("post-type").value = rideType;
   document.getElementById("post-title").value = `${from} → ${to}`;
   document.getElementById("publicar").scrollIntoView({ behavior: "smooth", block: "start" });
   document.getElementById("post-price").focus();

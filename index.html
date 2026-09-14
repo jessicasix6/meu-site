@@ -131,15 +131,19 @@
     <section id="corridas" class="rides-section">
       <div class="container">
         <p class="eyebrow" id="rides-today">Corrida ou carona compartilhada</p>
-        <h2 class="section-title">Corridas e caronas</h2>
+        <h2 class="section-title">Corridas e entregas</h2>
         <p class="rides-subtitle">
-          Diga de onde e pra onde — mostramos o que já tem publicado nesse trajeto, ou você publica em segundos.
+          Diga de onde e pra onde — mostramos o que já tem publicado nesse trajeto (corrida, carona ou entrega), ou você publica em segundos.
         </p>
+        <div class="ride-type-toggle" role="tablist" aria-label="Tipo de trajeto">
+          <button type="button" class="mode-btn ride-type-btn is-active" data-ride-type="corrida" role="tab" aria-selected="true">Corrida / carona</button>
+          <button type="button" class="mode-btn ride-type-btn" data-ride-type="entrega" role="tab" aria-selected="false">Entrega</button>
+        </div>
         <form id="ride-form" class="ride-form">
           <input id="ride-from" type="text" placeholder="De onde" aria-label="De onde" required />
           <span class="ride-arrow" aria-hidden="true">→</span>
           <input id="ride-to" type="text" placeholder="Pra onde" aria-label="Pra onde" required />
-          <button type="submit">Buscar corridas</button>
+          <button type="submit">Buscar</button>
         </form>
         <div id="ride-results" class="ride-results" aria-live="polite"></div>
       </div>
