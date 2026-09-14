@@ -214,6 +214,7 @@ function setMode(mode) {
   if (isProvider && !requestsLoaded) {
     requestsLoaded = true;
     loadRequests();
+    loadDemandSignals();
   }
 }
 
@@ -229,6 +230,37 @@ async function loadRequests() {
     renderRequests(requests);
   } catch (err) {
     requestsList.innerHTML = '<li class="requests-error">Não consegui carregar os pedidos agora.</li>';
+  }
+}
+
+const demandSection = document.getElementById("demand-signals");
+const demandSignalsList = document.getElementById("demand-signals-list");
+const DEMAND_CATEGORY_LABELS = { terreno: "terreno", imóvel: "imóvel", carro: "carro/veículo", produto: "produto" };
+
+// Pilar 4.2 — mostra pra quem tem algo pra oferecer o que andou sendo
+// procurado sem ninguém publicar (ver docs/visao-produto.md seção 4.2).
+// Fica escondida quando não há sinal nenhum (nada acumulado ainda, ou tudo
+// abaixo do mínimo pra virar estatística) — sem seção vazia no meio do site.
+async function loadDemandSignals() {
+  try {
+    const res = await fetch("/api/demand-signals");
+    if (!res.ok) return;
+    const { signals } = await res.json();
+    if (!signals || signals.length === 0) {
+      demandSection.hidden = true;
+      return;
+    }
+    demandSignalsList.innerHTML = signals
+      .map((s) => {
+        const label = DEMAND_CATEGORY_LABELS[s.category] || s.category;
+        const where = s.location ? ` em ${escapeHtml(s.location)}` : "";
+        const people = s.count === 1 ? "1 pessoa procurou" : `${s.count} pessoas procuraram`;
+        return `<li class="demand-signal-item"><strong>${escapeHtml(label)}</strong>${where} — ${people}</li>`;
+      })
+      .join("");
+    demandSection.hidden = false;
+  } catch (err) {
+    demandSection.hidden = true;
   }
 }
 
