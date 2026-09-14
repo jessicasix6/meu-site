@@ -543,41 +543,111 @@ postForm.addEventListener("submit", async (event) => {
 const providerForm = document.getElementById("provider-form");
 const providerStatus = document.getElementById("provider-status");
 const providerResult = document.getElementById("provider-result");
+const providerFormSubmit = document.getElementById("provider-form-submit");
+const providerEditNotice = document.getElementById("provider-edit-notice");
+const providerEditName = document.getElementById("provider-edit-name");
+const providerEditCancel = document.getElementById("provider-edit-cancel");
+const providerDescriptionLabel = document.getElementById("provider-description-label");
+const providerDescriptionInput = document.getElementById("provider-description");
+const providerPhotosLabel = document.getElementById("provider-photos-label");
+const providerPhotosInput = document.getElementById("provider-photos");
+
+// Slug do perfil sendo editado, ou null em modo "criar novo" — controla se
+// o submit do form manda POST (criar) ou PUT (editar), sem duplicar form.
+let editingProviderSlug = null;
+
+function setProviderFormMode(mode) {
+  const editing = mode === "edit";
+  providerEditNotice.hidden = !editing;
+  providerFormSubmit.textContent = editing ? "Salvar alterações" : "Criar meu perfil";
+  providerDescriptionLabel.textContent = editing
+    ? "Descreva o que você faz (deixe em branco pra manter a bio atual)"
+    : "Descreva o que você faz, com suas palavras";
+  providerDescriptionInput.required = !editing;
+  providerPhotosLabel.textContent = editing ? "Fotos (deixe em branco pra manter as atuais)" : "Fotos (pelo menos uma)";
+  providerPhotosInput.required = !editing;
+}
+
+async function startEditingProvider(slug) {
+  providerStatus.textContent = "";
+  providerStatus.className = "post-status";
+  providerResult.hidden = true;
+  try {
+    const res = await fetch(`/api/providers/${encodeURIComponent(slug)}`);
+    if (!res.ok) throw new Error("não encontrado");
+    const { provider } = await res.json();
+    editingProviderSlug = provider.slug;
+    providerForm.elements.name.value = provider.name;
+    providerForm.elements.service.value = provider.service;
+    providerForm.elements.location.value = provider.location;
+    providerForm.elements.whatsapp.value = provider.whatsapp;
+    providerForm.elements.description.value = "";
+    providerEditName.textContent = provider.name;
+    setProviderFormMode("edit");
+    highlightSection(document.getElementById("criar-perfil"));
+    providerForm.elements.name.focus();
+  } catch (err) {
+    providerStatus.textContent = "Não consegui carregar esse perfil pra editar.";
+    providerStatus.className = "post-status post-status--error";
+  }
+}
+
+providerEditCancel.addEventListener("click", () => {
+  editingProviderSlug = null;
+  providerForm.reset();
+  setProviderFormMode("create");
+  providerStatus.textContent = "";
+  providerStatus.className = "post-status";
+  providerResult.hidden = true;
+});
 
 providerForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const data = new FormData(providerForm);
-  const submitBtn = providerForm.querySelector("button[type=submit]");
+  const isEditing = Boolean(editingProviderSlug);
 
-  providerStatus.textContent = "criando seu perfil…";
+  providerStatus.textContent = isEditing ? "salvando alterações…" : "criando seu perfil…";
   providerStatus.className = "post-status";
   providerResult.hidden = true;
-  submitBtn.disabled = true;
+  providerFormSubmit.disabled = true;
 
   try {
-    const res = await fetch("/api/providers", { method: "POST", body: data });
+    const res = isEditing
+      ? await fetch(`/api/providers/${encodeURIComponent(editingProviderSlug)}`, { method: "PUT", body: data })
+      : await fetch("/api/providers", { method: "POST", body: data });
     const result = await res.json();
 
     if (!res.ok) {
-      providerStatus.textContent = result.error || "Não consegui criar seu perfil.";
+      providerStatus.textContent = result.error || `Não consegui ${isEditing ? "salvar as alterações" : "criar seu perfil"}.`;
       providerStatus.className = "post-status post-status--error";
       return;
     }
 
     const link = `${window.location.origin}/prestador/${result.provider.slug}`;
-    providerStatus.textContent = "Perfil criado!";
+    providerStatus.textContent = isEditing ? "Alterações salvas!" : "Perfil criado!";
     providerStatus.className = "post-status post-status--ok";
     providerResult.hidden = false;
     providerResult.innerHTML = `
-      <p>Seu perfil já está no ar — compartilhe o link:</p>
+      <p>${isEditing ? "Seu perfil foi atualizado:" : "Seu perfil já está no ar — compartilhe o link:"}</p>
       <a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(link)}</a>
     `;
+    // Atualiza o painel pessoal em memória (nome/serviço podem ter mudado)
+    // sem precisar recarregar a página nem buscar de novo no servidor.
+    if (isEditing) {
+      const entry = ownProviders.find((p) => p.slug === result.provider.slug);
+      if (entry) {
+        entry.name = result.provider.name;
+        entry.service = result.provider.service;
+      }
+    }
+    editingProviderSlug = null;
     providerForm.reset();
+    setProviderFormMode("create");
   } catch (err) {
-    providerStatus.textContent = "Falha de conexão ao criar o perfil.";
+    providerStatus.textContent = "Falha de conexão. Tente de novo.";
     providerStatus.className = "post-status post-status--error";
   } finally {
-    submitBtn.disabled = false;
+    providerFormSubmit.disabled = false;
   }
 });
 
@@ -682,20 +752,69 @@ document.getElementById("hero-ask-link").addEventListener("click", (event) => {
 // no servidor, /api/auth/config devolve null e o botão nunca aparece — nada
 // quebra, o resto do site funciona igual antes.
 const googleSigninSlot = document.getElementById("google-signin-slot");
+const userPanel = document.getElementById("user-panel");
 
-function renderLoggedInUser(user) {
+// Painel pessoal (pilar 4.13, "próxima etapa"): lista os perfis que a
+// pessoa logada criou, com atalho pra ver ou editar cada um. Guardado aqui
+// pra não precisar buscar de novo toda vez que o painel abre/fecha.
+let ownProviders = [];
+
+function renderProviderPanel() {
+  if (ownProviders.length === 0) {
+    userPanel.innerHTML = `
+      <h3>Meus perfis</h3>
+      <p class="user-panel-empty">Você ainda não criou nenhum perfil. Use "Criar meu perfil" no menu.</p>
+    `;
+    return;
+  }
+  const items = ownProviders
+    .map(
+      (p) => `
+      <li class="user-panel-item">
+        <span>${escapeHtml(p.name)} <span class="user-panel-empty">· ${escapeHtml(p.service)}</span></span>
+        <span class="user-panel-item-actions">
+          <a href="/prestador/${encodeURIComponent(p.slug)}" target="_blank" rel="noopener">Ver</a>
+          <button type="button" data-edit-slug="${escapeHtml(p.slug)}">Editar</button>
+        </span>
+      </li>`
+    )
+    .join("");
+  userPanel.innerHTML = `<h3>Meus perfis</h3><ul class="user-panel-list">${items}</ul>`;
+}
+
+function renderLoggedInUser(user, providers) {
+  ownProviders = providers || [];
   googleSigninSlot.innerHTML = `
-    <span class="user-chip">
+    <button type="button" class="user-chip" id="user-chip-toggle">
       ${user.picture ? `<img src="${escapeHtml(user.picture)}" alt="" />` : ""}
       ${escapeHtml(user.name)}
-    </span>
+    </button>
     <button type="button" class="user-logout" id="google-logout-btn">Sair</button>
   `;
+  renderProviderPanel();
 }
 
 googleSigninSlot.addEventListener("click", (event) => {
-  if (!event.target.closest("#google-logout-btn")) return;
-  fetch("/api/auth/logout", { method: "POST" }).then(() => window.location.reload());
+  if (event.target.closest("#google-logout-btn")) {
+    fetch("/api/auth/logout", { method: "POST" }).then(() => window.location.reload());
+    return;
+  }
+  if (event.target.closest("#user-chip-toggle")) {
+    userPanel.hidden = !userPanel.hidden;
+  }
+});
+
+document.addEventListener("click", (event) => {
+  if (userPanel.hidden) return;
+  if (event.target.closest("#user-panel") || event.target.closest("#user-chip-toggle")) return;
+  userPanel.hidden = true;
+});
+
+userPanel.addEventListener("click", (event) => {
+  const editBtn = event.target.closest("[data-edit-slug]");
+  if (!editBtn) return;
+  userPanel.hidden = true;
+  startEditingProvider(editBtn.dataset.editSlug);
 });
 
 async function handleGoogleCredential(response) {
@@ -707,7 +826,11 @@ async function handleGoogleCredential(response) {
     });
     if (!res.ok) return;
     const { user } = await res.json();
-    renderLoggedInUser(user);
+    // /api/auth/google não devolve os perfis (usuário pode ser novo) — busca
+    // em seguida pra já abrir com o painel certo, sem precisar recarregar.
+    const meRes = await fetch("/api/auth/me");
+    const providers = meRes.ok ? (await meRes.json()).providers : [];
+    renderLoggedInUser(user, providers);
   } catch (err) {
     // Login é só um extra opcional — falha aqui não deve incomodar quem só
     // quer usar o site sem logar.
@@ -749,8 +872,8 @@ fetch("/api/auth/config")
     // quem já está logado (o GIS não limpa o próprio slot ao renderizar).
     const meRes = await fetch("/api/auth/me");
     if (meRes.ok) {
-      const { user } = await meRes.json();
-      renderLoggedInUser(user);
+      const { user, providers } = await meRes.json();
+      renderLoggedInUser(user, providers);
       return;
     }
     await loadGisScript();
