@@ -1275,7 +1275,7 @@ function renderUserPanel() {
           <li class="user-panel-item">
             <span>${escapeHtml(r.title)} <span class="user-panel-empty">· ${escapeHtml(r.type)} · ${escapeHtml(r.status)}</span></span>
             <span class="user-panel-item-actions">
-              <button type="button" id="view-own-requests-btn">Ver</button>
+              <button type="button" class="view-own-request-btn">Ver</button>
             </span>
           </li>`
           )
@@ -1332,7 +1332,7 @@ userPanel.addEventListener("click", (event) => {
   // Não dá pra filtrar o quadro por um pedido específico (não existe esse
   // filtro ainda) — leva pro quadro geral, no modo "Presto serviço", onde
   // qualquer pedido publicado (inclusive o da pessoa) aparece.
-  if (event.target.closest("#view-own-requests-btn")) {
+  if (event.target.closest(".view-own-request-btn")) {
     userPanel.hidden = true;
     setMode("provider");
     highlightSection(document.getElementById("provider"));
