@@ -196,6 +196,11 @@ const requestsList = document.getElementById("requests-list");
 const modeButtons = document.querySelectorAll(".mode-btn");
 let requestsLoaded = false;
 
+const SEARCH_PLACEHOLDER_BY_MODE = {
+  requester: "Descreva o que você gostaria de solicitar...",
+  provider: "Buscar um serviço, ou toque em 'Solicito serviço' pra pedir algo",
+};
+
 function setMode(mode) {
   const isProvider = mode === "provider";
   requesterView.hidden = isProvider;
@@ -205,6 +210,7 @@ function setMode(mode) {
     btn.classList.toggle("is-active", active);
     btn.setAttribute("aria-selected", String(active));
   });
+  bottomSearchInput.placeholder = SEARCH_PLACEHOLDER_BY_MODE[mode] || SEARCH_PLACEHOLDER_BY_MODE.requester;
   if (isProvider && !requestsLoaded) {
     requestsLoaded = true;
     loadRequests();
@@ -746,6 +752,17 @@ document.getElementById("nav-ask-link").addEventListener("click", (event) => {
 document.getElementById("hero-ask-link").addEventListener("click", (event) => {
   event.preventDefault();
   bottomSearchInput.focus();
+});
+
+// Exemplos clicáveis no hero (manicure, terreno, corrida, carro...) — mostra
+// logo de cara o tipo de coisa que dá pra pedir, pra quem chega no site sem
+// saber o que digitar. Preenche a mesma barra de busca e dispara a mesma
+// busca de sempre (sem formulário novo, sem rota paralela).
+document.querySelectorAll(".example-chip").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    bottomSearchInput.value = chip.dataset.example;
+    bottomSearchForm.requestSubmit();
+  });
 });
 
 // Login com Google (opcional, pilar 4.13). Sem GOOGLE_CLIENT_ID configurada

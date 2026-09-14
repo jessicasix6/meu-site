@@ -80,7 +80,7 @@ Quem presta serviço pode criar uma página própria (`/prestador/<slug>`), comp
 
 ## Login com Google (opcional)
 
-Botão "Entrar com Google" no menu — só aparece se `GOOGLE_CLIENT_ID` estiver configurada. Login é **opcional**: perfil continua podendo ser criado sem logar (decisão da Jéssica, 2026-09-13), mas quem loga fica dono do próprio perfil (`ownerUserId`), o que é a base pra editar o perfil depois e ver um painel pessoal (ainda não implementado — ver pilar 4.13 em `docs/visao-produto.md`). Sessão em cookie httpOnly com token de sessão aleatório, expira em 30 dias (no navegador **e** no servidor — `google-auth-library` verifica o token do Google no servidor, sem trocar segredo nenhum com o front-end).
+Botão "Entrar com Google" no menu — só aparece se `GOOGLE_CLIENT_ID` estiver configurada. Login é **opcional**: perfil continua podendo ser criado sem logar (decisão da Jéssica, 2026-09-13), mas quem loga fica dono do próprio perfil (`ownerUserId`) e ganha um dropdown "Meus perfis" com atalhos pra ver ou editar cada um (`PUT /api/providers/:slug`, exige login e posse do perfil — ver pilar 4.13 em `docs/visao-produto.md`). Sessão em cookie httpOnly com token de sessão aleatório, expira em 30 dias (no navegador **e** no servidor — `google-auth-library` verifica o token do Google no servidor, sem trocar segredo nenhum com o front-end).
 
 ## Ciclo de vida de um pedido
 
