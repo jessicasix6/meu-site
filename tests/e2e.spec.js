@@ -297,10 +297,10 @@ test.describe("Top3Profissional - fluxo básico", () => {
     await expect(page.locator(".result-answer")).not.toBeVisible();
   });
 
-  test("busca fora do catálogo interno aciona a busca na web (só roda com as duas chaves configuradas)", async ({ page }) => {
+  test("busca fora do catálogo interno aciona a busca na web (só roda com Anthropic + SearXNG/Brave configurados)", async ({ page }) => {
     test.skip(
-      !process.env.ANTHROPIC_API_KEY || !process.env.BRAVE_SEARCH_API_KEY,
-      "precisa de ANTHROPIC_API_KEY e BRAVE_SEARCH_API_KEY pra testar a busca na web de verdade"
+      !process.env.ANTHROPIC_API_KEY || !(process.env.SEARXNG_URL || process.env.BRAVE_SEARCH_API_KEY),
+      "precisa de ANTHROPIC_API_KEY e (SEARXNG_URL ou BRAVE_SEARCH_API_KEY) pra testar a busca na web de verdade"
     );
 
     await page.goto("/");

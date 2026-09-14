@@ -170,9 +170,10 @@ const PUBLISH_REQUEST_TOOL = {
   },
 };
 
-// Teto de segurança pro orçamento (R$50/mês combinado com a Jéssica — ver
-// docs/visao-produto.md seção 7). Brave Search cobra US$5/1000 buscas; esse
-// número fica com margem confortável abaixo do que o orçamento cobre.
+// Teto de segurança pro orçamento (ver docs/visao-produto.md seção 7). Brave
+// Search cobra US$5/1000 buscas; esse número fica com margem confortável
+// abaixo do que o orçamento cobre — só é usado como fallback agora (ver
+// searchWeb abaixo), então na prática deve custar bem menos que isso.
 const BRAVE_SEARCH_MONTHLY_LIMIT = 1500;
 let braveSearchCount = 0;
 let braveSearchMonth = null;
@@ -182,7 +183,34 @@ function currentMonthKey() {
   return `${now.getFullYear()}-${now.getMonth()}`;
 }
 
-async function searchWeb(query) {
+// Caminho grátis, preferido (decisão da Jéssica, 2026-09-14): SearXNG
+// autohospedado (Docker, sem chave, sem custo por busca — ver
+// docs/visao-produto.md seção 4.3). Só ativa se SEARXNG_URL estiver
+// configurada; devolve null (não string) em qualquer falha, pra searchWeb()
+// saber que deve cair pro fallback pago em vez de mostrar erro pro agente.
+async function searchWebViaSearxng(query) {
+  if (!process.env.SEARXNG_URL) return null;
+  try {
+    const base = process.env.SEARXNG_URL.replace(/\/+$/, "");
+    const url = `${base}/search?q=${encodeURIComponent(query)}&format=json`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const results = data.results || [];
+    if (results.length === 0) return "Nenhum resultado encontrado na web pra essa busca.";
+    return results
+      .slice(0, 5)
+      .map((r) => `- ${r.title}\n  ${r.url}\n  ${r.content || ""}`)
+      .join("\n");
+  } catch (err) {
+    return null;
+  }
+}
+
+// Fallback pago (Brave Search): só roda se o SearXNG grátis não estiver
+// configurado ou falhar — mantém a busca funcionando mesmo se o SearXNG
+// autohospedado cair, sem custo nenhum enquanto ele estiver saudável.
+async function searchWebViaBrave(query) {
   if (!process.env.BRAVE_SEARCH_API_KEY) {
     return "Busca na web não configurada neste servidor.";
   }
@@ -217,6 +245,12 @@ async function searchWeb(query) {
     .slice(0, 5)
     .map((r) => `- ${r.title}\n  ${r.url}\n  ${r.description || ""}`)
     .join("\n");
+}
+
+async function searchWeb(query) {
+  const searxResult = await searchWebViaSearxng(query);
+  if (searxResult !== null) return searxResult;
+  return searchWebViaBrave(query);
 }
 
 // Teto de segurança pra melhoria de foto (pilar 4.12 — ver docs/visao-produto.md
@@ -353,9 +387,10 @@ if (process.env.ANTHROPIC_API_KEY) {
       "Crie um .env com ANTHROPIC_API_KEY=sk-ant-... pra ativar o agente."
   );
 }
-if (!process.env.BRAVE_SEARCH_API_KEY) {
+const webSearchConfigured = Boolean(process.env.SEARXNG_URL || process.env.BRAVE_SEARCH_API_KEY);
+if (!webSearchConfigured) {
   console.warn(
-    "BRAVE_SEARCH_API_KEY não definida — o agente responde só com o catálogo interno, sem buscar na web."
+    "Nem SEARXNG_URL nem BRAVE_SEARCH_API_KEY definidas — o agente responde só com o catálogo interno, sem buscar na web."
   );
 }
 if (!process.env.GEMINI_API_KEY) {
@@ -565,10 +600,11 @@ async function askAgent(message) {
 
   const messages = [{ role: "user", content: message }];
   const MAX_TOOL_ROUNDS = 3;
-  // Sem a chave, searchWeb só retornaria "não configurada" — nem vale gastar
-  // uma rodada do loop anunciando essa tool nesse caso. publish_request não
-  // depende de nenhuma chave externa, fica sempre disponível.
-  const tools = [PUBLISH_REQUEST_TOOL, ...(process.env.BRAVE_SEARCH_API_KEY ? [WEB_SEARCH_TOOL] : [])];
+  // Sem SearXNG nem Brave configurados, searchWeb só retornaria "não
+  // configurada" — nem vale gastar uma rodada do loop anunciando essa tool
+  // nesse caso. publish_request não depende de nenhuma chave externa, fica
+  // sempre disponível.
+  const tools = [PUBLISH_REQUEST_TOOL, ...(webSearchConfigured ? [WEB_SEARCH_TOOL] : [])];
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const response = await anthropic.messages.create({
@@ -1188,6 +1224,7 @@ app.get("/health", (req, res) => {
     status: "ok",
     anthropicConfigured: Boolean(anthropic),
     whatsappConfigured: isWhatsAppConfigured(),
+    searxngConfigured: Boolean(process.env.SEARXNG_URL),
     braveSearchConfigured: Boolean(process.env.BRAVE_SEARCH_API_KEY),
     geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
     googleLoginConfigured: Boolean(googleClient),

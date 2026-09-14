@@ -68,6 +68,7 @@ Esse é o coração diferencial da ideia, mais importante que qualquer integraç
 - **Decisão já tomada (ver seção 6): não fazer isso via scraping direto.** Scraping viola Termos de Uso das plataformas grandes, é tecnicamente frágil (elas bloqueiam ativamente) e traz risco jurídico real se o negócio crescer.
 - **Caminho legítimo escolhido: usar uma API de busca na web de verdade** (ex: Brave Search API) pra que o agente de IA consiga achar conteúdo relevante espalhado pela internet — incluindo sites pequenos e pouco visitados que ninguém pensaria em checar — sem violar nada, porque é o mesmo princípio de um motor de busca normal (indexação pública).
 - Custo conhecido: Brave Search API cobra **US$5 por 1.000 buscas** (perdeu o tier gratuito em fev/2026). Google Custom Search não é mais opção viável (não aceita clientes novos, será descontinuada em 2027).
+- **Status (2026-09-14): trocado pra SearXNG, autohospedado, grátis.** Decisão da Jéssica de cortar custo — pesquisei a busca nativa da própria Anthropic como alternativa (US$10/1.000 buscas, o dobro da Brave, não compensava) antes de chegar no SearXNG (motor de busca open-source, roda em Docker, sem chave, sem custo por busca, agrega resultado de vários motores). Testado local (no notebook da Jéssica) com buscas reais — resultados relevantes confirmados (ex: "terreno barato em Contagem" trouxe anúncios reais de OLX/Imovelweb/VivaReal). Arquitetura: `SEARXNG_URL` é o caminho **preferido** agora; `BRAVE_SEARCH_API_KEY` vira só um fallback pago, usado automaticamente apenas se o SearXNG não estiver configurado ou falhar — custo zero enquanto o SearXNG estiver saudável. Rodando só localmente por enquanto (decisão da Jéssica, 2026-09-14) — pra virar busca de verdade pro site em produção, precisa subir a mesma instância no VPS (ver seção 7, ponto em aberto sobre isso).
 
 ### 4.4 Cross-posting pra Mercado Livre e OLX (integração oficial, opt-in)
 
@@ -204,12 +205,16 @@ Essas são conclusões a que já chegamos discutindo a ideia. Vale reler antes d
 
 ## 7. Custos conhecidos até agora (a atualizar conforme formos descobrindo mais)
 
-- **Orçamento máximo definido pela Jéssica (2026-09-10): R$50/mês inicialmente** pra custos de busca/IA além do que já existe. Qualquer decisão de arquitetura nessa área precisa caber nesse teto.
-- **Brave Search API**: US$5 por 1.000 buscas (busca), ou ~US$4/1.000 + tokens (modo "Answers"). Sem tier gratuito desde fev/2026.
-- **Claude API** (já em uso hoje): cobrança por uso, já configurada e rodando.
-- **Ideia a avaliar (2026-09-10): alternar automaticamente entre Grok (xAI) e Claude** — motivo provável é custo (Grok pode ser mais barato pra certas tarefas) e/ou o Grok ter acesso a busca em tempo real embutido (via integração com o X/Twitter), o que talvez reduza ou substitua a necessidade da Brave Search API. Ainda não pesquisado a fundo — fica como item da seção 8.
-- Custos de hospedagem, domínio, etc.: já cobertos em outra parte do projeto (VPS Hostinger + backup no PC), não repetidos aqui.
-- **Ainda não pesquisado**: custo de eventuais comissões/parcerias de afiliados (tendem a ser receita, não custo, mas precisa confirmar termos de cada programa quando chegarmos lá); custo de gateway de pagamento (seção 4.10) quando chegarmos nele.
+- **Orçamento máximo redefinido pela Jéssica (2026-09-14): R$400/mês no total**, pra manter o site inteiro no ar (hospedagem + todas as APIs) — substitui o teto antigo de R$50/mês que era só pra busca/IA. Diretriz explícita: economizar em tudo o que for possível, priorizar caminhos grátis sempre que exista um bom o suficiente.
+- **Gasto registrado até agora (2026-09-14, informado pela Jéssica):**
+  - R$129 no Google Cloud (créditos pré-pagos pro Gemini, pilar 4.12) — **já esgotado**, confirmado via teste direto da chave (erro "prepayment credits are depleted").
+  - R$30 na API da Anthropic (Claude) — **já esgotado também**, confirmado (erro "credit balance is too low"); isso deixa a busca por IA do site fora do ar até recarregar.
+  - R$59/mês no VPS Hostinger — status de uso em aberto (ver pergunta abaixo).
+- **Brave Search API**: US$5 por 1.000 buscas. **Status (2026-09-14): não é mais o caminho principal** — trocado por SearXNG autohospedado e grátis (ver seção 4.3), Brave vira só um fallback pago que só é chamado se o SearXNG falhar ou não estiver configurado.
+- **Claude API**: cobrança por uso (ver seção 4.3 sobre também reduzir a frequência de chamada, priorizando os caminhos estruturados grátis — ranking e corridas — antes de cair no agente de IA).
+- ~~Grok vs Claude~~ — resolvido, não compensa (ver seção 8).
+- **Em aberto (2026-09-14): o que fazer com o VPS Hostinger (R$59/mês)?** A Jéssica mencionou "não uso" sobre o Hostinger, mas não ficou claro se é sobre o VPS que hospeda o site (cancelar derrubaria o site do ar) ou sobre outra coisa (ex: rodar a sessão do Claude Code na nuvem, tema de uma conversa anterior sem relação com hospedagem do site). **Não cancelar nada até confirmar.** Detalhe técnico relevante pra essa decisão: o VPS é taxa fixa (não cobra por CPU/RAM usado), então rodar o SearXNG nele (quando for a hora de sair do "só local" — ver seção 4.3) não aumentaria a fatura.
+- **Ainda não pesquisado**: custo de eventuais comissões/parcerias de afiliados (tendem a ser receita, não custo, mas precisa confirmar termos de cada programa quando chegarmos lá); custo de gateway de pagamento (seção 4.10) quando chegarmos nele; eventual custo do WhatsApp Business API quando a Jéssica configurar isso (adiado por ela, 2026-09-14).
 
 ## 8. Perguntas em aberto (pra decidir quando formos transformar isso em missão de implementação)
 
