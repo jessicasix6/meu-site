@@ -734,6 +734,60 @@ test.describe("Top3Profissional - perfil profissional (pilar 4.12)", () => {
   });
 });
 
+test.describe("Top3Profissional - sinal de demanda não publicada (pilar 4.2)", () => {
+  // Cidade única por teste pra nunca colidir com o sinal gerado por outros
+  // testes deste arquivo que também buscam "terreno"/"carro" — DEMAND_SIGNALS
+  // é um estado global compartilhado por toda a suíte. Só letras (sem
+  // dígitos) porque extractDemandLocation() no servidor só captura letras —
+  // um sufixo numérico seria cortado fora do texto extraído.
+  function randomCitySuffix() {
+    const letters = "abcdefghijklmnopqrstuvwxyz";
+    let s = "";
+    for (let i = 0; i < 10; i++) s += letters[Math.floor(Math.random() * letters.length)];
+    return s;
+  }
+
+  test("duas buscas pela mesma categoria/região viram um sinal agregado", async ({ request }) => {
+    const uniqueCity = `Testopolis${randomCitySuffix()}`;
+    await request.post("/api/chat", { data: { message: `terreno barato em ${uniqueCity}` } });
+    await request.post("/api/chat", { data: { message: `procurando um terreno em ${uniqueCity}` } });
+
+    const { signals } = await (await request.get("/api/demand-signals")).json();
+    const match = signals.find((s) => s.location === uniqueCity);
+    expect(match).toBeTruthy();
+    expect(match.category).toBe("terreno");
+    expect(match.count).toBe(2);
+  });
+
+  test("uma única busca não vira sinal público (mínimo de 2 antes de aparecer)", async ({ request }) => {
+    const uniqueCity = `Solopolis${randomCitySuffix()}`;
+    await request.post("/api/chat", { data: { message: `terreno em ${uniqueCity}` } });
+
+    const { signals } = await (await request.get("/api/demand-signals")).json();
+    expect(signals.find((s) => s.location === uniqueCity)).toBeUndefined();
+  });
+
+  test("'quero chamar X' (contato com prestador já existente) nunca conta como demanda", async ({ request }) => {
+    const uniqueCity = `Naolopolis${randomCitySuffix()}`;
+    await request.post("/api/chat", { data: { message: `quero chamar terreno em ${uniqueCity}` } });
+    await request.post("/api/chat", { data: { message: `quero chamar terreno em ${uniqueCity}` } });
+
+    const { signals } = await (await request.get("/api/demand-signals")).json();
+    expect(signals.find((s) => s.location === uniqueCity)).toBeUndefined();
+  });
+
+  test("seção de demanda aparece no modo 'Presto serviço' quando há sinal suficiente", async ({ page, request }) => {
+    const uniqueCity = `Verlandia${randomCitySuffix()}`;
+    await request.post("/api/chat", { data: { message: `procurando carro em ${uniqueCity}` } });
+    await request.post("/api/chat", { data: { message: `quero um carro usado em ${uniqueCity}` } });
+
+    await page.goto("/");
+    await page.locator('.mode-btn[data-mode="provider"]').click();
+    await expect(page.locator("#demand-signals-list")).toContainText(uniqueCity);
+    await expect(page.locator("#demand-signals")).toBeVisible();
+  });
+});
+
 test.describe("Top3Profissional - login com Google (pilar 4.13)", () => {
   test("sem GOOGLE_CLIENT_ID configurada, tudo continua funcionando sem login", async ({ page, request }) => {
     const config = await (await request.get("/api/auth/config")).json();

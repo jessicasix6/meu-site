@@ -668,11 +668,78 @@ function rateRequest(id, rating, comment) {
   return { ok: true, request };
 }
 
+// Pilar 4.2 — sinal de demanda não publicada: toda busca que chega aqui já
+// passou pela classificação do front-end e não caiu em serviço cadastrado
+// nem corrida/carona (ver classifyIntent em assets/app.js) — ou seja, é
+// exatamente o tipo de "alguém procurando algo que ninguém anunciou
+// formalmente" que a seção 4.2 do docs/visao-produto.md descreve (terreno,
+// carro, produto...). Guarda só categoria + região, nunca o texto exato
+// digitado — vira uma estatística agregada, não expõe quem procurou o quê.
+const DEMAND_SIGNALS = [];
+const DEMAND_SIGNAL_CAP = 500;
+const DEMAND_SIGNAL_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+const DEMAND_SIGNAL_MIN_COUNT = 2;
+
+const DEMAND_CATEGORY_KEYWORDS = {
+  terreno: ["terreno", "lote", "chácara", "sítio", "fazenda"],
+  imóvel: ["casa", "apartamento", "kitnet", "alugar", "aluguel", "imóvel"],
+  carro: ["carro", "veículo", "moto", "caminhão", "caminhonete"],
+  produto: ["celular", "computador", "notebook", "geladeira", "fogão", "móveis", "sofá", "televisão"],
+};
+
+function classifyDemandCategory(message) {
+  const lower = message.toLowerCase();
+  for (const [category, keywords] of Object.entries(DEMAND_CATEGORY_KEYWORDS)) {
+    if (keywords.some((k) => lower.includes(k))) return category;
+  }
+  return null;
+}
+
+// Best-effort: pega o que vem depois de "em <lugar>" (ex: "terreno em
+// Contagem" → "Contagem"). Não acha sempre, e tudo bem — location fica null
+// nesse caso, o sinal ainda soma pra categoria geral.
+function extractDemandLocation(message) {
+  const match = message.match(/\bem\s+([a-zà-úA-ZÀ-Ú]+(?:\s+[a-zà-úA-ZÀ-Ú]+){0,2})/i);
+  return match ? match[1].trim() : null;
+}
+
+// "quero chamar X" é o clique em "Chamar agora" de um card do ranking —
+// contato com alguém que já existe, não uma busca por algo que falta.
+// Nunca deve contar como demanda não atendida.
+function recordDemandSignal(message) {
+  if (/^quero chamar\s/i.test(message.trim())) return;
+  const category = classifyDemandCategory(message);
+  if (!category) return;
+  DEMAND_SIGNALS.push({ category, location: extractDemandLocation(message), timestamp: Date.now() });
+  if (DEMAND_SIGNALS.length > DEMAND_SIGNAL_CAP) DEMAND_SIGNALS.shift();
+}
+
+app.get("/api/demand-signals", (req, res) => {
+  const since = Date.now() - DEMAND_SIGNAL_WINDOW_MS;
+  const counts = new Map();
+  for (const signal of DEMAND_SIGNALS) {
+    if (signal.timestamp < since) continue;
+    const key = `${signal.category}|${signal.location || ""}`;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  const signals = [...counts.entries()]
+    .map(([key, count]) => {
+      const [category, location] = key.split("|");
+      return { category, location: location || null, count };
+    })
+    .filter((s) => s.count >= DEMAND_SIGNAL_MIN_COUNT)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
+  res.json({ signals });
+});
+
 app.post("/api/chat", async (req, res) => {
   const { message } = req.body;
   if (!message || typeof message !== "string") {
     return res.status(400).json({ error: "campo 'message' é obrigatório" });
   }
+
+  recordDemandSignal(message);
 
   try {
     const reply = await askAgent(message);
