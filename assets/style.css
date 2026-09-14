@@ -1361,6 +1361,18 @@ a {
   color: var(--text-dim);
 }
 
+.group-assinatura-notice {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: var(--text-dim);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-width: 40ch;
+}
+
 .ride-form {
   display: flex;
   align-items: center;

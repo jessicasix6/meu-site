@@ -1,6 +1,8 @@
 # Futuro: assinaturas compartilhadas e pagamento retido
 
-> **Status: NÃO IMPLEMENTAR.** Exige validação jurídica, regulatória e das regras de cada provedor antes de qualquer linha de código. Este documento existe pra não perder a ideia — não é uma especificação pronta pra construir.
+> **Status: NÃO IMPLEMENTAR** (a parte de verificação/escrow/reputação/denúncia abaixo). Exige validação jurídica, regulatória e das regras de cada provedor antes de qualquer linha de código. Este documento existe pra não perder a ideia — não é uma especificação pronta pra construir.
+>
+> **Atualização (2026-09-14, task-001): a parte "boa" já foi implementada.** Assinatura/streaming virou uma categoria genérica dentro de Grupos de Economia (pilar 4.14 do `docs/visao-produto.md`) — sem engine especial, sem verificação de credencial, sem TOP3 reter pagamento, com um aviso fixo deixando claro que o site só ajuda a se encontrar. O que continua **fora** de escopo (e é o conteúdo deste documento) é tudo que envolve o TOP3 verificar, garantir ou intermediar algo: reputação, denúncia, escrow.
 
 **Criado:** 2026-09-14, a partir de uma proposta detalhada da Jéssica no chat. Separado do `docs/visao-produto.md` (que documenta o que o site *é e está construindo*) porque isso aqui é o oposto: o que decidimos **não** construir agora, e por quê — pra não ficar perdido no meio de decisões já tomadas.
 
@@ -96,4 +98,57 @@ Duas categorias de risco diferentes, levantadas na conversa de 2026-09-14:
 - Volume real de usuários no site — sem isso, o risco/esforço não se paga.
 - Reconsiderar se o "assinante extra" resolve juridicamente, ou se some do escopo e o foco vira só categorias sem esse conflito (streaming/assinatura ficaria fora de vez, e o motor de Grupos de Economia — pilar 4.14, já implementado — continua só pras 5 categorias sem esse risco).
 
-Até lá: o motor de Grupos de Economia (pilar 4.14) já resolve a parte boa e segura da ideia (compra coletiva, frete, viagem, serviço, curso) sem carteira, sem escrow e sem esbarrar em termo de terceiro nenhum.
+Até lá: o motor de Grupos de Economia (pilar 4.14) já resolve a parte boa e segura da ideia (compra coletiva, frete, viagem, serviço, curso, **e agora também assinatura**, como categoria genérica sem verificação/escrow) sem carteira, sem escrow e sem esbarrar em termo de terceiro nenhum.
+
+---
+
+## Reputação + Denúncia (desenho completo, 2026-09-14)
+
+Proposta detalhada da Jéssica pro que viria depois de Grupos de Economia ter login/conta obrigatória e volume real de uso. **Continua fora de escopo enquanto essas duas coisas não existirem** — reputação sem identidade estável entre sessões não se sustenta (qualquer um troca de "usuário" fingindo ser outra pessoa). Registrado aqui pra não perder o desenho, não como algo pronto pra construir.
+
+**Princípio central:** reputação é *informação*, não *garantia*. O TOP3 sinaliza histórico, nunca promete reembolso nem segura nada.
+
+**Cuidado de design já incorporado:** denúncia sem filtro vira arma de perseguição (alguém perde no combinado e "se vinga" denunciando à toa) — por isso a triagem antes de qualquer denúncia afetar reputação de verdade.
+
+### Modelo de dados
+
+```
+Usuario (campos novos, exige login/conta já existir)
+- reputacao_score (começa em 100)
+- grupos_concluidos
+- denuncias_recebidas
+- denuncias_procedentes
+- status (ativo | restrito | suspenso)
+
+Denuncia
+- id
+- grupo_id
+- denunciante_id
+- denunciado_id
+- motivo (nao_entregou | sumiu_apos_pix | valor_diferente_combinado | outro)
+- descricao
+- evidencia (opcional, print/texto)
+- status (aberta | em_analise | procedente | improcedente)
+- created_at
+- resolvida_at
+```
+
+### Regras de negócio
+
+1. Só pode denunciar quem participou de fato do grupo (`status = confirmado` naquele `grupo_id`) — evita denúncia de gente de fora.
+2. Denúncia entra como `aberta`, não muda reputação ainda. Vira `em_analise` e some do perfil público até ser resolvida.
+3. Triagem simples: se 2+ pessoas de grupos diferentes denunciarem o mesmo usuário pelo mesmo motivo, o caso vira prioritário pra revisão manual (não precisa de moderador humano no dia 1 — pode ser a própria Jéssica revisando via painel simples).
+4. Denúncia `procedente`: `-25` na reputação, incrementa `denuncias_procedentes`, badge visível no perfil ("2 denúncias confirmadas").
+5. Reputação abaixo de 40 → status `restrito` (não pode criar grupo novo, só participar). Abaixo de 20 → `suspenso` (perfil oculto).
+6. Denúncia `improcedente` → sem efeito nenhum na reputação de ninguém (protege quem foi denunciado à toa).
+7. Grupo concluído sem denúncia em 7 dias → soma ponto de reputação pros dois lados (reforça histórico bom).
+
+### Telas previstas
+
+- No detalhe do grupo, participantes confirmados veem botão "Relatar problema" (só aparece depois que o grupo foi marcado como concluído).
+- No perfil de qualquer usuário: selo de reputação + texto fixo: "Reputação é baseada em histórico de grupos. O TOP3 não garante nem intermedeia pagamentos — sempre combine e confirme antes de pagar."
+
+### Pré-requisitos antes de retomar
+
+1. Login/conta de usuário existir no site (hoje "Grupos" funciona só com WhatsApp, sem conta obrigatória — ver pilar 4.14).
+2. Primeiros usuários reais rodando o mecanismo de Grupos sem essa camada, pra validar que o básico funciona antes de empilhar reputação em cima.

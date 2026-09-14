@@ -538,16 +538,26 @@ rideResults.addEventListener("click", (event) => {
 });
 
 // Grupos de Economia v1 (pilar 4.14) — "gente quer a mesma coisa, o site
-// junta o grupo": compra coletiva, frete, viagem, serviço em grupo, curso.
-// De propósito NUNCA assinatura compartilhada nem retenção de pagamento —
-// ver docs/visao-produto.md seção 4.14 pra entender por que ficam de fora.
+// junta o grupo": compra coletiva, frete, viagem, serviço em grupo, curso,
+// assinatura compartilhada. Nunca tem engine especial por categoria, nunca
+// verifica credencial, nunca retém pagamento — ver docs/visao-produto.md
+// seção 4.14 e docs/futuro-assinaturas-e-pagamentos.md (reputação/denúncia
+// continuam fora de escopo, dependem de login que o site ainda não exige
+// aqui).
 const GROUP_CATEGORY_ICONS = {
   compra: "🛒",
   frete: "📦",
   viagem: "🧳",
   servico: "🧰",
   curso: "🎓",
+  assinatura: "📺",
 };
+
+// Aviso fixo só pra grupos de assinatura (task-001) — deixa claro que o
+// TOP3 é só ponto de encontro, nunca intermediário; combinação e pagamento
+// seguem as regras oficiais de cada serviço (ex: assinante extra Netflix).
+const GROUP_ASSINATURA_NOTICE =
+  "O TOP3 só ajuda vocês a se encontrarem. Combinem entre vocês e sigam sempre as regras oficiais do serviço (ex: assinante extra da Netflix).";
 
 const groupsList = document.getElementById("groups-list");
 const groupCategoryButtons = document.querySelectorAll(".group-category-btn");
@@ -572,6 +582,8 @@ function renderGroupsList(groups) {
           ? '<span class="request-provider">Completo ✓</span>'
           : `<button type="button" class="accept-btn group-join-btn" data-group-id="${escapeHtml(g.id)}">Participar</button>
              <button type="button" class="group-leave-link" data-group-id="${escapeHtml(g.id)}">já participa? sair</button>`;
+      const noticeHtml =
+        g.category === "assinatura" ? `<p class="group-assinatura-notice">${escapeHtml(GROUP_ASSINATURA_NOTICE)}</p>` : "";
       return `
         <li class="request-item group-card" data-group-id="${escapeHtml(g.id)}">
           <span class="request-icon">${GROUP_CATEGORY_ICONS[g.category] || "👥"}</span>
@@ -581,6 +593,7 @@ function renderGroupsList(groups) {
             <span class="request-meta">${escapeHtml(g.city)} · ${g.currentMembers} de ${g.targetMembers} vagas ocupadas · ${vagasText}</span>
             <br />
             <span class="request-meta">${[priceText, deadlineText].filter(Boolean).join(" · ")}</span>
+            ${noticeHtml}
           </span>
           <span class="request-action group-action">${actionArea}</span>
         </li>`;
