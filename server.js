@@ -1036,9 +1036,21 @@ app.put("/api/providers/:slug", uploadProviderPhotos, async (req, res) => {
 
   try {
     if (req.files && req.files.length > 0) {
-      fs.rmSync(dir, { recursive: true, force: true });
-      fs.mkdirSync(dir, { recursive: true });
-      provider.photos = await buildPhotosFromFiles(req.files, dir, provider.id, newBackground);
+      // Monta as fotos novas num diretório temporário primeiro — só apaga as
+      // fotos antigas depois que a montagem toda deu certo. Sem isso, uma
+      // falha no meio do processo (ex: disco cheio) apagaria as fotos de
+      // quem estava editando sem colocar nada no lugar.
+      const tmpDir = `${dir}-edit-${Date.now()}`;
+      fs.mkdirSync(tmpDir, { recursive: true });
+      try {
+        const newPhotos = await buildPhotosFromFiles(req.files, tmpDir, provider.id, newBackground);
+        fs.rmSync(dir, { recursive: true, force: true });
+        fs.renameSync(tmpDir, dir);
+        provider.photos = newPhotos;
+      } catch (buildErr) {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        throw buildErr;
+      }
     }
     if (fields.description) {
       provider.bio = await writeBio(fields.name, fields.service, fields.description);
