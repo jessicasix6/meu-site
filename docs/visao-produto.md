@@ -228,7 +228,7 @@ Essas são conclusões a que já chegamos discutindo a ideia. Vale reler antes d
 - **Orçamento máximo redefinido pela Jéssica (2026-09-14): R$400/mês no total**, pra manter o site inteiro no ar (hospedagem + todas as APIs) — substitui o teto antigo de R$50/mês que era só pra busca/IA. Diretriz explícita: economizar em tudo o que for possível, priorizar caminhos grátis sempre que exista um bom o suficiente.
 - **Gasto registrado até agora (2026-09-14, informado pela Jéssica):**
   - R$129 no Google Cloud (créditos pré-pagos pro Gemini, pilar 4.12) — **já esgotado**, confirmado via teste direto da chave (erro "prepayment credits are depleted").
-  - R$30 na API da Anthropic (Claude) — **já esgotado também**, confirmado (erro "credit balance is too low"); isso deixa a busca por IA do site fora do ar até recarregar.
+  - R$30 na API da Anthropic (Claude) — esgotado em algum momento entre 2026-09-13 e 2026-09-14 (erro "credit balance is too low", deixou a busca por IA do site fora do ar por boa parte desta sessão). **Status (2026-09-14, mais tarde): recarregado pela Jéssica, confirmado funcionando de novo** (testado direto na API e em produção — `/api/chat` respondendo normal, com busca na web incluída).
   - R$59/mês no VPS Hostinger — status de uso em aberto (ver pergunta abaixo).
 - **Brave Search API**: US$5 por 1.000 buscas. **Status (2026-09-14): não é mais o caminho principal** — trocado por SearXNG autohospedado e grátis (ver seção 4.3), Brave vira só um fallback pago que só é chamado se o SearXNG falhar ou não estiver configurado.
 - **Claude API**: cobrança por uso (ver seção 4.3 sobre também reduzir a frequência de chamada, priorizando os caminhos estruturados grátis — ranking e corridas — antes de cair no agente de IA).
