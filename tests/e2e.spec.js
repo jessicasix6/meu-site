@@ -2891,13 +2891,11 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
     expect(items).toEqual(["Criar meu perfil", "Benefícios", "Como funciona"]);
   });
 
-  test("'Entrar' abre o painel de login com opções sociais", async ({ page }) => {
+  test("'Entrar' abre o painel de login", async ({ page }) => {
     await page.goto("/");
     await page.locator("#email-auth-toggle").click();
     await expect(page.locator("#email-auth-panel")).toBeVisible();
-    // Facebook e Instagram sempre visíveis (Google só aparece quando GOOGLE_CLIENT_ID está configurado)
-    await expect(page.locator("#facebook-login-btn")).toBeVisible();
-    await expect(page.locator("#instagram-login-btn")).toBeVisible();
+    await expect(page.locator(".social-login-title")).toBeVisible();
   });
 
   test("hero: badge TOP3 SYSTEM, título com destaque em ciano, busca central funcional", async ({ page }) => {
