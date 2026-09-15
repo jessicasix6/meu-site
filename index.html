@@ -438,15 +438,14 @@
               <option value="corrida">corrida</option>
               <option value="entrega">entrega</option>
               <option value="profissional">profissional</option>
-              <option value="terreno">terreno</option>
-              <option value="carro">carro</option>
+              <option value="imovel">imóvel</option>
               <option value="produto">produto</option>
               <option value="outro" selected>outro</option>
             </select>
           </div>
           <div class="post-field">
-            <label for="post-location">Onde</label>
-            <input id="post-location" name="location" type="text" placeholder="ex: Savassi, Belo Horizonte" required />
+            <label for="post-location">Onde (opcional se já estiver em "O que você precisa", ex: "Centro → Rodoviária")</label>
+            <input id="post-location" name="location" type="text" placeholder="ex: Savassi, Belo Horizonte" />
           </div>
           <div class="post-field">
             <label for="post-whatsapp">Seu WhatsApp</label>
@@ -457,8 +456,12 @@
             <input id="post-price" name="price" type="number" min="0" step="1" placeholder="ex: 25" required />
           </div>
           <div class="post-field">
-            <label for="post-when">Quando (opcional)</label>
-            <input id="post-when" name="when" type="text" placeholder="ex: hoje às 19h" />
+            <label for="post-date">Quando</label>
+            <input id="post-date" name="date" type="date" />
+          </div>
+          <div class="post-field">
+            <label for="post-time">Horário (opcional)</label>
+            <input id="post-time" name="time" type="time" />
           </div>
           <div class="post-field">
             <label for="post-requester">Seu nome (opcional)</label>
@@ -596,7 +599,19 @@
         <div class="container">
           <p class="eyebrow">Pedidos perto de você</p>
           <h2 class="section-title">Aceite pedidos em aberto</h2>
-          <p class="provider-subtitle">Corrida, entrega, um terreno, o que for — qualquer pedido publicado cai aqui. Aceite o que fizer sentido pra você, marque como concluído quando terminar e receba sua avaliação.</p>
+          <p class="provider-subtitle">Corrida, entrega, um imóvel, o que for — qualquer pedido publicado cai aqui. Aceite o que fizer sentido pra você, marque como concluído quando terminar e receba sua avaliação.</p>
+          <div class="requests-filter">
+            <select id="requests-filter-type" aria-label="Filtrar por tipo">
+              <option value="">Todos os tipos</option>
+              <option value="corrida">corrida</option>
+              <option value="entrega">entrega</option>
+              <option value="profissional">profissional</option>
+              <option value="imovel">imóvel</option>
+              <option value="produto">produto</option>
+              <option value="outro">outro</option>
+            </select>
+            <input id="requests-filter-keyword" type="text" placeholder="Buscar palavra-chave (ex: TV, carro sedan)" aria-label="Buscar por palavra-chave" />
+          </div>
           <ol id="requests-list" class="requests-list"></ol>
         </div>
       </section>

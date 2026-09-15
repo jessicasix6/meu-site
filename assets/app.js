@@ -227,12 +227,36 @@ modeButtons.forEach((btn) => {
   btn.addEventListener("click", () => setMode(btn.dataset.mode));
 });
 
+// Filtro de tipo + palavra-chave (task-009, item 5) — "produto" não tem
+// subcategoria rígida (TV, carro, o que for caem todos aí), então o jeito
+// de achar algo específico dentro dele é buscar por palavra no título do
+// pedido, igual o resto do site já faz em vários lugares (ride-form, por
+// exemplo) em vez de inventar uma subcategoria nova pra cada tipo de coisa.
+let allRequests = [];
+const requestsFilterType = document.getElementById("requests-filter-type");
+const requestsFilterKeyword = document.getElementById("requests-filter-keyword");
+
+function applyRequestsFilter() {
+  const type = requestsFilterType.value;
+  const keyword = requestsFilterKeyword.value.trim().toLowerCase();
+  const filtered = allRequests.filter((r) => {
+    if (type && r.type !== type) return false;
+    if (keyword && !r.title.toLowerCase().includes(keyword)) return false;
+    return true;
+  });
+  renderRequests(filtered);
+}
+
+requestsFilterType.addEventListener("change", applyRequestsFilter);
+requestsFilterKeyword.addEventListener("input", applyRequestsFilter);
+
 async function loadRequests() {
   try {
     const res = await fetch("/api/requests");
     if (!res.ok) return;
     const { requests } = await res.json();
-    renderRequests(requests);
+    allRequests = requests;
+    applyRequestsFilter();
   } catch (err) {
     requestsList.innerHTML = '<li class="requests-error">Não consegui carregar os pedidos agora.</li>';
   }
@@ -278,7 +302,7 @@ const REQUEST_ICONS = {
 const REQUEST_ICON_DEFAULT =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.2H22l-6 4.6 2.3 7.2L12 16.4l-6.3 4.6 2.3-7.2-6-4.6h7.6z"/></svg>';
 
-const REQUEST_LABELS = { corrida: "corrida", entrega: "entrega", profissional: "profissional" };
+const REQUEST_LABELS = { corrida: "corrida", entrega: "entrega", profissional: "profissional", imovel: "imóvel", produto: "produto" };
 
 // r.type agora é texto livre (ex: "terreno", "carro usado") — nunca interpolar
 // direto num nome de classe CSS nem em innerHTML sem passar por aqui antes.
@@ -328,6 +352,10 @@ function requestActionArea(r) {
 
 function renderRequests(requests) {
   requestsList.innerHTML = "";
+  if (requests.length === 0) {
+    requestsList.innerHTML = '<li class="requests-empty">Nenhum pedido encontrado.</li>';
+    return;
+  }
   requests.forEach((r) => {
     const typeSlug = slugifyType(r.type);
     const item = document.createElement("li");
@@ -341,7 +369,7 @@ function renderRequests(requests) {
         <br />
         <strong>${escapeHtml(r.title)}</strong>
         <br />
-        <span class="request-meta">${escapeHtml(r.requester)} · ${escapeHtml(r.location)} · ${escapeHtml(r.when || "a combinar")} · ${distanceChip}R$ ${r.price}</span>
+        <span class="request-meta">${escapeHtml(r.requester)} · ${escapeHtml(r.location || "local não informado")} · ${escapeHtml(r.when || "a combinar")} · ${distanceChip}R$ ${r.price}</span>
       </span>
       <span class="request-action">${requestActionArea(r)}</span>
     `;
@@ -477,6 +505,7 @@ function renderResult(query, state, text) {
 function goToPublish() {
   if (lastSearchQuery) {
     document.getElementById("post-title").value = lastSearchQuery;
+    autoFillLocationFromTitle();
   }
   document.getElementById("publicar").scrollIntoView({ behavior: "smooth", block: "start" });
   document.getElementById("post-type").focus();
@@ -572,6 +601,10 @@ rideResults.addEventListener("click", (event) => {
   const to = rideTo.value.trim();
   document.getElementById("post-type").value = rideType;
   document.getElementById("post-title").value = `${from} → ${to}`;
+  // Título setado por script não dispara 'input' sozinho (task-009 item 1)
+  // — chama direto pra "Onde" já vir preenchido com a mesma rota, sem
+  // pedir pra digitar de novo o que já foi buscado acima.
+  autoFillLocationFromTitle();
   document.getElementById("publicar").scrollIntoView({ behavior: "smooth", block: "start" });
   document.getElementById("post-price").focus();
 });
@@ -1400,6 +1433,12 @@ loadGroups();
 const postForm = document.getElementById("post-form");
 const postStatus = document.getElementById("post-status");
 const publishInterestLink = document.getElementById("publish-interest-link");
+const postTitleInput = document.getElementById("post-title");
+const postLocationInput = document.getElementById("post-location");
+const postDateInput = document.getElementById("post-date");
+const postTimeInput = document.getElementById("post-time");
+const postWhatsappInput = document.getElementById("post-whatsapp");
+const postRequesterInput = document.getElementById("post-requester");
 let lastSearchQuery = "";
 
 publishInterestLink.addEventListener("click", (event) => {
@@ -1414,17 +1453,104 @@ document.getElementById("ranking-publish-link").addEventListener("click", (event
   goToPublish();
 });
 
+// task-009 item 2: "Quando" vem com hoje já selecionado (a pessoa só troca
+// se quiser outro dia), nunca em branco — postForm.reset() volta um
+// <input type="date"> pro vazio, por isso reaplicado de novo depois de
+// cada publicação bem-sucedida, não só na carga inicial da página.
+function setPostDateToToday() {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const dd = String(today.getDate()).padStart(2, "0");
+  postDateInput.value = `${yyyy}-${mm}-${dd}`;
+}
+setPostDateToToday();
+
+function formatDateLabel(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const target = new Date(y, m - 1, d);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  target.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((target - today) / (24 * 60 * 60 * 1000));
+  if (diffDays === 0) return "hoje";
+  if (diffDays === 1) return "amanhã";
+  return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
+}
+
+// Backend continua guardando "quando" como texto livre (request.when) —
+// combina data+horário num texto legível aqui, sem precisar mudar o
+// formato guardado no servidor nem o resto do site que já lê esse campo.
+function buildWhenFromForm() {
+  const parts = [];
+  if (postDateInput.value) parts.push(formatDateLabel(postDateInput.value));
+  if (postTimeInput.value) parts.push(`às ${postTimeInput.value}`);
+  return parts.length ? parts.join(" ") : "a combinar";
+}
+
+// task-009 item 1: se "O que você precisa" já tem um padrão de rota
+// reconhecível, extrai origem/destino dali em vez de pedir pra pessoa
+// digitar a mesma informação duas vezes em "Onde". Ordem importa: seta
+// (menos ambíguo) antes de "de X para/pra Y" antes de hífen (mais ambíguo,
+// qualquer "a - b" no meio de uma frase bateria).
+function extractRouteFromText(text) {
+  const arrowMatch = text.match(/^(.+?)\s*(?:→|->)\s*(.+)$/);
+  if (arrowMatch) return { origem: arrowMatch[1].trim(), destino: arrowMatch[2].trim() };
+  const paraMatch = text.match(/^de\s+(.+?)\s+(?:para|pra)\s+(.+)$/i);
+  if (paraMatch) return { origem: paraMatch[1].trim(), destino: paraMatch[2].trim() };
+  const dashMatch = text.match(/^(.+?)\s+-\s+(.+)$/);
+  if (dashMatch) return { origem: dashMatch[1].trim(), destino: dashMatch[2].trim() };
+  return null;
+}
+
+// "Onde" só é obrigatório enquanto a pessoa não editou com a própria mão —
+// uma vez editado manualmente, o vínculo automático com o título para (pra
+// não sobrescrever o que ela acabou de digitar a cada tecla no título).
+let postLocationAutoFilled = true;
+postLocationInput.addEventListener("input", () => {
+  postLocationAutoFilled = false;
+});
+
+function autoFillLocationFromTitle() {
+  if (!postLocationAutoFilled) return;
+  const route = extractRouteFromText(postTitleInput.value.trim());
+  postLocationInput.value = route ? `${route.origem} → ${route.destino}` : "";
+}
+postTitleInput.addEventListener("input", autoFillLocationFromTitle);
+
+// task-009 item 3: WhatsApp e nome pré-preenchidos a partir do perfil de
+// quem está logada (task-003) — continuam editáveis (publicar em nome de
+// outra pessoa, outro número só pra esse post). Sem conta, ficam em branco
+// como sempre. Chamada de dentro de renderLoggedInUser() (mais abaixo no
+// arquivo) — as três formas de entrar logada (sessão restaurada, login por
+// e-mail/senha, Google) passam todas por ali.
+function prefillPostFormFromProfile() {
+  if (!currentUserProfile) return;
+  if (!postWhatsappInput.value && currentUserProfile.whatsapp) postWhatsappInput.value = currentUserProfile.whatsapp;
+  if (!postRequesterInput.value && currentUserProfile.name) postRequesterInput.value = currentUserProfile.name;
+}
+
 postForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const data = new FormData(postForm);
+  // "Onde" pode ter ficado vazio de propósito (task-009 item 1: sem padrão
+  // de rota detectável no título, e a pessoa não preencheu na mão) — última
+  // tentativa de extrair da mesma forma que o auto-preenchimento ao vivo,
+  // pro caso de algum caminho ter passado por cima do valor do campo sem
+  // disparar o listener de 'input' (ex: preenchido por script).
+  let location = data.get("location").trim();
+  if (!location) {
+    const route = extractRouteFromText(data.get("title").trim());
+    if (route) location = `${route.origem} → ${route.destino}`;
+  }
   const payload = {
     type: data.get("type"),
     title: data.get("title"),
-    when: data.get("when"),
+    when: buildWhenFromForm(),
     price: data.get("price"),
     requester: data.get("requester"),
     whatsapp: data.get("whatsapp"),
-    location: data.get("location"),
+    location,
   };
 
   postStatus.textContent = "publicando…";
@@ -1447,6 +1573,9 @@ postForm.addEventListener("submit", async (event) => {
     postStatus.textContent = "Publicado! Já aparece pra quem presta serviço.";
     postStatus.className = "post-status post-status--ok";
     postForm.reset();
+    setPostDateToToday();
+    postLocationAutoFilled = true;
+    prefillPostFormFromProfile();
     // A view do prestador vive escondida enquanto este formulário está
     // visível (são mutuamente exclusivas), então não tem como recarregar
     // a lista "ao vivo" aqui — só marcamos como desatualizada, e ela
@@ -1900,6 +2029,7 @@ function renderLoggedInUser(user, providers, groups, requests) {
   ownGroups = groups || [];
   ownRequests = requests || [];
   currentUserProfile = user;
+  prefillPostFormFromProfile();
   googleSigninSlot.innerHTML = `
     <button type="button" class="user-chip" id="user-chip-toggle">
       ${user.picture ? `<img src="${escapeHtml(user.picture)}" alt="" />` : ""}

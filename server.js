@@ -1514,15 +1514,12 @@ app.get("/api/requests", (req, res) => {
   res.json({ requests: REQUESTS.map(requestSummary) });
 });
 
-// Compartilhado entre POST /api/requests e a tool publish_request do agente
-// (busca/publicação por conversa, no site e no WhatsApp) — mesma validação
-// pros dois caminhos, sem duplicar regra de negócio. ownerUserId só é
-// gravado pelo formulário direto (POST /api/requests, abaixo) — chat e
-// WhatsApp não têm sessão de navegador pra amarrar de forma confiável,
-// então ficam sem dono mesmo (ver docs/visao-produto.md pilar 4.13).
+// ownerUserId só é gravado quando quem publica está logada (POST
+// /api/requests, abaixo) — sem sessão de navegador pra amarrar, o post
+// fica sem dono (ver docs/visao-produto.md pilar 4.13).
 function createRequest({ type, title, requester, when, price, whatsapp, location, ownerUserId }) {
   if (!type || typeof type !== "string" || !type.trim()) {
-    return { ok: false, error: "diga o tipo do que você precisa (ex: corrida, terreno, carro...)" };
+    return { ok: false, error: "diga o tipo do que você precisa (ex: corrida, imóvel, produto...)" };
   }
   const normalizedType = type.trim().toLowerCase();
   if (normalizedType.length > REQUEST_TYPE_MAX_LENGTH) {
@@ -1541,9 +1538,14 @@ function createRequest({ type, title, requester, when, price, whatsapp, location
   if (!Number.isFinite(priceNum) || priceNum < 0) {
     return { ok: false, error: "valor inválido" };
   }
-  // Sem WhatsApp e localização, quem aceitar o pedido não tem como achar
-  // nem contatar quem pediu — por isso os dois são obrigatórios, assim
-  // como o valor.
+  // Sem WhatsApp, quem aceitar o pedido não tem como contatar quem pediu —
+  // continua obrigatório, assim como o valor. Localização (task-009, item
+  // 1) deixou de ser obrigatória: o front-end já tenta extrair
+  // origem/destino de dentro do próprio título quando dá (ex: "Centro →
+  // Rodoviária") e preenche sozinho — exigir de novo aqui bloquearia esse
+  // caso à toa. Quando realmente não vem nenhuma (nem digitada, nem
+  // extraída), o post segue sem local (mostrado como "local não
+  // informado" no card) em vez de travar a publicação.
   if (!whatsapp || typeof whatsapp !== "string" || !whatsapp.trim()) {
     return { ok: false, error: "informe um WhatsApp pra contato" };
   }
@@ -1551,10 +1553,10 @@ function createRequest({ type, title, requester, when, price, whatsapp, location
   if (normalizedWhatsapp.length > REQUEST_WHATSAPP_MAX_LENGTH) {
     return { ok: false, error: `WhatsApp muito longo (máximo ${REQUEST_WHATSAPP_MAX_LENGTH} caracteres)` };
   }
-  if (!location || typeof location !== "string" || !location.trim()) {
-    return { ok: false, error: "informe a localização (cidade/bairro)" };
+  if (location !== undefined && location !== null && typeof location !== "string") {
+    return { ok: false, error: "localização inválida" };
   }
-  const normalizedLocation = location.trim();
+  const normalizedLocation = (location && location.trim()) || "";
   if (normalizedLocation.length > REQUEST_LOCATION_MAX_LENGTH) {
     return { ok: false, error: `localização muito longa (máximo ${REQUEST_LOCATION_MAX_LENGTH} caracteres)` };
   }
