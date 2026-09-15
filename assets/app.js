@@ -1475,7 +1475,11 @@ function formatDateLabel(dateStr) {
   const diffDays = Math.round((target - today) / (24 * 60 * 60 * 1000));
   if (diffDays === 0) return "hoje";
   if (diffDays === 1) return "amanhã";
-  return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
+  // Ano só entra quando é diferente do atual (CodeRabbit, PR #75) — sem
+  // isso, "15/09" escolhido pra 2027 ficaria indistinguível de 15/09 deste
+  // ano pra quem vê o pedido. Dentro do mesmo ano, mantém curto.
+  const dateLabel = `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
+  return y === today.getFullYear() ? dateLabel : `${dateLabel}/${y}`;
 }
 
 // Backend continua guardando "quando" como texto livre (request.when) —
