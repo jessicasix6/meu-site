@@ -62,7 +62,15 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 // nem nenhum outro serviço de rotas — estrada real é sempre mais longa que
 // a linha reta, e esse multiplicador é só uma aproximação grosseira disso,
 // suficiente pra estimativa de rateio de carona (não é a rota exata).
-const DISTANCE_CORRECTION_FACTOR = Number(process.env.DISTANCE_CORRECTION_FACTOR) || 1.3;
+// Number(process.env...) || 1.3 sozinho deixaria passar qualquer valor
+// "truthy" incluindo negativo ou Infinity (ex: DISTANCE_CORRECTION_FACTOR="-1"
+// gera distância negativa, guardada e devolvida por groupSummary() —
+// achado do CodeRabbit, PR #74) — por isso a validação explícita abaixo.
+const configuredDistanceCorrectionFactor = Number(process.env.DISTANCE_CORRECTION_FACTOR);
+const DISTANCE_CORRECTION_FACTOR =
+  Number.isFinite(configuredDistanceCorrectionFactor) && configuredDistanceCorrectionFactor > 0
+    ? configuredDistanceCorrectionFactor
+    : 1.3;
 
 function estimatedRoadDistanceKm(lat1, lng1, lat2, lng2) {
   return haversineKm(lat1, lng1, lat2, lng2) * DISTANCE_CORRECTION_FACTOR;
