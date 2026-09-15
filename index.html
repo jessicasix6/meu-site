@@ -74,6 +74,10 @@
                 <label for="auth-password">Senha</label>
                 <input id="auth-password" name="password" type="password" placeholder="mínimo 8 caracteres" required />
               </div>
+              <!-- ALTCHA (task-008) só é inserido aqui via JS, e só se o servidor confirmar que está configurado
+                   (ver /api/auth/config em assets/app.js) — sem isso, o widget tentaria buscar um desafio que
+                   não existe (503) e travaria o envio do formulário à toa. -->
+              <div class="post-field post-field--wide" data-auth-field="altcha" id="email-auth-altcha-slot" hidden></div>
               <button type="submit" class="post-submit" id="email-auth-submit">Entrar</button>
             </form>
             <p id="email-auth-status" class="post-status" aria-live="polite"></p>
@@ -408,6 +412,8 @@
             <input id="group-name" name="name" type="text" placeholder="ex: João" />
           </div>
           <button type="button" id="group-price-reference-btn" class="cta-secondary">Ver preços de referência</button>
+          <!-- Mesma lógica do slot em #email-auth-form: só ganha o widget de verdade via JS, se configurado. -->
+          <div class="post-field post-field--wide" id="group-altcha-slot"></div>
           <button type="submit" class="post-submit">Criar grupo</button>
         </form>
         <div id="group-price-reference-panel" hidden></div>
@@ -630,6 +636,8 @@
     </form>
   </div>
 
+  <!-- ALTCHA (task-008) — anti-spam sem terceiro, servido do próprio site (ver /vendor/altcha em server.js). -->
+  <script type="module" src="/vendor/altcha/altcha.min.js"></script>
   <script src="assets/app.js"></script>
   <script>
     if ("serviceWorker" in navigator) {

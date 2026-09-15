@@ -8,6 +8,11 @@ const { OAuth2Client } = require("google-auth-library");
 const bcrypt = require("bcryptjs");
 const multer = require("multer");
 const Minio = require("minio");
+// v1 (não a v2 default do pacote) porque é o formato que o widget do
+// front-end (pacote "altcha") resolve nativamente sem configuração extra —
+// challenge simples (SHA-256 + salt + assinatura), sem escolher algoritmo de
+// derivação de chave à parte.
+const { createChallenge: createAltchaChallenge, verifySolution: verifyAltchaSolution } = require("altcha-lib/v1");
 const sharp = require("sharp");
 const ort = require("onnxruntime-node");
 const { BackgroundRemover } = require("@tugrul/rembg");
@@ -720,6 +725,9 @@ if (minioClient) {
   });
 }
 app.use("/uploads", express.static(UPLOADS_DIR));
+// Widget do ALTCHA (task-008) servido do próprio site, não de CDN de
+// terceiro — pacote já baixado via npm, só expõe o bundle pronto.
+app.use("/vendor/altcha", express.static(path.join(__dirname, "node_modules", "altcha", "dist", "main")));
 app.use(express.static(__dirname));
 
 // Pilar 4.13 — login com Google, opcional (perfil continua podendo ser
@@ -789,6 +797,67 @@ function publicUserFields(user) {
   };
 }
 
+// Anti-spam (task-008) — ALTCHA: proof-of-work resolvido no navegador,
+// verificado aqui sem nenhum serviço de terceiro. ALTCHA_HMAC_KEY assina o
+// desafio pra garantir que a solução veio de um desafio que este servidor
+// gerou (não um forjado). Sem a chave configurada, a checagem sempre passa
+// (mesmo padrão de infra opcional de sempre) — proteger contra spam é bônus,
+// não pode travar o cadastro/post de ninguém se não estiver configurada.
+function isAltchaConfigured() {
+  return Boolean(process.env.ALTCHA_HMAC_KEY);
+}
+
+const ALTCHA_EXPIRES_MS = 5 * 60 * 1000;
+
+// verifySolution (v1) só confere assinatura HMAC + expiração — não impede
+// reenviar a MESMA solução válida várias vezes antes de expirar. Guarda as
+// assinaturas já usadas (com o mesmo prazo do desafio) pra cada uma só
+// contar uma vez — sem isso, um payload capturado (ex: inspecionando a
+// rede) poderia ser reaproveitado pra passar pelo anti-spam repetidas vezes.
+const ALTCHA_USED_SIGNATURES = new Map();
+
+function isAltchaSignatureReused(signature) {
+  const now = Date.now();
+  for (const [sig, expiresAt] of ALTCHA_USED_SIGNATURES) {
+    if (expiresAt < now) ALTCHA_USED_SIGNATURES.delete(sig);
+  }
+  if (ALTCHA_USED_SIGNATURES.has(signature)) return true;
+  ALTCHA_USED_SIGNATURES.set(signature, now + ALTCHA_EXPIRES_MS);
+  return false;
+}
+
+async function verifyAltcha(payload) {
+  if (!isAltchaConfigured()) return true;
+  if (!payload || typeof payload !== "string") return false;
+  try {
+    const verified = await verifyAltchaSolution(payload, process.env.ALTCHA_HMAC_KEY, true);
+    if (!verified) return false;
+    const { signature } = JSON.parse(Buffer.from(payload, "base64").toString("utf-8"));
+    if (!signature || isAltchaSignatureReused(signature)) return false;
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+app.get("/api/altcha-challenge", async (req, res) => {
+  if (!isAltchaConfigured()) return res.status(503).json({ error: "anti-spam não configurado neste servidor" });
+  try {
+    // maxNumber baixo de propósito: o objetivo aqui é filtrar bot em massa
+    // (custo marginal por tentativa), não virar fricção perceptível pra
+    // gente de verdade preenchendo um formulário — poucos segundos de
+    // proof-of-work em background (auto="onfocus") já cumprem isso.
+    const challenge = await createAltchaChallenge({
+      hmacKey: process.env.ALTCHA_HMAC_KEY,
+      maxNumber: 20000,
+      expires: new Date(Date.now() + ALTCHA_EXPIRES_MS),
+    });
+    res.json(challenge);
+  } catch (err) {
+    res.status(500).json({ error: "falha ao gerar desafio anti-spam" });
+  }
+});
+
 // Estatísticas do site (task-008) — Umami self-hosted, sem mandar dado de
 // visita pra terceiro (Google Analytics etc). UMAMI_SCRIPT_URL é a URL do
 // script de rastreamento da própria instância (ex:
@@ -802,6 +871,7 @@ function isUmamiConfigured() {
 app.get("/api/auth/config", (req, res) => {
   res.json({
     googleClientId: process.env.GOOGLE_CLIENT_ID || null,
+    altchaConfigured: isAltchaConfigured(),
     umamiScriptUrl: isUmamiConfigured() ? process.env.UMAMI_SCRIPT_URL : null,
     umamiWebsiteId: isUmamiConfigured() ? process.env.UMAMI_WEBSITE_ID : null,
   });
@@ -878,6 +948,9 @@ const isLoginRateLimited = makeHourlyRateLimiter(30);
 app.post("/api/auth/signup", async (req, res) => {
   if (isSignupRateLimited(req.ip)) {
     return res.status(429).json({ error: "muitas tentativas de cadastro a partir daqui — tente de novo mais tarde" });
+  }
+  if (!(await verifyAltcha((req.body || {}).altcha))) {
+    return res.status(400).json({ error: "verificação anti-spam inválida — recarregue a página e tente de novo" });
   }
   const { name, email, password, whatsapp } = req.body || {};
   if (!name || typeof name !== "string" || !name.trim()) {
@@ -2220,9 +2293,12 @@ function handleCreateCaronaGroup(req, res) {
   res.status(201).json({ ...groupSummary(group), suggestions: findGroupSuggestions(group) });
 }
 
-app.post("/api/groups", (req, res) => {
+app.post("/api/groups", async (req, res) => {
   if (isGroupCreateRateLimited(req.ip)) {
     return res.status(429).json({ error: "muitos grupos criados recentemente a partir daqui — tente de novo mais tarde" });
+  }
+  if (!(await verifyAltcha((req.body || {}).altcha))) {
+    return res.status(400).json({ error: "verificação anti-spam inválida — recarregue a página e tente de novo" });
   }
   // Reputação abaixo do limiar (task-004) bloqueia criar grupo novo, mesma
   // regra de POST /api/providers — participar de grupo já existente continua
@@ -2903,6 +2979,7 @@ app.get("/health", (req, res) => {
     geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
     googleLoginConfigured: Boolean(googleClient),
     minioConfigured: Boolean(minioClient),
+    altchaConfigured: isAltchaConfigured(),
     umamiConfigured: isUmamiConfigured(),
     uptimeSeconds: Math.round(process.uptime()),
   });

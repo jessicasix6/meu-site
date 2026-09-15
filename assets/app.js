@@ -1343,6 +1343,7 @@ groupForm.addEventListener("submit", async (event) => {
     if (!res.ok) {
       groupStatus.textContent = result.error || "Não consegui criar o grupo.";
       groupStatus.className = "post-status post-status--error";
+      resetAltchaWidget("group-altcha-slot");
       return;
     }
     groupStatus.textContent = "Grupo criado!";
@@ -1355,10 +1356,15 @@ groupForm.addEventListener("submit", async (event) => {
     groupPriceReferencePanel.hidden = true;
     groupPriceReferencePanel.innerHTML = "";
     groupForm.hidden = true;
+    // A solução do desafio já foi consumida nesta criação — o formulário
+    // pode ser reaberto pra criar outro grupo depois, então precisa de um
+    // desafio novo já pronto pra essa próxima vez.
+    resetAltchaWidget("group-altcha-slot");
     await loadGroups();
   } catch (err) {
     groupStatus.textContent = "Falha de conexão. Tente de novo.";
     groupStatus.className = "post-status post-status--error";
+    resetAltchaWidget("group-altcha-slot");
   } finally {
     submitBtn.disabled = false;
   }
@@ -1700,6 +1706,7 @@ function updateEmailAuthMode() {
   const isSignup = emailAuthMode === "signup";
   emailAuthForm.querySelector('[data-auth-field="name"]').hidden = !isSignup;
   emailAuthForm.querySelector('[data-auth-field="whatsapp"]').hidden = !isSignup;
+  emailAuthForm.querySelector('[data-auth-field="altcha"]').hidden = !isSignup;
   document.getElementById("auth-name").required = isSignup;
   document.getElementById("auth-whatsapp").required = isSignup;
   emailAuthSubmit.textContent = isSignup ? "Criar conta" : "Entrar";
@@ -1735,15 +1742,20 @@ emailAuthForm.addEventListener("submit", async (event) => {
     if (!res.ok) {
       emailAuthStatus.textContent = result.error || "Não consegui completar.";
       emailAuthStatus.className = "post-status post-status--error";
+      resetAltchaWidget("email-auth-altcha-slot");
       return;
     }
     const meRes = await fetch("/api/auth/me");
     const me = meRes.ok ? await meRes.json() : { providers: [], groups: [], requests: [] };
     renderLoggedInUser(result.user, me.providers, me.groups, me.requests);
     emailAuthForm.reset();
+    // Mesma lógica do grupo: se a pessoa deslogar e cadastrar outra conta
+    // sem recarregar a página, precisa de um desafio novo.
+    resetAltchaWidget("email-auth-altcha-slot");
   } catch (err) {
     emailAuthStatus.textContent = "Falha de conexão. Tente de novo.";
     emailAuthStatus.className = "post-status post-status--error";
+    resetAltchaWidget("email-auth-altcha-slot");
   } finally {
     emailAuthSubmit.disabled = false;
   }
@@ -2063,9 +2075,42 @@ function initGoogleSignIn(clientId, attemptsLeft) {
   google.accounts.id.renderButton(googleSigninSlot, { theme: "outline", size: "medium", locale: "pt-BR" });
 }
 
+// ALTCHA (task-008) — só cria o widget de verdade se o servidor confirmar
+// que está configurado (ALTCHA_HMAC_KEY). Nunca deixa o elemento parado no
+// HTML sem isso: ele tentaria buscar um desafio em /api/altcha-challenge que
+// não existe (503) e, sem solução nenhuma, travaria o envio do formulário
+// pela validação nativa do HTML5 — pior que não ter anti-spam nenhum.
+function createAltchaWidget(slot) {
+  if (!slot) return;
+  const widget = document.createElement("altcha-widget");
+  widget.setAttribute("challenge", "/api/altcha-challenge");
+  widget.setAttribute("auto", "onfocus");
+  widget.setAttribute("hidelogo", "");
+  slot.appendChild(widget);
+}
+
+// Uma solução do ALTCHA só vale uma vez (proteção contra replay no
+// servidor) — se o envio falhar por QUALQUER motivo (e-mail já cadastrado,
+// queda de conexão, etc), a solução que já foi resolvida fica queimada. Sem
+// recriar o widget aqui, a pessoa tentaria de novo com o mesmo desafio já
+// usado e cairia sempre em "verificação anti-spam inválida", mascarando o
+// erro de verdade (achado na revisão do CodeRabbit, PR #68). Só recria se
+// já existia um widget de verdade (ALTCHA configurado) — no-op sem isso.
+function resetAltchaWidget(slotId) {
+  const slot = document.getElementById(slotId);
+  if (!slot || !slot.querySelector("altcha-widget")) return;
+  slot.innerHTML = "";
+  createAltchaWidget(slot);
+}
+
 fetch("/api/auth/config")
   .then((res) => res.json())
   .then(async (config) => {
+    if (config.altchaConfigured) {
+      createAltchaWidget(document.getElementById("email-auth-altcha-slot"));
+      createAltchaWidget(document.getElementById("group-altcha-slot"));
+    }
+
     // Estatísticas do site (task-008) — Umami self-hosted, sem mandar dado
     // de visita pra terceiro. Só injeta o script se as duas variáveis
     // estiverem configuradas no servidor; sem elas, o site funciona
