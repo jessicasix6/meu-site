@@ -392,7 +392,12 @@ a {
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--text-dim);
-  background: transparent;
+  /* task-011 item 1: vidro fosco também nos botões-pílula (categoria de
+     grupo, tipo de corrida, modo Solicito/Presto, tabs de entrar/criar
+     conta) em vez de fundo transparente liso — mesmo token do resto do
+     site. */
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
   border: 1px solid var(--border-strong);
   border-radius: 999px;
   cursor: pointer;
@@ -745,6 +750,31 @@ a {
   border-color: var(--accent);
 }
 
+/* task-011 item 1: .cta-secondary sozinha (fundo/borda só de link, sem
+   reset de <button>) deixava todo botão secundário do site (Entrar,
+   "+ Criar um grupo", "Usar minha localização", etc.) com o cinza padrão
+   do navegador por baixo do texto sublinhado — a "cor solta fora do
+   token" que a Jéssica reportou. Seletor por elemento (button.cta-secondary)
+   afeta só os <button>, sem mudar o link de texto puro do hero
+   ("Ver quem está bem avaliado", esse continua com a cara de link). */
+button.cta-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.1rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+
+button.cta-secondary:hover {
+  background: var(--glass-bg);
+  border-color: var(--accent);
+}
+
 .hero-examples {
   display: flex;
   align-items: center;
@@ -764,7 +794,9 @@ a {
   font-size: 0.82rem;
   font-family: var(--font-body);
   color: var(--text-dim);
-  background: transparent;
+  /* task-011 item 1: mesmo vidro fosco dos outros botões-pílula do site. */
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
   border: 1px solid var(--border-strong);
   border-radius: 999px;
   cursor: pointer;
@@ -1170,31 +1202,13 @@ a {
   white-space: nowrap;
 }
 
-/* task-009 item 4: "Perguntar" saiu do menu do topo e mora aqui agora —
-   cor de destaque (mesma do resto dos CTAs primários do site) pra ficar
-   bem visível ao lado dos dois botões de modo, que são neutros.
-   Brilho forte (Jéssica, 2026-09-15) só AQUI, de propósito — é a única
-   ação primária que aparece em toda tela (barra fixa), então é o único
-   botão do site com glow; outro CTA brilhando junto cancelaria o efeito. */
-.bottom-ask-btn {
-  flex-shrink: 0;
-  padding: 0.4rem 0.85rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  font-family: var(--font-body);
-  white-space: nowrap;
-  border: none;
-  border-radius: 999px;
-  background: var(--accent);
-  color: var(--accent-ink);
-  cursor: pointer;
+/* task-011 item 2: botão "Perguntar" removido da barra flutuante — hero
+   "Perguntar agora" já cobre essa ação com destaque, repetir embaixo só
+   duplicava. Brilho forte (princípio definido na task-009) migra pro modo
+   ativo aqui, que passa a ser a única ação primária fixa em toda tela —
+   continua valendo "só um brilho por vez", só troca de dono. */
+.bottom-mode-btn.is-active {
   box-shadow: 0 0 14px rgba(33, 230, 193, 0.55), 0 0 2px rgba(33, 230, 193, 0.8);
-  transition: background 0.15s ease, box-shadow 0.15s ease;
-}
-
-.bottom-ask-btn:hover {
-  background: #3df2cd;
-  box-shadow: 0 0 20px rgba(33, 230, 193, 0.7), 0 0 3px rgba(33, 230, 193, 0.9);
 }
 
 .bottom-search-bar {
