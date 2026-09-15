@@ -232,6 +232,14 @@ Esse é o coração diferencial da ideia, mais importante que qualquer integraç
 - **Gancho de IA como fallback opcional:** `searchWithAiFallback()` existe mas sempre retorna `null` (`SEARCH_AI_FALLBACK_ENABLED = false`, hardcoded) — nenhuma chamada de rede externa acontece em nenhum fluxo desta busca. `// TODO: fallback de IA (Groq, gratuito, sem cartão) — ativar só se o dicionário de sinônimos não for suficiente na prática`, exatamente como pedido no task. Se algum dia for ativado de verdade, aplicar um limite de chamadas por IP/pessoa por dia antes (mesmo padrão de `makeHourlyRateLimiter`, já usado em outros endpoints) — não implementado agora porque não há nada rodando que precise ser limitado ainda.
 - **Status (2026-09-14): implementado e testado.** Fora do escopo do task-005 por decisão explícita da Jéssica (comentário no próprio arquivo da tarefa): geolocalização real (mapa, distância em km) fica pra depois — a comparação de local continua só por texto.
 
+### 4.18 Referência de preço externa nos Grupos de Economia, sem IA (task-007)
+
+- **Origem (2026-09-14, Jéssica, task-007):** quem cria um post de Grupos de Economia (ex: "quero dividir assinatura de streaming", "quero fazer um frete pra Contagem") muitas vezes não sabe se o preço que vai pedir/pagar é razoável. Em vez de um agente de IA opinando sobre preço (custo, e risco de "inventar" número), busca direto na web (SearXNG/Brave, mesmo caminho grátis-primeiro da seção 4.3) e mostra os resultados crus — a pessoa decide sozinha o que é razoável.
+- **`GET /api/price-reference?description=X&local=Y`**: usa `searchWebStructured` (variante estruturada — array de `{title, url, snippet}`, não a string pronta pra chat — do mesmo `searchWeb` da seção 4.3/4.17) pra montar a query e devolver os resultados como dados, não texto formatado. Rate-limited por IP (`makeHourlyRateLimiter`, mesmo padrão já usado em outros endpoints) pra não estourar o fallback pago (Brave) se alguém abusar.
+- **Nunca trava a tela nem quebra o formulário:** sem `SEARXNG_URL` nem `BRAVE_SEARCH_API_KEY` configuradas, ou qualquer falha na busca, devolve `{ available: false, results: [] }` (200, não erro) — o botão "Ver preços de referência" simplesmente informa que a referência não está disponível agora, sem impedir a pessoa de publicar o post normalmente.
+- **UI:** botão "Ver preços de referência" no formulário de criar post de Grupos de Economia, ao lado do campo de descrição — mostra os resultados (título + link + trecho) num painel, sem nenhum texto gerado por IA em cima deles.
+- **Status (2026-09-14): implementado e testado.**
+
 ## 5. Como isso se conecta com o que já existe no site hoje
 
 O site atual (top3profissional.com.br) já tem, em produção:

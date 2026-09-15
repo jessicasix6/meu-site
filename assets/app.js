@@ -577,6 +577,8 @@ const groupCreateToggle = document.getElementById("group-create-toggle");
 const groupForm = document.getElementById("group-form");
 const groupStatus = document.getElementById("group-status");
 const groupSuggestions = document.getElementById("group-suggestions");
+const groupPriceReferenceBtn = document.getElementById("group-price-reference-btn");
+const groupPriceReferencePanel = document.getElementById("group-price-reference-panel");
 let currentGroupCategory = "";
 
 // Busca extra de carona (origem/destino/data/perto de mim) — só aparece
@@ -1251,6 +1253,51 @@ function renderGroupSuggestions(suggestions) {
   `;
 }
 
+// Referência de preço externa (task-007), sem IA — busca crua na web
+// (mesma fonte de sempre: SearXNG grátis, Brave como fallback) só pra
+// mostrar preços reais de referência antes de publicar. Nunca resume nem
+// interpreta os resultados — a pessoa lê e decide sozinha.
+groupPriceReferenceBtn.addEventListener("click", async () => {
+  const description = document.getElementById("group-title").value.trim();
+  const local = document.getElementById("group-city").value.trim();
+  if (!description) {
+    document.getElementById("group-title").focus();
+    return;
+  }
+  groupPriceReferenceBtn.disabled = true;
+  groupPriceReferencePanel.hidden = false;
+  groupPriceReferencePanel.innerHTML = "buscando preços de referência…";
+
+  try {
+    const res = await fetch(`/api/price-reference?description=${encodeURIComponent(description)}&local=${encodeURIComponent(local)}`);
+    const data = await res.json();
+    if (!res.ok || !data.available || data.results.length === 0) {
+      groupPriceReferencePanel.innerHTML = '<p class="user-panel-empty">Referência de preço não disponível no momento.</p>';
+      return;
+    }
+    groupPriceReferencePanel.innerHTML = `
+      <ul class="user-panel-list">
+        ${data.results
+          .map(
+            (r) => `
+          <li class="user-panel-item">
+            <span>
+              <a href="${escapeHtml(r.url)}" target="_blank" rel="noopener noreferrer"><strong>${escapeHtml(r.title)}</strong></a>
+              <br />
+              <span class="user-panel-empty">${escapeHtml(r.snippet)}</span>
+            </span>
+          </li>`
+          )
+          .join("")}
+      </ul>
+    `;
+  } catch (err) {
+    groupPriceReferencePanel.innerHTML = '<p class="user-panel-empty">Referência de preço não disponível no momento.</p>';
+  } finally {
+    groupPriceReferenceBtn.disabled = false;
+  }
+});
+
 groupForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const data = new FormData(groupForm);
@@ -1291,6 +1338,8 @@ groupForm.addEventListener("submit", async (event) => {
     updateGroupFormFieldsForCategory();
     delete caronaHorarioInput.dataset.touched;
     caronaLocationStatus.textContent = "";
+    groupPriceReferencePanel.hidden = true;
+    groupPriceReferencePanel.innerHTML = "";
     groupForm.hidden = true;
     await loadGroups();
   } catch (err) {
