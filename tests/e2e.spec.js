@@ -294,22 +294,6 @@ test.describe("Top3Profissional - fluxo básico", () => {
     await expect(item).toContainText("31988887777");
   });
 
-  test("busca via agente responde de verdade (só roda com ANTHROPIC_API_KEY configurada)", async ({ page }) => {
-    test.skip(!process.env.ANTHROPIC_API_KEY, "precisa de ANTHROPIC_API_KEY pra testar o agente de verdade");
-
-    await page.goto("/");
-    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
-    // Fora dos serviços cadastrados e sem palavra de corrida/carona — cai no
-    // texto de IA (ranking e corridas são testados à parte, sem gastar
-    // chamada de IA pra isso).
-    await searchInput.fill("conserto de geladeira hoje");
-    await searchInput.press("Enter");
-
-    const answer = page.locator(".result-answer");
-    await expect(answer).toBeVisible({ timeout: 15000 });
-    await expect(answer).not.toHaveClass(/result-answer--error/);
-  });
-
   test("busca por serviço cadastrado mostra o ranking filtrado — sem gastar chamada de IA", async ({ page }) => {
     await page.goto("/");
     const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
@@ -344,56 +328,21 @@ test.describe("Top3Profissional - fluxo básico", () => {
     await expect(page.locator(".result-answer")).not.toBeVisible();
   });
 
-  test("busca fora do catálogo interno aciona a busca na web (só roda com Anthropic + SearXNG/Brave configurados)", async ({ page }) => {
+  test("busca fora do catálogo interno mostra os resultados da web direto, sem IA (só roda com SearXNG/Brave configurados)", async ({
+    page,
+  }) => {
     test.skip(
-      !process.env.ANTHROPIC_API_KEY || !(process.env.SEARXNG_URL || process.env.BRAVE_SEARCH_API_KEY),
-      "precisa de ANTHROPIC_API_KEY e (SEARXNG_URL ou BRAVE_SEARCH_API_KEY) pra testar a busca na web de verdade"
+      !(process.env.SEARXNG_URL || process.env.BRAVE_SEARCH_API_KEY),
+      "precisa de SEARXNG_URL ou BRAVE_SEARCH_API_KEY pra testar a busca na web de verdade"
     );
-
     await page.goto("/");
     const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
     await searchInput.fill("terreno barato em Contagem");
     await searchInput.press("Enter");
-
     const answer = page.locator(".result-answer");
-    await expect(answer).toBeVisible({ timeout: 20000 });
+    await expect(answer).toBeVisible({ timeout: 15000 });
     await expect(answer).not.toHaveClass(/result-answer--error/);
-  });
-
-  test("publicar pedido por conversa, sem formulário (pilar 4.6 — só roda com ANTHROPIC_API_KEY)", async ({
-    request,
-  }) => {
-    test.skip(!process.env.ANTHROPIC_API_KEY, "precisa de ANTHROPIC_API_KEY pra testar o agente de verdade");
-
-    const before = await (await request.get("/api/requests")).json();
-
-    const res = await request.post("/api/chat", {
-      data: {
-        message:
-          "quero publicar uma corrida do Centro pra Rodoviária hoje às 20h, pago R$25, meu whatsapp é 31999990000, em Belo Horizonte",
-      },
-    });
-    expect(res.status()).toBe(200);
-    const { reply } = await res.json();
-    expect(reply.toLowerCase()).toMatch(/public/);
-
-    const after = await (await request.get("/api/requests")).json();
-    expect(after.requests.length).toBe(before.requests.length + 1);
-    expect(after.requests[0].type).toBe("corrida");
-    expect(after.requests[0].price).toBe(25);
-  });
-
-  test("descrever o que precisa, sem confirmar publicação, não publica nada sozinho", async ({ request }) => {
-    test.skip(!process.env.ANTHROPIC_API_KEY, "precisa de ANTHROPIC_API_KEY pra testar o agente de verdade");
-
-    const before = await (await request.get("/api/requests")).json();
-
-    await request.post("/api/chat", {
-      data: { message: "procuro uma corrida do Barreiro pro Centro amanhã de manhã" },
-    });
-
-    const after = await (await request.get("/api/requests")).json();
-    expect(after.requests.length).toBe(before.requests.length);
+    await expect(answer.locator("a").first()).toHaveAttribute("href", /^https?:\/\//);
   });
 });
 

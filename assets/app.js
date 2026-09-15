@@ -431,9 +431,31 @@ function safeHref(url) {
   }
 }
 
+// Sem a Claude escrevendo a resposta (decisão da Jéssica, 2026-09-14), o
+// texto que chega aqui agora é a lista de resultados de busca crua (título +
+// URL + trecho) — precisa virar link clicável de verdade, senão a pessoa não
+// consegue visitar o site sem copiar e colar a URL na mão. O regex só casa
+// string que já começa literalmente com "http://"/"https://", então nunca
+// linkifica um esquema perigoso tipo "javascript:" sozinho — safeHref (ver
+// price-reference) ainda confere de novo antes de virar href, por segurança.
 function formatMessage(text) {
   return escapeHtml(text)
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    // "url" aqui já veio de escapeHtml(text) acima — está pronto pra ir
+    // direto num atributo HTML, não escapar de novo (senão vira "&amp;amp;"
+    // em qualquer URL com "&" de verdade, ex: query string de busca).
+    // Pontuação de fim de frase colada na URL (ex: "...achados em
+    // https://exemplo.com.") não faz parte do link — sem separar isso, ela
+    // vira parte do href de verdade (achado na revisão do CodeRabbit, PR #69).
+    .replace(/(https?:\/\/[^\s<]+)/g, (url) => {
+      const trailingMatch = url.match(/[.,;:!?)]+$/);
+      const trailing = trailingMatch ? trailingMatch[0] : "";
+      const cleanUrl = trailing ? url.slice(0, -trailing.length) : url;
+      const href = safeHref(cleanUrl);
+      return href
+        ? `<a href="${href}" target="_blank" rel="noopener noreferrer">${cleanUrl}</a>${trailing}`
+        : url;
+    })
     .replace(/\n/g, "<br>");
 }
 
@@ -441,7 +463,7 @@ function renderResult(query, state, text) {
   chatSection.hidden = false;
   const actionButton =
     state === "ok"
-      ? '<button type="button" class="result-action-btn" id="result-solicitar-btn">Solicitar / publicar pedido</button>'
+      ? '<button type="button" class="result-action-btn" id="result-solicitar-btn">Ir para o formulário de pedido</button>'
       : "";
   results.innerHTML = `
     <p class="result-query">Resultados para "${escapeHtml(query)}"</p>
@@ -2072,7 +2094,17 @@ function initGoogleSignIn(clientId, attemptsLeft) {
     return;
   }
   google.accounts.id.initialize({ client_id: clientId, callback: handleGoogleCredential });
-  google.accounts.id.renderButton(googleSigninSlot, { theme: "outline", size: "medium", locale: "pt-BR" });
+  // Botão "standard" (com texto "Fazer login com o Google") tem largura fixa
+  // ~240px — em telas estreitas (mesmo corte de .site-nav no CSS) isso vaza
+  // pra fora do header, cortado. "icon" é um botão circular compacto, cabe
+  // em qualquer largura.
+  const isNarrow = window.innerWidth < 640;
+  google.accounts.id.renderButton(googleSigninSlot, {
+    theme: "outline",
+    size: "medium",
+    type: isNarrow ? "icon" : "standard",
+    locale: "pt-BR",
+  });
 }
 
 // ALTCHA (task-008) — só cria o widget de verdade se o servidor confirmar
