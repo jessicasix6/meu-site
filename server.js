@@ -561,7 +561,22 @@ const UPLOADS_DIR = path.join(__dirname, "uploads");
 // "/uploads/providers/<id>/<arquivo>" de sempre, funcionando com o
 // domínio/TLS que o site já tem, sem precisar de subdomínio nem certificado
 // novo só pro MinIO.
+// Só dispensa HTTPS (MINIO_USE_SSL=true) pra um endereço que nunca sai da
+// própria máquina/rede privada do VPS — qualquer host roteável de verdade
+// sem TLS mandaria credencial e foto em texto puro pela rede.
+function isLocalOrPrivateHost(host) {
+  if (host === "localhost" || host === "127.0.0.1" || host === "::1") return true;
+  return /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host) ||
+    /^192\.168\.\d{1,3}\.\d{1,3}$/.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/.test(host);
+}
+
 const MINIO_BUCKET = process.env.MINIO_BUCKET || "top3-uploads";
+if (process.env.MINIO_ENDPOINT && process.env.MINIO_USE_SSL !== "true" && !isLocalOrPrivateHost(process.env.MINIO_ENDPOINT)) {
+  throw new Error(
+    `MINIO_ENDPOINT="${process.env.MINIO_ENDPOINT}" não é local/privado — configure MINIO_USE_SSL=true, ou aponte pra um endereço só da rede interna do VPS (localhost, 127.0.0.1, ou IP privado).`
+  );
+}
 const minioClient = process.env.MINIO_ENDPOINT
   ? new Minio.Client({
       endPoint: process.env.MINIO_ENDPOINT,
@@ -585,6 +600,12 @@ const minioBucketReady = minioClient
         throw err;
       })
   : null;
+// Observador silencioso, só pra evitar o warning de "unhandled rejection" do
+// Node caso a falha aconteça antes de qualquer upload/leitura chegar a dar
+// await nessa mesma promise (ela continua rejeitando de verdade pra quem
+// espera — isso aqui não engole o erro, só marca que alguém já está ciente).
+if (minioBucketReady) minioBucketReady.catch(() => {});
+
 if (!minioClient) {
   fs.mkdirSync(path.join(UPLOADS_DIR, "providers"), { recursive: true });
   console.warn("MINIO_ENDPOINT não definida — fotos de perfil ficam salvas em disco local (uploads/), como antes.");

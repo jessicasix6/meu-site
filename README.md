@@ -52,8 +52,8 @@ npm start
 | `MINIO_ENDPOINT` | não | Host de uma instância do [MinIO](https://min.io/) (self-hosted, compatível com S3, grátis, sem custo por uso — task-008), usada pra guardar foto de perfil profissional. Sem ela, as fotos continuam sendo salvas em disco local (`uploads/`), como sempre foi. Pode ser um endereço só da rede interna do VPS (ex: `localhost`) — o MinIO nunca precisa ser alcançável pelo navegador de quem visita o site: o próprio servidor busca a foto e repassa os bytes (rota `/uploads/providers/...`), então não precisa de domínio nem certificado TLS próprio pro MinIO. |
 | `MINIO_PORT` | não | Porta do MinIO (padrão `9000` se não informar). |
 | `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | não* | Credenciais do MinIO. *Obrigatórias só se `MINIO_ENDPOINT` estiver definida. |
-| `MINIO_BUCKET` | não | Nome do bucket (padrão `top3-uploads`) — criado automaticamente se não existir, sempre privado (URLs de foto são assinadas e expiram em 1h, nunca um link público permanente). |
-| `MINIO_USE_SSL` | não | `true` pra usar HTTPS ao falar com o MinIO (padrão `false` — instância roda só na rede interna do VPS, sem exposição pública). |
+| `MINIO_BUCKET` | não | Nome do bucket (padrão `top3-uploads`) — criado automaticamente se não existir, sempre privado. A URL de foto que o site usa é sempre a mesma (`/uploads/providers/<id>/...`, cacheável por 1h no navegador) — quem serve o arquivo de verdade é o próprio servidor, buscando no MinIO por trás. |
+| `MINIO_USE_SSL` | não | `true` pra usar HTTPS ao falar com o MinIO (padrão `false`, só permitido quando `MINIO_ENDPOINT` é um endereço local/privado — `localhost`, `127.0.0.1` ou IP de rede privada. Um `MINIO_ENDPOINT` roteável de verdade sem `MINIO_USE_SSL=true` é rejeitado na subida do servidor, pra nunca mandar credencial nem foto sem criptografia pela rede). |
 
 ## Integração com WhatsApp
 
