@@ -2519,6 +2519,70 @@ test.describe("Top3Profissional - estatísticas do site via Umami, self-hosted (
   });
 });
 
+test.describe("Top3Profissional - geocodificação via Nominatim público, sem custo (task-008)", () => {
+  function uniqueSuffix() {
+    return Math.random().toString(36).slice(2, 10);
+  }
+
+  test("sem geocodificação (padrão nos testes), criar grupo e carona continua funcionando normalmente", async ({ request }) => {
+    // Padrão real é "desativado" mesmo sem a variável setada (o webServer
+    // aplica DISABLE_GEOCODING || "1" — ver playwright.config.js) — só pula
+    // quando alguém ativa explicitamente com "0".
+    test.skip(process.env.DISABLE_GEOCODING === "0", "esse teste é justamente o caso sem geocodificação — pula quando está ativada de propósito");
+    const res = await request.post("/api/groups", {
+      data: {
+        category: "assinatura",
+        title: `sem geocode ${uniqueSuffix()}`,
+        city: "Cidade Qualquer",
+        targetMembers: 3,
+        estimatedIndividualPrice: 20,
+        tipo: "quero",
+        whatsapp: "31999990000",
+      },
+    });
+    expect(res.status()).toBe(201);
+  });
+
+  test("com geocodificação ativada, sugestão entre grupos usa distância real além do texto (só roda com DISABLE_GEOCODING=0)", async ({
+    request,
+  }) => {
+    test.skip(process.env.DISABLE_GEOCODING !== "0", "precisa rodar com DISABLE_GEOCODING=0 pra testar a geocodificação de verdade");
+
+    // "Contagem" e "Betim" não têm nenhuma substring em comum (o matching
+    // por texto sozinho nunca sugeriria um pro outro) — só ficam pertinho
+    // (~15km, mesma região metropolitana) se a coordenada de verdade
+    // entrar em jogo.
+    const quero = await request.post("/api/groups", {
+      data: {
+        category: "assinatura",
+        title: `quero geocode ${uniqueSuffix()}`,
+        city: "Contagem, MG",
+        targetMembers: 3,
+        estimatedIndividualPrice: 20,
+        tipo: "quero",
+        whatsapp: "31999990010",
+      },
+    });
+    expect(quero.status()).toBe(201);
+
+    const ofereco = await request.post("/api/groups", {
+      data: {
+        category: "assinatura",
+        title: `ofereco geocode ${uniqueSuffix()}`,
+        city: "Betim, MG",
+        targetMembers: 3,
+        estimatedIndividualPrice: 20,
+        tipo: "ofereco",
+        whatsapp: "31999990011",
+      },
+    });
+    expect(ofereco.status()).toBe(201);
+    const { id: querId } = await quero.json();
+    const { suggestions } = await ofereco.json();
+    expect(suggestions.some((s) => s.id === querId)).toBe(true);
+  });
+});
+
 test.describe("Top3Profissional - infra", () => {
   test("/health responde 200 (usado pelo host pra saber se o processo está de pé)", async ({ request }) => {
     const res = await request.get("/health");

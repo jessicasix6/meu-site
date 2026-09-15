@@ -1813,12 +1813,128 @@ function validateGroupFields({ category, title, city, targetMembers, estimatedIn
 const isGroupCreateRateLimited = makeHourlyRateLimiter(40);
 const isGroupJoinRateLimited = makeHourlyRateLimiter(60);
 
+// Geocodificação (task-008) — Nominatim público do próprio OpenStreetMap
+// (nominatim.openstreetmap.org), grátis, sem chave. Self-hosted (Docker)
+// ficou de fora por enquanto: o VPS de produção (1 vCPU, 3.8GB RAM) não
+// aguenta importar o extrato do Brasil inteiro sem risco de derrubar o site
+// (ver docs/visao-produto.md seção 4.19) — a instância pública resolve o
+// mesmo problema sem precisar de servidor nenhum, respeitando a política de
+// uso deles (nominatim.org/release-docs/latest/api/Usage-Policy/): no
+// máximo 1 requisição por segundo, com User-Agent identificando o site.
+//
+// Duas observações da revisão do CodeRabbit (PR #71) que ficam registradas
+// aqui como decisão consciente, não corrigidas:
+// 1) O texto digitado (cidade ou origem da carona) é mandado pro Nominatim
+//    público como parte do próprio processo de geocodificar — isso é
+//    inerente à funcionalidade (não dá pra traduzir texto em coordenada sem
+//    mandar o texto pra quem faz essa tradução), o mesmo vale pra qualquer
+//    app que geocodifica endereço (Google Maps, Uber, etc.) com qualquer
+//    provedor, incluindo um self-hosted. O campo já é tipicamente
+//    cidade/bairro, não endereço completo — mitigar mais que isso (ex:
+//    tentar filtrar "parece endereço residencial") não dá pra fazer de
+//    forma confiável sem heurística frágil, e trocar de provedor
+//    contrariaria a decisão de usar o público justamente por causa do VPS
+//    sem RAM pra self-hosted.
+// 2) O throttle abaixo (nominatimQueue/lastNominatimCallAt) é em memória do
+//    processo — funciona porque o servidor roda como processo único via
+//    systemd (sem PM2 cluster nem múltiplas réplicas atrás de load
+//    balancer, ver .github/workflows/*.yml e a seção "Worker do TOP3" do
+//    README). Se isso mudar um dia (múltiplas instâncias), precisaria virar
+//    um throttle compartilhado (Redis ou parecido) — não implementado agora
+//    porque não existe hoje nenhum banco/cache compartilhado no projeto
+//    (tudo em memória, de propósito, ver docs/visao-produto.md).
+const NOMINATIM_USER_AGENT = "Top3Profissional/1.0 (https://top3profissional.com.br)";
+const NOMINATIM_MIN_INTERVAL_MS = 1100; // margem de segurança acima de 1 req/s
+// Prazo total por chamada, contando o tempo esperando na fila (não só o
+// fetch em si) — achado na revisão do CodeRabbit, PR #71: sem isso, uma
+// rajada de posts criados ao mesmo tempo enfileira várias geocodificações
+// (cada uma esperando ~1.1s pela anterior), e quem criou o post no fim da
+// fila ficaria esperando dezenas de segundos pela resposta HTTP, mesmo o
+// fetch em si sendo rápido. Passado o prazo, abandona sem nem tentar o
+// fetch — geocodificação é sempre um extra opcional, nunca vale a pena
+// segurar a criação do post por muito tempo esperando por ela.
+const GEOCODE_TOTAL_TIMEOUT_MS = 6_000;
+const GEOCODE_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // endereço não muda de um dia pro outro
+const GEOCODE_CACHE = new Map();
+let lastNominatimCallAt = 0;
+// Fila encadeada (não só "esperar desde a última chamada") — evita corrida
+// entre chamadas concorrentes lendo lastNominatimCallAt ao mesmo tempo e
+// furando o intervalo mínimo.
+let nominatimQueue = Promise.resolve();
+
+function normalizeGeocodeQuery(text) {
+  return (text || "").trim().toLowerCase();
+}
+
+// Nunca lança erro nem trava quem chamou — geolocalização real é sempre um
+// extra opcional aqui (mesmo padrão de fallback grátis-primeiro de sempre),
+// o matching por texto (abaixo) continua sendo a base que sempre funciona.
+async function geocodeAddress(query) {
+  // Desativa em testes automatizados (ver playwright.config.js) — sem
+  // chave/env var pra "desligar" como as outras integrações opcionais, essa
+  // aqui está sempre ativa por padrão (é grátis, sem cadastro). Sem esse
+  // escape, a suíte inteira bateria de verdade no Nominatim público a cada
+  // grupo/carona criado nos testes — lento, instável, e arriscaria estourar
+  // a política de uso deles com volume de automação.
+  if (process.env.DISABLE_GEOCODING === "1") return null;
+  const normalized = normalizeGeocodeQuery(query);
+  if (!normalized) return null;
+
+  const cached = GEOCODE_CACHE.get(normalized);
+  if (cached && Date.now() - cached.at < GEOCODE_CACHE_TTL_MS) return cached.result;
+
+  const deadline = Date.now() + GEOCODE_TOTAL_TIMEOUT_MS;
+  const call = nominatimQueue.then(async () => {
+    const timeLeft = deadline - Date.now();
+    if (timeLeft <= 0) return null; // já estourou o prazo só esperando na fila — nem tenta o fetch
+
+    const wait = Math.min(lastNominatimCallAt + NOMINATIM_MIN_INTERVAL_MS - Date.now(), timeLeft);
+    if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+    if (Date.now() >= deadline) return null;
+    lastNominatimCallAt = Date.now();
+
+    try {
+      // Sem piso mínimo aqui de propósito (CodeRabbit, PR #71): um piso tipo
+      // Math.max(.., 1000) deixaria o fetch estourar o prazo total de 6s em
+      // até ~1s quando sobra pouco tempo — recalcula o tempo restante na
+      // hora e desiste antes do fetch se já não sobrou nada.
+      const fetchTimeLeft = deadline - Date.now();
+      if (fetchTimeLeft <= 0) return null;
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(normalized)}&format=json&limit=1&countrycodes=br`;
+      const res = await fetch(url, {
+        headers: { "User-Agent": NOMINATIM_USER_AGENT },
+        signal: AbortSignal.timeout(fetchTimeLeft),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const first = data[0];
+      if (!first) return null;
+      const result = { lat: Number(first.lat), lng: Number(first.lon) };
+      if (!Number.isFinite(result.lat) || !Number.isFinite(result.lng)) return null;
+      return result;
+    } catch (err) {
+      return null;
+    }
+  });
+  // Nunca deixa uma falha travar a fila pras próximas chamadas — cada
+  // requisição trata o próprio erro dentro do .then acima.
+  nominatimQueue = call.catch(() => null);
+
+  const result = await call;
+  // Só cacheia resultado válido — uma falha de rede passageira não deveria
+  // "travar" um endereço como não encontrado até o cache expirar.
+  if (result) GEOCODE_CACHE.set(normalized, { result, at: Date.now() });
+  return result;
+}
+
 // Motor de sugestão automática entre posts opostos (task-005), sem IA —
 // compara texto/categoria/data direto, sem gastar nenhuma chamada de API.
 // "Local parecido" é intencionalmente simples (normaliza acento/maiúscula e
 // compara substring nos dois sentidos) — cobre bem os casos reais óbvios
-// ("Bom Despacho" bate com "bom despacho, mg") sem inventar geolocalização
-// de verdade, que fica fora do escopo desta tarefa.
+// ("Bom Despacho" bate com "bom despacho, mg"). Geolocalização real (lat/lng
+// via geocodeAddress acima) complementa isso como sinal adicional, ver
+// findGroupSuggestions abaixo — o texto continua sendo a base que sempre
+// funciona, mesmo se a geocodificação falhar ou não tiver coordenada.
 function normalizeLocationText(text) {
   return (text || "")
     .toLowerCase()
@@ -1832,6 +1948,19 @@ function locationsMatch(a, b) {
   const nb = normalizeLocationText(b);
   if (!na || !nb) return false;
   return na.includes(nb) || nb.includes(na);
+}
+
+// Sinal adicional além do texto (locationsMatch acima) — cobre o caso de
+// cidades vizinhas na mesma região metropolitana que o texto não capturaria
+// como parecido (ex: "Contagem" e "Betim" não têm substring em comum, mas
+// ficam a uns 15km uma da outra). Só entra em jogo quando os dois lados têm
+// coordenada de verdade (geocodeAddress rodou com sucesso na criação dos
+// dois posts) — sem isso, o matching por texto continua sendo a única base.
+const NEARBY_KM_THRESHOLD = 50;
+
+function locationsNearby(latA, lngA, latB, lngB) {
+  if (![latA, lngA, latB, lngB].every((n) => typeof n === "number" && Number.isFinite(n))) return false;
+  return haversineKm(latA, lngA, latB, lngB) <= NEARBY_KM_THRESHOLD;
 }
 
 const SUGGESTION_DATE_WINDOW_DAYS = 1;
@@ -1898,11 +2027,13 @@ function findGroupSuggestions(group) {
     if (tipoForMatching(g) !== wantedTipo) return false;
     if (group.carona) {
       return (
-        (locationsMatch(g.carona.origemTexto, group.carona.origemTexto) || locationsMatch(g.carona.destinoTexto, group.carona.destinoTexto)) &&
+        (locationsMatch(g.carona.origemTexto, group.carona.origemTexto) ||
+          locationsMatch(g.carona.destinoTexto, group.carona.destinoTexto) ||
+          locationsNearby(g.carona.lat, g.carona.lng, group.carona.lat, group.carona.lng)) &&
         datesCompatible(g.carona.dataViagem, group.carona.dataViagem)
       );
     }
-    return locationsMatch(g.city, group.city);
+    return locationsMatch(g.city, group.city) || locationsNearby(g.lat, g.lng, group.lat, group.lng);
   }).map(suggestionSummary);
 }
 
@@ -2055,7 +2186,7 @@ app.get("/api/groups/:id/suggestions", (req, res) => {
 // diferentes, e "vagas" tem um significado específico), então não força
 // isso dentro de validateGroupFields/criação genérica; reaproveita só o que
 // já é igual (rate limit, título, cidade, WhatsApp, eventos, resposta).
-function handleCreateCaronaGroup(req, res) {
+async function handleCreateCaronaGroup(req, res) {
   const caronaFields = validateCaronaFields(req.body || {});
   if (!caronaFields.ok) {
     return res.status(400).json({ error: caronaFields.error });
@@ -2079,6 +2210,22 @@ function handleCreateCaronaGroup(req, res) {
   const normalizedWhatsapp = whatsapp.trim();
   if (normalizedWhatsapp.length > REQUEST_WHATSAPP_MAX_LENGTH) {
     return res.status(400).json({ error: `WhatsApp muito longo (máximo ${REQUEST_WHATSAPP_MAX_LENGTH} caracteres)` });
+  }
+
+  // Geocodificação só depois de TODAS as validações síncronas acima
+  // (achado na revisão do CodeRabbit, PR #71) — sem isso, um POST com
+  // título/cidade/whatsapp inválido ainda gastava uma chamada de rede no
+  // Nominatim antes de descobrir que a requisição ia falhar de qualquer
+  // jeito. Sem coordenada vinda do navegador (botão "usar minha
+  // localização" não usado), tenta geocodificar o texto da origem digitado
+  // — best-effort, segue em frente com lat/lng null se falhar, o matching
+  // por texto (locationsMatch) continua funcionando normalmente sem isso.
+  if (caronaFields.lat == null || caronaFields.lng == null) {
+    const geocoded = await geocodeAddress(caronaFields.origemTexto);
+    if (geocoded) {
+      caronaFields.lat = geocoded.lat;
+      caronaFields.lng = geocoded.lng;
+    }
   }
 
   // Motorista: "vagas" são assentos de PASSAGEIRO — o motorista não é um
@@ -2157,18 +2304,24 @@ app.post("/api/groups", async (req, res) => {
   }
   const normalizedCategory = typeof (req.body || {}).category === "string" ? req.body.category.trim().toLowerCase() : "";
   if (normalizedCategory === "carona") {
-    return handleCreateCaronaGroup(req, res);
+    return await handleCreateCaronaGroup(req, res);
   }
   const fields = validateGroupFields(req.body || {});
   if (!fields.ok) {
     return res.status(400).json({ error: fields.error });
   }
   const { name } = req.body || {};
+  // Best-effort: geocodifica a cidade digitada pra ter coordenada real como
+  // sinal extra de "local parecido" (findGroupSuggestions) além do texto —
+  // segue em frente com lat/lng null se a geocodificação falhar.
+  const geocoded = await geocodeAddress(fields.city);
   const group = {
     id: `g${nextGroupId++}`,
     category: fields.category,
     title: fields.title,
     city: fields.city,
+    lat: geocoded ? geocoded.lat : null,
+    lng: geocoded ? geocoded.lng : null,
     targetMembers: fields.targetMembers,
     estimatedIndividualPrice: fields.estimatedIndividualPrice,
     deadline: fields.deadline,
