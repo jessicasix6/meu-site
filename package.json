@@ -9,6 +9,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",
     "@tugrul/rembg": "^1.0.3",
+    "altcha": "^3.2.2",
+    "altcha-lib": "^2.5.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",

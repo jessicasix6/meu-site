@@ -2360,6 +2360,174 @@ test.describe("Top3Profissional - armazenamento de fotos no MinIO, self-hosted (
   });
 });
 
+test.describe("Top3Profissional - anti-spam com ALTCHA, sem terceiro (task-008)", () => {
+  function uniqueSuffix() {
+    return Math.random().toString(36).slice(2, 10);
+  }
+
+  // O widget é criado dinamicamente via JS depois de um fetch a
+  // /api/auth/config (ver createAltchaWidget em assets/app.js) — às vezes o
+  // clique force:true chega antes do custom element terminar de ligar o
+  // próprio listener interno. Reclica se ainda não verificou depois de um
+  // instante, em vez de confiar num único clique.
+  async function solveAltcha(widget) {
+    const checkbox = widget.locator('input[type="checkbox"]');
+    const status = widget.locator(".altcha");
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await checkbox.click({ force: true });
+      try {
+        await expect(status).toHaveAttribute("data-state", "verified", { timeout: 5000 });
+        return;
+      } catch (err) {
+        if (attempt === 2) throw err;
+      }
+    }
+  }
+
+  test("sem ALTCHA_HMAC_KEY configurado, /health e /api/auth/config reportam desativado — cadastro e criação de grupo continuam funcionando sem captcha nenhum", async ({
+    request,
+  }) => {
+    test.skip(Boolean(process.env.ALTCHA_HMAC_KEY), "esse teste é justamente o caso sem ALTCHA — pula quando está configurado");
+    const health = await (await request.get("/health")).json();
+    expect(health.altchaConfigured).toBe(false);
+    const config = await (await request.get("/api/auth/config")).json();
+    expect(config.altchaConfigured).toBe(false);
+    // Os 52+ outros testes deste arquivo que cadastram conta e criam grupo
+    // direto via API, sem mandar nenhum campo "altcha", já provam isso na
+    // prática — aqui só confirma o sinal que o front-end usa pra decidir se
+    // mostra o widget.
+  });
+
+  test("GET /api/altcha-challenge sem ALTCHA_HMAC_KEY configurado fica desativado (503), não trava nada", async ({ request }) => {
+    test.skip(Boolean(process.env.ALTCHA_HMAC_KEY), "esse teste é justamente o caso sem ALTCHA — pula quando está configurado");
+    const res = await request.get("/api/altcha-challenge");
+    expect(res.status()).toBe(503);
+  });
+
+  test.describe("com ALTCHA_HMAC_KEY configurado (só roda com a variável definida)", () => {
+    test.skip(!process.env.ALTCHA_HMAC_KEY, "precisa de ALTCHA_HMAC_KEY pra testar a verificação de verdade");
+
+    test("/health e /api/auth/config reportam configurado, GET /api/altcha-challenge devolve um desafio válido", async ({ request }) => {
+      const health = await (await request.get("/health")).json();
+      expect(health.altchaConfigured).toBe(true);
+      const config = await (await request.get("/api/auth/config")).json();
+      expect(config.altchaConfigured).toBe(true);
+
+      const challengeRes = await request.get("/api/altcha-challenge");
+      expect(challengeRes.status()).toBe(200);
+      const challenge = await challengeRes.json();
+      expect(challenge.algorithm).toBe("SHA-256");
+      expect(typeof challenge.challenge).toBe("string");
+      expect(typeof challenge.signature).toBe("string");
+    });
+
+    test("cadastro sem o campo altcha (ou com um payload inventado) é rejeitado, sem criar a conta", async ({ request }) => {
+      const semAltcha = await request.post("/api/auth/signup", {
+        data: { name: "Sem Altcha", email: `sem-altcha-${uniqueSuffix()}@example.com`, password: "senha12345", whatsapp: "31999990000" },
+      });
+      expect(semAltcha.status()).toBe(400);
+
+      const inventado = await request.post("/api/auth/signup", {
+        data: {
+          name: "Altcha Falso",
+          email: `altcha-falso-${uniqueSuffix()}@example.com`,
+          password: "senha12345",
+          whatsapp: "31999990000",
+          altcha: "isso-nao-e-um-payload-valido",
+        },
+      });
+      expect(inventado.status()).toBe(400);
+    });
+
+    test("criar grupo sem o campo altcha é rejeitado, sem criar o grupo", async ({ request }) => {
+      const res = await request.post("/api/groups", {
+        data: {
+          category: "assinatura",
+          title: `sem altcha ${uniqueSuffix()}`,
+          city: "Contagem",
+          targetMembers: 3,
+          tipo: "quero",
+          whatsapp: "31999990000",
+        },
+      });
+      expect(res.status()).toBe(400);
+    });
+
+    // force: true no clique do widget — o menu fixo no topo e a barra de
+    // busca fixa embaixo (ver .site-top/.bottom-bar em style.css) quase
+    // sempre acabam encostando na checagem de "nada por cima" do Playwright
+    // em algum ponto da página, mesmo depois de rolar. Fluxo já verificado
+    // manualmente de ponta a ponta num navegador de verdade — aqui é só a
+    // checagem de actionability do teste sendo severa demais com elemento
+    // parcialmente atrás de uma barra fixa, não um problema funcional de
+    // verdade. Submissão final via requestSubmit() direto (não clique no
+    // botão) pelo mesmo motivo — o layout ao redor do botão muda de altura
+    // quando o widget termina de resolver o desafio, e depender de onde o
+    // botão acabou ficando na tela é frágil; o que este teste quer provar é
+    // que o desafio resolvido de verdade é aceito pelo servidor, não qual
+    // pixel exato o botão ocupa.
+    test("UI: cadastro resolve o desafio no navegador (proof-of-work de verdade) e completa normalmente", async ({ page }) => {
+      await page.goto("/");
+      await page.locator("#email-auth-toggle").click();
+      await page.locator('[data-auth-mode="signup"]').click();
+
+      const email = `altcha-ui-${uniqueSuffix()}@example.com`;
+      await page.locator("#auth-name").fill("UI Altcha");
+      await page.locator("#auth-whatsapp").fill("31999990000");
+      await page.locator("#auth-email").fill(email);
+      await page.locator("#auth-password").fill("senha12345");
+
+      const widget = page.locator('[data-auth-field="altcha"] altcha-widget');
+      await solveAltcha(widget);
+
+      await page.locator("#email-auth-form").evaluate((form) => form.requestSubmit());
+      // #user-panel é um dropdown que só abre com clique explícito no chip —
+      // fica escondido mesmo logo depois de logar. O sinal real de "logou
+      // com sucesso" é o botão de entrar sumir e o chip de usuário aparecer.
+      await expect(page.locator("#email-auth-toggle")).toBeHidden({ timeout: 10000 });
+      await expect(page.locator("#user-chip-toggle")).toBeVisible();
+    });
+
+    test("UI: criar grupo resolve o desafio no navegador e completa normalmente", async ({ page }) => {
+      await page.goto("/#grupos");
+      await page.getByRole("button", { name: "+ Criar um grupo" }).click();
+      await page.locator("#group-category").selectOption("assinatura");
+      await page.locator("#group-title").fill(`grupo com altcha ${uniqueSuffix()}`);
+      await page.locator("#group-city").fill("Contagem");
+      await page.locator("#group-target").fill("3");
+      await page.locator("#group-tipo").selectOption("quero");
+      await page.locator("#group-whatsapp").fill("31999990000");
+
+      const widget = page.locator("#group-form altcha-widget");
+      await solveAltcha(widget);
+
+      await page.locator("#group-form").evaluate((form) => form.requestSubmit());
+      await expect(page.locator("#group-status")).toHaveText("Grupo criado!", { timeout: 10000 });
+    });
+
+    test("uma solução válida não pode ser reaproveitada duas vezes (proteção contra replay)", async ({ page, request }) => {
+      await page.goto("/#grupos");
+      await page.getByRole("button", { name: "+ Criar um grupo" }).click();
+      const widget = page.locator("#group-form altcha-widget");
+      await solveAltcha(widget);
+      const payload = await widget.locator('input[type="hidden"]').inputValue();
+
+      const base = {
+        category: "assinatura",
+        city: "Contagem",
+        targetMembers: 3,
+        tipo: "quero",
+        whatsapp: "31999990000",
+        altcha: payload,
+      };
+      const first = await request.post("/api/groups", { data: { ...base, title: `replay 1 ${uniqueSuffix()}` } });
+      expect(first.status()).toBe(201);
+      const second = await request.post("/api/groups", { data: { ...base, title: `replay 2 ${uniqueSuffix()}` } });
+      expect(second.status()).toBe(400);
+    });
+  });
+});
+
 test.describe("Top3Profissional - infra", () => {
   test("/health responde 200 (usado pelo host pra saber se o processo está de pé)", async ({ request }) => {
     const res = await request.get("/health");

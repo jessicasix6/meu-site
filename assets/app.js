@@ -1700,6 +1700,7 @@ function updateEmailAuthMode() {
   const isSignup = emailAuthMode === "signup";
   emailAuthForm.querySelector('[data-auth-field="name"]').hidden = !isSignup;
   emailAuthForm.querySelector('[data-auth-field="whatsapp"]').hidden = !isSignup;
+  emailAuthForm.querySelector('[data-auth-field="altcha"]').hidden = !isSignup;
   document.getElementById("auth-name").required = isSignup;
   document.getElementById("auth-whatsapp").required = isSignup;
   emailAuthSubmit.textContent = isSignup ? "Criar conta" : "Entrar";
@@ -2063,9 +2064,28 @@ function initGoogleSignIn(clientId, attemptsLeft) {
   google.accounts.id.renderButton(googleSigninSlot, { theme: "outline", size: "medium", locale: "pt-BR" });
 }
 
+// ALTCHA (task-008) — só cria o widget de verdade se o servidor confirmar
+// que está configurado (ALTCHA_HMAC_KEY). Nunca deixa o elemento parado no
+// HTML sem isso: ele tentaria buscar um desafio em /api/altcha-challenge que
+// não existe (503) e, sem solução nenhuma, travaria o envio do formulário
+// pela validação nativa do HTML5 — pior que não ter anti-spam nenhum.
+function createAltchaWidget(slot) {
+  if (!slot) return;
+  const widget = document.createElement("altcha-widget");
+  widget.setAttribute("challenge", "/api/altcha-challenge");
+  widget.setAttribute("auto", "onfocus");
+  widget.setAttribute("hidelogo", "");
+  slot.appendChild(widget);
+}
+
 fetch("/api/auth/config")
   .then((res) => res.json())
   .then(async (config) => {
+    if (config.altchaConfigured) {
+      createAltchaWidget(document.getElementById("email-auth-altcha-slot"));
+      createAltchaWidget(document.getElementById("group-altcha-slot"));
+    }
+
     // Confere se já tinha sessão de uma visita anterior ANTES de montar
     // qualquer botão de login — sem isso, o botão podia aparecer do lado do
     // nome de quem já está logado (o GIS não limpa o próprio slot ao
