@@ -791,12 +791,66 @@ a {
   text-align: center;
 }
 
+.hero-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 720px) minmax(0, 1fr);
+  align-items: center;
+  gap: 1.5rem;
+}
+
 .hero-content {
   max-width: 720px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+/* task-012 (imagem de referência): texto lateral fixo/decorativo, não é
+   estatística — não precisa vir do banco. Escondido em telas estreitas
+   porque não sobra espaço ao lado da coluna central. */
+.hero-side {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+
+.hero-side-left {
+  list-style: none;
+  padding: 0;
+  text-align: left;
+}
+
+.hero-side-left li {
+  position: relative;
+  padding-left: 1rem;
+}
+
+.hero-side-left li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.hero-side-right {
+  text-align: right;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.hero-side-right svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--accent);
 }
 
 .hero-badge {
@@ -2278,6 +2332,14 @@ button.cta-secondary:hover {
 
   .hero-preview {
     order: -1;
+  }
+
+  .hero-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-side {
+    display: none;
   }
 }
 
