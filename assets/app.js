@@ -2549,7 +2549,17 @@ async function loadHighlights() {
           },
         })),
     ]
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      // Posts de exemplo do catálogo inicial (server.js) não têm createdAt
+      // (só posts criados de verdade pela API ganham isso) — sem tratar
+      // isso, new Date(undefined) vira NaN e a subtração do comparador
+      // devolve NaN pra esses itens, deixando a ordenação instável
+      // (achado do CodeRabbit, PR #78). undefined sempre vai pro fim, sem
+      // interferir na ordenação por data real dos demais.
+      .sort((a, b) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : -Infinity;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : -Infinity;
+        return timeB - timeA;
+      })
       .slice(0, 5);
 
     if (items.length === 0) {

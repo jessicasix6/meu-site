@@ -2769,11 +2769,19 @@ test.describe("Top3Profissional - correções de UX no formulário de Publicar (
     // As duas seções (busca rápida De onde/Pra onde + formulário completo)
     // ficam fisicamente juntas na página — o link do menu abre já na
     // primeira, rolando naturalmente pra segunda, em vez de serem dois
-    // destinos distantes e concorrentes.
-    const corridasBox = await page.locator("#corridas").boundingBox();
-    const publicarBox = await page.locator("#publicar").boundingBox();
-    expect(publicarBox.y).toBeGreaterThan(corridasBox.y);
-    expect(publicarBox.y - (corridasBox.y + corridasBox.height)).toBeLessThan(50);
+    // destinos distantes e concorrentes. Mede as duas de uma vez só (uma
+    // chamada a page.evaluate) — duas chamadas separadas a boundingBox()
+    // podem rolar a página entre uma e outra numa página bem mais alta
+    // (task-012), tornando a primeira medição desatualizada em relação à
+    // rolagem da segunda e produzindo um "gap" que não existe de verdade
+    // (confirmado manualmente: o gap real é 0px).
+    const gap = await page.evaluate(() => {
+      const c = document.getElementById("corridas").getBoundingClientRect();
+      const p = document.getElementById("publicar").getBoundingClientRect();
+      return { publicarY: p.y, corridasBottom: c.y + c.height };
+    });
+    expect(gap.publicarY).toBeGreaterThanOrEqual(gap.corridasBottom);
+    expect(gap.publicarY - gap.corridasBottom).toBeLessThan(50);
   });
 
   test("item 1: botão 'Usar minha localização' só aparece pra Tipo 'corrida', preenche 'Onde' e lat/lng ficam de fora do público", async ({
@@ -2946,8 +2954,15 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
     const before = await (await request.get("/api/home-stats")).json();
     await page.goto("/");
     await page.getByPlaceholder("O que você está procurando?").fill(`busca teste ${uniqueSuffix()}`);
-    await page.locator("#hero-search-form button[type=submit]").click();
-    await page.waitForTimeout(300); // fetch de contagem é fire-and-forget, sem await no cliente
+    // performSearch() dispara POST /api/search-events sem esperar (fire-
+    // and-forget) — espera a resposta de verdade em vez de um sleep fixo
+    // (achado do CodeRabbit, PR #78: um worker de CI lento podia ler
+    // /api/home-stats antes do POST terminar de atualizar o contador).
+    const [searchEventResponse] = await Promise.all([
+      page.waitForResponse((res) => res.url().includes("/api/search-events")),
+      page.locator("#hero-search-form button[type=submit]").click(),
+    ]);
+    expect(searchEventResponse.status()).toBe(204);
     const after = await (await request.get("/api/home-stats")).json();
     expect(after.searchesLast7Days).toBeGreaterThan(before.searchesLast7Days);
   });

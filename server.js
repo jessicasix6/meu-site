@@ -1216,12 +1216,20 @@ function rateRequest(id, rating, comment) {
 // qualquer busca (ver bottomSearchForm em assets/app.js), o número de
 // "buscas realizadas" ficaria bem menor que o real.
 const SEARCH_EVENTS = [];
-const SEARCH_EVENT_CAP = 5000;
 const SEARCH_EVENT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // guarda até 30 dias, mais que suficiente pra "últimos 7 dias"
 
 app.post("/api/search-events", (req, res) => {
   SEARCH_EVENTS.push(Date.now());
-  if (SEARCH_EVENTS.length > SEARCH_EVENT_CAP) SEARCH_EVENTS.shift();
+  // Poda por TEMPO, não por contagem (achado do CodeRabbit, PR #78): um
+  // corte por quantidade (shift() ao passar de N) descartava evento ainda
+  // dentro da janela de 7 dias sempre que passava de N buscas acumuladas
+  // — /api/home-stats nunca conseguiria reportar mais que esse teto fixo,
+  // mesmo que todos os N+1 tivessem acontecido nos últimos 7 dias de
+  // verdade. Removendo só o que já passou dos 30 dias, o array cresce e
+  // encolhe de acordo com o uso real, sem limitar artificialmente o
+  // número que devia ser real.
+  const cutoff = Date.now() - SEARCH_EVENT_WINDOW_MS;
+  while (SEARCH_EVENTS.length > 0 && SEARCH_EVENTS[0] < cutoff) SEARCH_EVENTS.shift();
   res.status(204).end();
 });
 
@@ -1315,7 +1323,12 @@ app.get("/api/home-stats", (req, res) => {
 // preencher com item inventado quando tem pouco: a lista simplesmente
 // fica curta.
 app.get("/api/activity-feed", (req, res) => {
-  const limit = Math.min(Number(req.query.limit) || 8, 20);
+  // Math.min(N, 20) sozinho não barra N negativo (ex: ?limit=-1 passava
+  // direto, e slice(0, -1) devolve "tudo menos o último" — muito mais que
+  // os 20 combinados; achado do CodeRabbit, PR #78). Math.max trava no
+  // mínimo de 1 antes do teto de 20.
+  const requestedLimit = Number(req.query.limit);
+  const limit = Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : 8, 1), 20);
   const events = [];
 
   for (const ev of GROUP_EVENTS) {

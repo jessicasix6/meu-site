@@ -126,9 +126,14 @@ a {
   padding: 1.1rem 1.5rem;
 }
 
+/* display:block (não flex/column) — CodeRabbit achou no PR #78 que
+   flex-direction:column tratava "TOP", o <span> do "3" e o subtítulo como
+   itens separados, cada um na própria linha ("T-O-P" e "3" quebrados).
+   Bloco normal deixa "TOP" + "3" fluírem juntos na mesma linha; só o
+   subtítulo (abaixo, com display:block próprio) quebra pra linha de
+   baixo. */
 .logo {
-  display: flex;
-  flex-direction: column;
+  display: block;
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 1.05rem;
@@ -143,6 +148,7 @@ a {
 }
 
 .logo-subtitle {
+  display: block;
   font-family: var(--font-body);
   font-weight: 500;
   font-size: 0.62rem;
