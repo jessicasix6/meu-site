@@ -201,6 +201,13 @@ function reserveBraveSearchQuota() {
   return true;
 }
 
+// Chamada em qualquer caminho que não completou uma busca de verdade (HTTP
+// não-ok, JSON malformado, erro de rede) — nunca deixa uma reserva presa por
+// causa de uma falha que não é da pessoa usando o site.
+function releaseBraveSearchQuota() {
+  braveSearchCount = Math.max(0, braveSearchCount - 1);
+}
+
 // Caminho grátis, preferido (decisão da Jéssica, 2026-09-14): SearXNG
 // autohospedado (Docker, sem chave, sem custo por busca — ver
 // docs/visao-produto.md seção 4.3). Só ativa se SEARXNG_URL estiver
@@ -236,28 +243,34 @@ async function searchWebViaBrave(query) {
     return "Limite mensal de buscas na web atingido. Responda só com os dados internos disponíveis.";
   }
 
-  const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=5`;
-  const res = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-      "X-Subscription-Token": process.env.BRAVE_SEARCH_API_KEY,
-    },
-  });
-  if (!res.ok) {
-    // Não conta pro teto mensal: falha de rede/API não é uma busca que
-    // efetivamente consumiu a cota da Brave.
-    braveSearchCount--;
-    return `Busca na web falhou (status ${res.status}).`;
+  try {
+    const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=5`;
+    const res = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        "X-Subscription-Token": process.env.BRAVE_SEARCH_API_KEY,
+      },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) {
+      // Não conta pro teto mensal: falha de rede/API não é uma busca que
+      // efetivamente consumiu a cota da Brave.
+      releaseBraveSearchQuota();
+      return `Busca na web falhou (status ${res.status}).`;
+    }
+    const data = await res.json();
+    const results = (data.web && data.web.results) || [];
+    if (results.length === 0) {
+      return "Nenhum resultado encontrado na web pra essa busca.";
+    }
+    return results
+      .slice(0, 5)
+      .map((r) => `- ${r.title}\n  ${r.url}\n  ${r.description || ""}`)
+      .join("\n");
+  } catch (err) {
+    releaseBraveSearchQuota();
+    return "Busca na web falhou. Tente de novo em instantes.";
   }
-  const data = await res.json();
-  const results = (data.web && data.web.results) || [];
-  if (results.length === 0) {
-    return "Nenhum resultado encontrado na web pra essa busca.";
-  }
-  return results
-    .slice(0, 5)
-    .map((r) => `- ${r.title}\n  ${r.url}\n  ${r.description || ""}`)
-    .join("\n");
 }
 
 async function searchWeb(query) {
@@ -313,7 +326,7 @@ async function searchWebStructuredViaBrave(query) {
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
-      braveSearchCount--;
+      releaseBraveSearchQuota();
       return null;
     }
     const data = await res.json();
@@ -323,7 +336,7 @@ async function searchWebStructuredViaBrave(query) {
       .slice(0, 5)
       .map((r) => ({ title: r.title, url: r.url, snippet: r.description || "" }));
   } catch (err) {
-    braveSearchCount--;
+    releaseBraveSearchQuota();
     return null;
   }
 }
