@@ -253,7 +253,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
     expect(alerts).toEqual([]);
   });
 
-  test("publicar pedido exige WhatsApp e localização — sem isso, quem aceitar não tem como te achar", async ({
+  test("publicar pedido exige WhatsApp, mas localização é opcional (task-009, item 1 — extraída do título quando dá)", async ({
     request,
   }) => {
     const semWhatsapp = await request.post("/api/requests", {
@@ -262,11 +262,14 @@ test.describe("Top3Profissional - fluxo básico", () => {
     expect(semWhatsapp.status()).toBe(400);
     expect((await semWhatsapp.json()).error).toMatch(/whatsapp/i);
 
+    // Sem "Onde" preenchida (nem extraída de um padrão de rota no título) —
+    // continua publicando, só sem localização (mostrado como "local não
+    // informado" no card, ver assets/app.js).
     const semLocalizacao = await request.post("/api/requests", {
       data: { type: "corrida", title: "teste sem localização", price: 10, whatsapp: "31999990000" },
     });
-    expect(semLocalizacao.status()).toBe(400);
-    expect((await semLocalizacao.json()).error).toMatch(/localiza/i);
+    expect(semLocalizacao.status()).toBe(201);
+    expect((await semLocalizacao.json()).request.location).toBe("");
 
     const completo = await request.post("/api/requests", {
       data: { type: "corrida", title: "teste completo", price: 10, whatsapp: "31999990000", location: "Belo Horizonte" },
@@ -2626,6 +2629,127 @@ test.describe("Top3Profissional - geocodificação via Nominatim público, sem c
     const { id: querId } = await quero.json();
     const { suggestions } = await ofereco.json();
     expect(suggestions.some((s) => s.id === querId)).toBe(true);
+  });
+});
+
+test.describe("Top3Profissional - correções de UX no formulário de Publicar (task-009)", () => {
+  function uniqueSuffix() {
+    return Math.random().toString(36).slice(2, 10);
+  }
+  function randomEmail() {
+    return `task009-${uniqueSuffix()}@example.com`;
+  }
+
+  test("item 1: 'O que você precisa' com padrão de rota preenche 'Onde' sozinho, sem exigir digitar de novo", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#post-title").fill("Centro → Rodoviária");
+    await expect(page.locator("#post-location")).toHaveValue("Centro → Rodoviária");
+
+    // "de X para Y" também é reconhecido, não só a seta.
+    await page.locator("#post-title").fill("de Savassi para o Aeroporto");
+    await expect(page.locator("#post-location")).toHaveValue("Savassi → o Aeroporto");
+
+    // Sem padrão nenhum detectável: "Onde" fica vazio, mas não bloqueia —
+    // publica normal (comportamento já coberto no describe de fluxo básico).
+    await page.locator("#post-title").fill("preciso de uma manicure");
+    await expect(page.locator("#post-location")).toHaveValue("");
+
+    // Editando "Onde" na mão, o vínculo automático com o título para (não
+    // sobrescreve o que a pessoa acabou de digitar).
+    await page.locator("#post-title").fill("Centro → Rodoviária");
+    await page.locator("#post-location").fill("Editado à mão");
+    await page.locator("#post-title").fill("Savassi → Centro");
+    await expect(page.locator("#post-location")).toHaveValue("Editado à mão");
+  });
+
+  test("item 1: botão 'Publicar essa corrida' (seção Corridas) também preenche 'Onde' sozinho", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#ride-from").fill(`OrigemTeste${uniqueSuffix()}`);
+    await page.locator("#ride-to").fill(`DestinoTeste${uniqueSuffix()}`);
+    await page.locator("#ride-form button[type=submit]").click();
+    await page.locator("#ride-publish-btn").click();
+    await expect(page.locator("#post-location")).not.toHaveValue("");
+  });
+
+  test("item 2: 'Quando' abre com a data de hoje já selecionada, horário fica opcional", async ({ page }) => {
+    await page.goto("/");
+    const today = new Date();
+    const isoToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    await expect(page.locator("#post-date")).toHaveValue(isoToday);
+    await expect(page.locator("#post-time")).toHaveValue("");
+    await expect(page.locator("#post-time")).not.toHaveAttribute("required", "");
+  });
+
+  test("item 3: WhatsApp e nome vêm pré-preenchidos do perfil pra quem está logada, em branco pra quem não está", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator("#post-whatsapp")).toHaveValue("");
+    await expect(page.locator("#post-requester")).toHaveValue("");
+
+    const email = randomEmail();
+    await page.request.post("/api/auth/signup", {
+      data: { name: "Fulana Prefill", email, password: "senha12345", whatsapp: "31955557777" },
+    });
+    await page.goto("/");
+    await expect(page.locator("#post-whatsapp")).toHaveValue("31955557777");
+    await expect(page.locator("#post-requester")).toHaveValue("Fulana Prefill");
+  });
+
+  test("item 5: 'Tipo' não tem mais 'carro' separado, tem 'imóvel' no lugar de 'terreno'", async ({ page }) => {
+    await page.goto("/");
+    const values = await page.locator("#post-type option").evaluateAll((opts) => opts.map((o) => o.value));
+    expect(values).not.toContain("carro");
+    expect(values).not.toContain("terreno");
+    expect(values).toContain("imovel");
+  });
+
+  test("item 5: dentro de 'produto', busca por palavra-chave filtra certo (ex: 'TV' não traz 'carro')", async ({ request, page }) => {
+    const tv = await request.post("/api/requests", {
+      data: { type: "produto", title: `TV 50 polegadas ${uniqueSuffix()}`, price: 1500, whatsapp: "31999990020" },
+    });
+    expect(tv.status()).toBe(201);
+    const carro = await request.post("/api/requests", {
+      data: { type: "produto", title: `carro sedan 2015 ${uniqueSuffix()}`, price: 30000, whatsapp: "31999990021" },
+    });
+    expect(carro.status()).toBe(201);
+    const { request: tvRequest } = await tv.json();
+    const { request: carroRequest } = await carro.json();
+
+    await page.goto("/");
+    await page.getByRole("tab", { name: /presto um serviço/i }).click();
+    await page.locator("#requests-filter-keyword").fill("TV");
+    await expect(page.locator(`.request-item[data-id="${tvRequest.id}"]`)).toBeVisible();
+    await expect(page.locator(`.request-item[data-id="${carroRequest.id}"]`)).toHaveCount(0);
+
+    await page.locator("#requests-filter-keyword").fill("carro");
+    await expect(page.locator(`.request-item[data-id="${carroRequest.id}"]`)).toBeVisible();
+    await expect(page.locator(`.request-item[data-id="${tvRequest.id}"]`)).toHaveCount(0);
+
+    await page.locator("#requests-filter-keyword").fill("");
+    await page.locator("#requests-filter-type").selectOption("produto");
+    await expect(page.locator(`.request-item[data-id="${tvRequest.id}"]`)).toBeVisible();
+    await expect(page.locator(`.request-item[data-id="${carroRequest.id}"]`)).toBeVisible();
+
+    await page.locator("#requests-filter-type").selectOption("corrida");
+    await expect(page.locator(`.request-item[data-id="${tvRequest.id}"]`)).toHaveCount(0);
+  });
+
+  test("item 4: menu do topo não repete 'Corridas' e 'Publicar' como destinos separados — 'Publicar' abre a busca rápida seguida do formulário completo", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const navLinks = await page.locator(".site-nav a").evaluateAll((links) => links.map((a) => a.textContent.trim()));
+    expect(navLinks).not.toContain("Corridas");
+    expect(navLinks).toContain("Publicar");
+    await expect(page.locator('.site-nav a:has-text("Publicar")')).toHaveAttribute("href", "#corridas");
+
+    // As duas seções (busca rápida De onde/Pra onde + formulário completo)
+    // ficam fisicamente juntas na página — "Publicar" abre já na primeira,
+    // rolando naturalmente pra segunda, em vez de serem dois destinos
+    // distantes e concorrentes.
+    const corridasBox = await page.locator("#corridas").boundingBox();
+    const publicarBox = await page.locator("#publicar").boundingBox();
+    expect(publicarBox.y).toBeGreaterThan(corridasBox.y);
+    expect(publicarBox.y - (corridasBox.y + corridasBox.height)).toBeLessThan(50);
   });
 });
 

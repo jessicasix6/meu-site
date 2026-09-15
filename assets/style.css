@@ -1646,6 +1646,45 @@ a {
   margin-bottom: 1rem;
 }
 
+/* task-009 item 5: filtro por tipo + palavra-chave na lista de pedidos
+   (produto sem subcategoria rígida, busca no título). Mesmo visual dos
+   campos do .ride-form acima. */
+.requests-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  max-width: 680px;
+  margin-bottom: 1rem;
+}
+
+.requests-filter select,
+.requests-filter input {
+  background: var(--bg-raised);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  font-size: 0.92rem;
+  font-family: var(--font-body);
+}
+
+.requests-filter input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.requests-filter select:focus,
+.requests-filter input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.requests-empty {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
 .ride-publish-btn {
   padding: 0.55rem 1.1rem;
   font-family: var(--font-body);

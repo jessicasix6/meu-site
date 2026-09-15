@@ -42,9 +42,8 @@
         <nav class="site-nav">
           <a href="#top3">Profissionais</a>
           <a href="#bottom-search-input" id="nav-ask-link">Perguntar</a>
-          <a href="#corridas">Corridas</a>
           <a href="#grupos">Grupos</a>
-          <a href="#publicar">Publicar</a>
+          <a href="#corridas">Publicar</a>
           <a href="#criar-perfil">Criar meu perfil</a>
           <a href="#beneficios">Benefícios</a>
           <a href="#como-funciona">Como funciona</a>
@@ -259,27 +258,6 @@
       </div>
     </section>
 
-    <section id="corridas" class="rides-section">
-      <div class="container">
-        <p class="eyebrow" id="rides-today">Corrida ou carona compartilhada</p>
-        <h2 class="section-title">Corridas e entregas</h2>
-        <p class="rides-subtitle">
-          Diga de onde e pra onde — mostramos o que já tem publicado nesse trajeto (corrida, carona ou entrega), ou você publica em segundos.
-        </p>
-        <div class="ride-type-toggle" role="tablist" aria-label="Tipo de trajeto">
-          <button type="button" class="mode-btn ride-type-btn is-active" data-ride-type="corrida" role="tab" aria-selected="true">Corrida / carona</button>
-          <button type="button" class="mode-btn ride-type-btn" data-ride-type="entrega" role="tab" aria-selected="false">Entrega</button>
-        </div>
-        <form id="ride-form" class="ride-form">
-          <input id="ride-from" type="text" placeholder="De onde" aria-label="De onde" required />
-          <span class="ride-arrow" aria-hidden="true">→</span>
-          <input id="ride-to" type="text" placeholder="Pra onde" aria-label="Pra onde" required />
-          <button type="submit">Buscar</button>
-        </form>
-        <div id="ride-results" class="ride-results" aria-live="polite"></div>
-      </div>
-    </section>
-
     <section id="grupos" class="groups-section">
       <div class="container">
         <p class="eyebrow">Junte-se a quem quer a mesma coisa</p>
@@ -422,6 +400,27 @@
       </div>
     </section>
 
+    <section id="corridas" class="rides-section">
+      <div class="container">
+        <p class="eyebrow" id="rides-today">Corrida ou carona compartilhada</p>
+        <h2 class="section-title">Corridas e entregas, busca rápida</h2>
+        <p class="rides-subtitle">
+          Diga de onde e pra onde — mostramos o que já tem publicado nesse trajeto (corrida, carona ou entrega). Não achou? É o mesmo formulário de publicar logo abaixo, já com o tipo certo escolhido.
+        </p>
+        <div class="ride-type-toggle" role="tablist" aria-label="Tipo de trajeto">
+          <button type="button" class="mode-btn ride-type-btn is-active" data-ride-type="corrida" role="tab" aria-selected="true">Corrida / carona</button>
+          <button type="button" class="mode-btn ride-type-btn" data-ride-type="entrega" role="tab" aria-selected="false">Entrega</button>
+        </div>
+        <form id="ride-form" class="ride-form">
+          <input id="ride-from" type="text" placeholder="De onde" aria-label="De onde" required />
+          <span class="ride-arrow" aria-hidden="true">→</span>
+          <input id="ride-to" type="text" placeholder="Pra onde" aria-label="Pra onde" required />
+          <button type="submit">Buscar</button>
+        </form>
+        <div id="ride-results" class="ride-results" aria-live="polite"></div>
+      </div>
+    </section>
+
     <section id="publicar" class="post-section">
       <div class="container">
         <p class="eyebrow">Prefere publicar do que conversar?</p>
@@ -438,15 +437,14 @@
               <option value="corrida">corrida</option>
               <option value="entrega">entrega</option>
               <option value="profissional">profissional</option>
-              <option value="terreno">terreno</option>
-              <option value="carro">carro</option>
+              <option value="imovel">imóvel</option>
               <option value="produto">produto</option>
               <option value="outro" selected>outro</option>
             </select>
           </div>
           <div class="post-field">
-            <label for="post-location">Onde</label>
-            <input id="post-location" name="location" type="text" placeholder="ex: Savassi, Belo Horizonte" required />
+            <label for="post-location">Onde (opcional se já estiver em "O que você precisa", ex: "Centro → Rodoviária")</label>
+            <input id="post-location" name="location" type="text" placeholder="ex: Savassi, Belo Horizonte" />
           </div>
           <div class="post-field">
             <label for="post-whatsapp">Seu WhatsApp</label>
@@ -457,8 +455,12 @@
             <input id="post-price" name="price" type="number" min="0" step="1" placeholder="ex: 25" required />
           </div>
           <div class="post-field">
-            <label for="post-when">Quando (opcional)</label>
-            <input id="post-when" name="when" type="text" placeholder="ex: hoje às 19h" />
+            <label for="post-date">Quando</label>
+            <input id="post-date" name="date" type="date" />
+          </div>
+          <div class="post-field">
+            <label for="post-time">Horário (opcional)</label>
+            <input id="post-time" name="time" type="time" />
           </div>
           <div class="post-field">
             <label for="post-requester">Seu nome (opcional)</label>
@@ -596,7 +598,19 @@
         <div class="container">
           <p class="eyebrow">Pedidos perto de você</p>
           <h2 class="section-title">Aceite pedidos em aberto</h2>
-          <p class="provider-subtitle">Corrida, entrega, um terreno, o que for — qualquer pedido publicado cai aqui. Aceite o que fizer sentido pra você, marque como concluído quando terminar e receba sua avaliação.</p>
+          <p class="provider-subtitle">Corrida, entrega, um imóvel, o que for — qualquer pedido publicado cai aqui. Aceite o que fizer sentido pra você, marque como concluído quando terminar e receba sua avaliação.</p>
+          <div class="requests-filter">
+            <select id="requests-filter-type" aria-label="Filtrar por tipo">
+              <option value="">Todos os tipos</option>
+              <option value="corrida">corrida</option>
+              <option value="entrega">entrega</option>
+              <option value="profissional">profissional</option>
+              <option value="imovel">imóvel</option>
+              <option value="produto">produto</option>
+              <option value="outro">outro</option>
+            </select>
+            <input id="requests-filter-keyword" type="text" placeholder="Buscar palavra-chave (ex: TV, carro sedan)" aria-label="Buscar por palavra-chave" />
+          </div>
           <ol id="requests-list" class="requests-list"></ol>
         </div>
       </section>
