@@ -2311,6 +2311,55 @@ test.describe("Top3Profissional - referência de preço externa, sem IA (task-00
   });
 });
 
+test.describe("Top3Profissional - armazenamento de fotos no MinIO, self-hosted (task-008)", () => {
+  test("sem MINIO_ENDPOINT configurado, /health reporta minioConfigured false (fallback de disco continua valendo)", async ({
+    request,
+  }) => {
+    test.skip(Boolean(process.env.MINIO_ENDPOINT), "esse teste é justamente o caso sem MinIO — pula quando está configurado");
+    const health = await (await request.get("/health")).json();
+    expect(health.minioConfigured).toBe(false);
+  });
+
+  test("com MINIO_ENDPOINT configurado, foto de perfil vai pro MinIO (bucket privado, nunca exposto) em vez de disco local (só roda com MinIO configurado)", async ({
+    request,
+  }) => {
+    test.skip(!process.env.MINIO_ENDPOINT, "precisa de MINIO_ENDPOINT pra testar o armazenamento de verdade");
+    const health = await (await request.get("/health")).json();
+    expect(health.minioConfigured).toBe(true);
+
+    const res = await request.post("/api/providers", {
+      multipart: {
+        name: "Perfil Com MinIO",
+        service: "manicure",
+        description: "testando armazenamento no MinIO",
+        location: "Contagem",
+        whatsapp: "31999990000",
+        photos: { name: "foto.png", mimeType: "image/png", buffer: require("fs").readFileSync("assets/icons/icon-192.png") },
+      },
+    });
+    expect(res.status()).toBe(201);
+    const { provider } = await res.json();
+    const photoUrl = provider.photos[0].url;
+
+    // Mesma forma de URL de sempre (/uploads/providers/...), venha do MinIO
+    // ou do disco — o servidor busca o objeto e repassa os bytes, o MinIO em
+    // si nunca fica exposto (critério de pronto do task-008: bucket
+    // privado).
+    expect(photoUrl).toMatch(/^\/uploads\/providers\//);
+    const photoRes = await request.get(photoUrl);
+    expect(photoRes.status()).toBe(200);
+    expect(photoRes.headers()["content-type"]).toBe("image/png");
+    expect((await photoRes.body()).length).toBeGreaterThan(0);
+
+    // Acessar o objeto direto no MinIO (sem passar pelo proxy do servidor,
+    // sem credencial) não funciona — bucket privado de verdade, não só uma
+    // URL "escondida".
+    const directUrl = `http://${process.env.MINIO_ENDPOINT}:${process.env.MINIO_PORT || 9000}/${process.env.MINIO_BUCKET || "top3-uploads"}/providers/${provider.id}/0.png`;
+    const directRes = await request.get(directUrl);
+    expect(directRes.status()).toBe(403);
+  });
+});
+
 test.describe("Top3Profissional - infra", () => {
   test("/health responde 200 (usado pelo host pra saber se o processo está de pé)", async ({ request }) => {
     const res = await request.get("/health");

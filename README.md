@@ -49,6 +49,11 @@ npm start
 | `GEMINI_API_KEY` | não | Chave do [Google AI Studio](https://aistudio.google.com/apikey) (Gemini API), usada só pra melhorar automaticamente as fotos do perfil profissional (pilar 4.12 — modelo `gemini-3.1-flash-image`, "Nano Banana"). Tem tier grátis (500 imagens/dia). Sem ela, o perfil é criado normalmente, só com a foto como foi enviada. Tem um limite mensal de segurança (`PHOTO_ENHANCE_MONTHLY_LIMIT` em `server.js`) pra não estourar orçamento. |
 | `GOOGLE_CLIENT_ID` | não | Client ID OAuth do [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (pilar 4.13 — login com Google, opcional). Sem ela, o botão de login simplesmente não aparece — o resto do site (inclusive criar perfil) funciona normalmente sem login. |
 | `ADMIN_SECRET` | não | Chave pra resolver denúncia (task-004, `PATCH /api/denuncias/:id`, header `X-Admin-Key`) — capacidade só-API nesta v1, sem tela própria. Sem ela, essa rota fica desativada (503); o resto do site funciona normalmente. |
+| `MINIO_ENDPOINT` | não | Host de uma instância do [MinIO](https://min.io/) (self-hosted, compatível com S3, grátis, sem custo por uso — task-008), usada pra guardar foto de perfil profissional. Sem ela, as fotos continuam sendo salvas em disco local (`uploads/`), como sempre foi. Pode ser um endereço só da rede interna do VPS (ex: `localhost`) — o MinIO nunca precisa ser alcançável pelo navegador de quem visita o site: o próprio servidor busca a foto e repassa os bytes (rota `/uploads/providers/...`), então não precisa de domínio nem certificado TLS próprio pro MinIO. |
+| `MINIO_PORT` | não | Porta do MinIO (padrão `9000` se não informar). |
+| `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | não* | Credenciais do MinIO. *Obrigatórias só se `MINIO_ENDPOINT` estiver definida. |
+| `MINIO_BUCKET` | não | Nome do bucket (padrão `top3-uploads`) — criado automaticamente se não existir, sempre privado. A URL de foto que o site usa é sempre a mesma (`/uploads/providers/<id>/...`, cacheável por 1h no navegador) — quem serve o arquivo de verdade é o próprio servidor, buscando no MinIO por trás. |
+| `MINIO_USE_SSL` | não | `true` pra usar HTTPS ao falar com o MinIO (padrão `false`, só permitido quando `MINIO_ENDPOINT` é um endereço local/privado — `localhost`, `127.0.0.1` ou IP de rede privada. Um `MINIO_ENDPOINT` roteável de verdade sem `MINIO_USE_SSL=true` é rejeitado na subida do servidor, pra nunca mandar credencial nem foto sem criptografia pela rede). |
 
 ## Integração com WhatsApp
 
@@ -77,7 +82,7 @@ Quem presta serviço pode criar uma página própria (`/prestador/<slug>`), comp
 - Usa a Claude API pra transformar a descrição informal numa bio curta e profissional (sem inventar fatos que a pessoa não mencionou).
 - Toda foto recebe um ajuste técnico automático grátis (exposição/contraste/nitidez via `sharp`, sem custo, sem chave). Se `GEMINI_API_KEY` estiver configurada, tenta primeiro a edição por IA generativa (modelo `gemini-3.1-flash-image`/"Nano Banana") antes desse ajuste básico.
 - **Trocar o fundo da foto (opcional, a pessoa marca uma caixinha no formulário — nunca automático):** recorta a pessoa com um modelo de segmentação local (U²-Net portátil, roda 100% no servidor via `onnxruntime-node`, sem chave, sem custo, sem depender de terceiro em tempo de execução) e compõe num fundo em degradê combinando com as cores do site. Modelo em `models/u2netp.onnx`, licença Apache 2.0 — ver [U²-Net](https://github.com/xuebinqin/U-2-Net) (Qin et al., 2020).
-- Fotos ficam em `uploads/providers/<id>/` (fora do git, `.gitignore`d) e são servidas em `/uploads/...`.
+- Fotos são servidas sempre em `/uploads/providers/<id>/...`, mas onde ficam guardadas depende de `MINIO_ENDPOINT` (task-008): sem ela, disco local (`uploads/`, fora do git, `.gitignore`d); com ela, um bucket privado no [MinIO](https://min.io/) self-hosted — o servidor busca o objeto e repassa os bytes, o MinIO em si nunca fica exposto na internet nem precisa de domínio/TLS próprio.
 - Aparece no ranking/busca do site (não só no próprio link) — perfil sem avaliação ainda mostra selo "novo" e um link direto "Ver perfil".
 
 ## Login com Google (opcional)

@@ -7,6 +7,7 @@ const cookieParser = require("cookie-parser");
 const { OAuth2Client } = require("google-auth-library");
 const bcrypt = require("bcryptjs");
 const multer = require("multer");
+const Minio = require("minio");
 const sharp = require("sharp");
 const ort = require("onnxruntime-node");
 const { BackgroundRemover } = require("@tugrul/rembg");
@@ -549,7 +550,83 @@ function matchesImageSignature(buffer, mimetype) {
 }
 
 const UPLOADS_DIR = path.join(__dirname, "uploads");
-fs.mkdirSync(path.join(UPLOADS_DIR, "providers"), { recursive: true });
+
+// Armazenamento de foto (task-008): MinIO self-hosted (S3-compatível, grátis,
+// sem custo por uso) quando configurado; sem isso, cai pro disco local do
+// próprio servidor (comportamento de sempre) — nunca trava a criação de
+// perfil por falta dessa infra opcional. Bucket é privado (nunca público) e
+// o MinIO nunca é exposto na internet: o próprio servidor Node busca o
+// objeto e repassa os bytes pra quem pediu (ver rota /uploads/providers
+// abaixo) — a URL que o front-end recebe é sempre a mesma
+// "/uploads/providers/<id>/<arquivo>" de sempre, funcionando com o
+// domínio/TLS que o site já tem, sem precisar de subdomínio nem certificado
+// novo só pro MinIO.
+// Só dispensa HTTPS (MINIO_USE_SSL=true) pra um endereço que nunca sai da
+// própria máquina/rede privada do VPS — qualquer host roteável de verdade
+// sem TLS mandaria credencial e foto em texto puro pela rede.
+function isLocalOrPrivateHost(host) {
+  if (host === "localhost" || host === "127.0.0.1" || host === "::1") return true;
+  return /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host) ||
+    /^192\.168\.\d{1,3}\.\d{1,3}$/.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/.test(host);
+}
+
+const MINIO_BUCKET = process.env.MINIO_BUCKET || "top3-uploads";
+if (process.env.MINIO_ENDPOINT && process.env.MINIO_USE_SSL !== "true" && !isLocalOrPrivateHost(process.env.MINIO_ENDPOINT)) {
+  throw new Error(
+    `MINIO_ENDPOINT="${process.env.MINIO_ENDPOINT}" não é local/privado — configure MINIO_USE_SSL=true, ou aponte pra um endereço só da rede interna do VPS (localhost, 127.0.0.1, ou IP privado).`
+  );
+}
+const minioClient = process.env.MINIO_ENDPOINT
+  ? new Minio.Client({
+      endPoint: process.env.MINIO_ENDPOINT,
+      port: process.env.MINIO_PORT ? Number(process.env.MINIO_PORT) : 9000,
+      useSSL: process.env.MINIO_USE_SSL === "true",
+      accessKey: process.env.MINIO_ACCESS_KEY,
+      secretKey: process.env.MINIO_SECRET_KEY,
+    })
+  : null;
+
+// Promise única e compartilhada — toda escrita/leitura no MinIO espera ela
+// primeiro, garantindo que o bucket já existe antes de qualquer putObject,
+// mesmo pra o primeiro upload logo depois do servidor subir (sem isso, uma
+// foto enviada nos primeiros instantes podia chegar antes do bucket existir).
+const minioBucketReady = minioClient
+  ? minioClient
+      .bucketExists(MINIO_BUCKET)
+      .then((exists) => (exists ? null : minioClient.makeBucket(MINIO_BUCKET)))
+      .catch((err) => {
+        console.warn("[minio] não consegui confirmar/criar o bucket:", err.message);
+        throw err;
+      })
+  : null;
+// Observador silencioso, só pra evitar o warning de "unhandled rejection" do
+// Node caso a falha aconteça antes de qualquer upload/leitura chegar a dar
+// await nessa mesma promise (ela continua rejeitando de verdade pra quem
+// espera — isso aqui não engole o erro, só marca que alguém já está ciente).
+if (minioBucketReady) minioBucketReady.catch(() => {});
+
+if (!minioClient) {
+  fs.mkdirSync(path.join(UPLOADS_DIR, "providers"), { recursive: true });
+  console.warn("MINIO_ENDPOINT não definida — fotos de perfil ficam salvas em disco local (uploads/), como antes.");
+}
+
+// Grava um arquivo enviado (foto original, versão melhorada, ou com fundo
+// novo) no backend configurado. Devolve sempre a mesma forma de URL
+// pública ("/uploads/providers/<id>/<arquivo>"), independente de onde o
+// arquivo realmente está guardado — quem consome a resposta (front-end,
+// página pública do prestador) nunca precisa saber qual backend está ativo.
+async function storePhoto(buffer, dir, id, filename, mimetype) {
+  if (minioClient) {
+    await minioBucketReady;
+    const key = `providers/${id}/${filename}`;
+    await minioClient.putObject(MINIO_BUCKET, key, buffer, buffer.length, { "Content-Type": mimetype });
+  } else {
+    fs.writeFileSync(path.join(dir, filename), buffer);
+  }
+  return `/uploads/providers/${id}/${filename}`;
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 8 * 1024 * 1024, files: 6 },
@@ -620,6 +697,28 @@ const app = express();
 app.set("trust proxy", 1);
 app.use(express.json());
 app.use(cookieParser());
+// Modo MinIO: o servidor busca o objeto e repassa os bytes — o bucket nunca
+// fica exposto na internet, e a URL que o resto do site usa não muda (ver
+// storePhoto acima). Modo disco local (sem MINIO_ENDPOINT): cai direto pro
+// express.static de sempre, sem passar por aqui.
+if (minioClient) {
+  app.get("/uploads/providers/:id/:filename", async (req, res) => {
+    const ext = path.extname(req.params.filename).toLowerCase();
+    const contentType = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : ext === ".jpg" ? "image/jpeg" : null;
+    if (!contentType) return res.status(404).end();
+    try {
+      await minioBucketReady;
+      const key = `providers/${req.params.id}/${req.params.filename}`;
+      const stream = await minioClient.getObject(MINIO_BUCKET, key);
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", "private, max-age=3600");
+      stream.on("error", () => res.status(404).end());
+      stream.pipe(res);
+    } catch (err) {
+      res.status(404).end();
+    }
+  });
+}
 app.use("/uploads", express.static(UPLOADS_DIR));
 app.use(express.static(__dirname));
 
@@ -2581,13 +2680,12 @@ async function buildPhotosFromFiles(files, dir, id, newBackground) {
   for (const [index, file] of files.entries()) {
     const ext = file.mimetype === "image/png" ? "png" : file.mimetype === "image/webp" ? "webp" : "jpg";
     const filename = `${index}.${ext}`;
-    fs.writeFileSync(path.join(dir, filename), file.buffer);
+    const url = await storePhoto(file.buffer, dir, id, filename, file.mimetype);
     let enhancedUrl = null;
     const enhancedBuffer = await enhancePhoto(file.buffer, file.mimetype);
     if (enhancedBuffer) {
       const enhancedFilename = `${index}-melhorada.png`;
-      fs.writeFileSync(path.join(dir, enhancedFilename), enhancedBuffer);
-      enhancedUrl = `/uploads/providers/${id}/${enhancedFilename}`;
+      enhancedUrl = await storePhoto(enhancedBuffer, dir, id, enhancedFilename, "image/png");
     }
     // Fundo novo é opcional — só roda se a pessoa marcar no formulário,
     // nunca automático (às vezes o fundo original importa pro trabalho).
@@ -2596,11 +2694,10 @@ async function buildPhotosFromFiles(files, dir, id, newBackground) {
       const bgBuffer = await applyNewBackground(file.buffer);
       if (bgBuffer) {
         const bgFilename = `${index}-fundo-novo.png`;
-        fs.writeFileSync(path.join(dir, bgFilename), bgBuffer);
-        newBackgroundUrl = `/uploads/providers/${id}/${bgFilename}`;
+        newBackgroundUrl = await storePhoto(bgBuffer, dir, id, bgFilename, "image/png");
       }
     }
-    photos.push({ url: `/uploads/providers/${id}/${filename}`, enhancedUrl, newBackgroundUrl });
+    photos.push({ url, enhancedUrl, newBackgroundUrl });
   }
   return photos;
 }
@@ -2791,6 +2888,7 @@ app.get("/health", (req, res) => {
     braveSearchConfigured: Boolean(process.env.BRAVE_SEARCH_API_KEY),
     geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
     googleLoginConfigured: Boolean(googleClient),
+    minioConfigured: Boolean(minioClient),
     uptimeSeconds: Math.round(process.uptime()),
   });
 });
