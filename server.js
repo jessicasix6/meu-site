@@ -185,6 +185,22 @@ function currentMonthKey() {
   return `${now.getFullYear()}-${now.getMonth()}`;
 }
 
+// Reserva a cota ANTES do fetch (não depois da resposta) pra duas chamadas
+// concorrentes (ex: /api/chat e /api/price-reference quase ao mesmo tempo)
+// não lerem o mesmo braveSearchCount desatualizado e passarem as duas do
+// teto mensal juntas. Libera a reserva de novo se o fetch falhar, já que
+// uma chamada que não completou não deveria contar pra cota.
+function reserveBraveSearchQuota() {
+  const monthKey = currentMonthKey();
+  if (braveSearchMonth !== monthKey) {
+    braveSearchMonth = monthKey;
+    braveSearchCount = 0;
+  }
+  if (braveSearchCount >= BRAVE_SEARCH_MONTHLY_LIMIT) return false;
+  braveSearchCount++;
+  return true;
+}
+
 // Caminho grátis, preferido (decisão da Jéssica, 2026-09-14): SearXNG
 // autohospedado (Docker, sem chave, sem custo por busca — ver
 // docs/visao-produto.md seção 4.3). Só ativa se SEARXNG_URL estiver
@@ -216,12 +232,7 @@ async function searchWebViaBrave(query) {
   if (!process.env.BRAVE_SEARCH_API_KEY) {
     return "Busca na web não configurada neste servidor.";
   }
-  const monthKey = currentMonthKey();
-  if (braveSearchMonth !== monthKey) {
-    braveSearchMonth = monthKey;
-    braveSearchCount = 0;
-  }
-  if (braveSearchCount >= BRAVE_SEARCH_MONTHLY_LIMIT) {
+  if (!reserveBraveSearchQuota()) {
     return "Limite mensal de buscas na web atingido. Responda só com os dados internos disponíveis.";
   }
 
@@ -235,9 +246,9 @@ async function searchWebViaBrave(query) {
   if (!res.ok) {
     // Não conta pro teto mensal: falha de rede/API não é uma busca que
     // efetivamente consumiu a cota da Brave.
+    braveSearchCount--;
     return `Busca na web falhou (status ${res.status}).`;
   }
-  braveSearchCount++;
   const data = await res.json();
   const results = (data.web && data.web.results) || [];
   if (results.length === 0) {
@@ -261,6 +272,19 @@ async function searchWeb(query) {
 // cards clicáveis em vez de um bloco de texto corrido. Funções separadas
 // das de cima de propósito (searchWeb já está em produção, testada — evita
 // arriscar mudar o formato que /api/chat e o WhatsApp já dependem).
+// SearXNG/Brave devolvem a URL do resultado como veio da web — nunca confia
+// nela sem checar o esquema antes de expor pro front-end (que usa direto
+// como href): um resultado indexado com "javascript:..." não pode virar link
+// clicável.
+function isSafeHttpUrl(url) {
+  try {
+    const protocol = new URL(url).protocol;
+    return protocol === "http:" || protocol === "https:";
+  } catch (err) {
+    return false;
+  }
+}
+
 async function searchWebStructuredViaSearxng(query) {
   if (!process.env.SEARXNG_URL) return null;
   try {
@@ -270,7 +294,10 @@ async function searchWebStructuredViaSearxng(query) {
     if (!res.ok) return null;
     const data = await res.json();
     const results = data.results || [];
-    return results.slice(0, 5).map((r) => ({ title: r.title, url: r.url, snippet: r.content || "" }));
+    return results
+      .filter((r) => isSafeHttpUrl(r.url))
+      .slice(0, 5)
+      .map((r) => ({ title: r.title, url: r.url, snippet: r.content || "" }));
   } catch (err) {
     return null;
   }
@@ -278,24 +305,25 @@ async function searchWebStructuredViaSearxng(query) {
 
 async function searchWebStructuredViaBrave(query) {
   if (!process.env.BRAVE_SEARCH_API_KEY) return null;
-  const monthKey = currentMonthKey();
-  if (braveSearchMonth !== monthKey) {
-    braveSearchMonth = monthKey;
-    braveSearchCount = 0;
-  }
-  if (braveSearchCount >= BRAVE_SEARCH_MONTHLY_LIMIT) return null;
+  if (!reserveBraveSearchQuota()) return null;
   try {
     const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=5`;
     const res = await fetch(url, {
       headers: { Accept: "application/json", "X-Subscription-Token": process.env.BRAVE_SEARCH_API_KEY },
       signal: AbortSignal.timeout(10_000),
     });
-    if (!res.ok) return null;
-    braveSearchCount++;
+    if (!res.ok) {
+      braveSearchCount--;
+      return null;
+    }
     const data = await res.json();
     const results = (data.web && data.web.results) || [];
-    return results.slice(0, 5).map((r) => ({ title: r.title, url: r.url, snippet: r.description || "" }));
+    return results
+      .filter((r) => isSafeHttpUrl(r.url))
+      .slice(0, 5)
+      .map((r) => ({ title: r.title, url: r.url, snippet: r.description || "" }));
   } catch (err) {
+    braveSearchCount--;
     return null;
   }
 }

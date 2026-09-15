@@ -419,6 +419,18 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// O servidor já filtra URL com esquema perigoso (server.js: isSafeHttpUrl),
+// mas o front-end confere de novo antes de usar como href — não confia em
+// dado vindo de busca externa (SearXNG/Brave) sem checar duas vezes.
+function safeHref(url) {
+  try {
+    const protocol = new URL(url, window.location.href).protocol;
+    return protocol === "http:" || protocol === "https:" ? url : null;
+  } catch (err) {
+    return null;
+  }
+}
+
 function formatMessage(text) {
   return escapeHtml(text)
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
@@ -1278,16 +1290,18 @@ groupPriceReferenceBtn.addEventListener("click", async () => {
     groupPriceReferencePanel.innerHTML = `
       <ul class="user-panel-list">
         ${data.results
-          .map(
-            (r) => `
+          .map((r) => {
+            const href = safeHref(r.url);
+            const titleHtml = `<strong>${escapeHtml(r.title)}</strong>`;
+            return `
           <li class="user-panel-item">
             <span>
-              <a href="${escapeHtml(r.url)}" target="_blank" rel="noopener noreferrer"><strong>${escapeHtml(r.title)}</strong></a>
+              ${href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${titleHtml}</a>` : titleHtml}
               <br />
               <span class="user-panel-empty">${escapeHtml(r.snippet)}</span>
             </span>
-          </li>`
-          )
+          </li>`;
+          })
           .join("")}
       </ul>
     `;
