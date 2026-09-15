@@ -2389,6 +2389,12 @@ test.describe("Top3Profissional - estatísticas do site via Umami, self-hosted (
   test("UI: script de rastreamento do Umami é injetado no <head> com o website-id certo, sem mandar dado pra terceiro (Google Analytics etc)", async ({
     page,
   }) => {
+    // Mesmo domínio de teste propositalmente falso das outras duas (ver
+    // primeiro teste do arquivo) — simula o carregamento pra não gerar
+    // barulho de rede de verdade contra um domínio que nunca resolve.
+    await page.route("https://stats.test.invalid/script.js", (route) =>
+      route.fulfill({ status: 200, contentType: "application/javascript", body: "" })
+    );
     await page.goto("/");
     const script = page.locator('head script[src="https://stats.test.invalid/script.js"]');
     await expect(script).toHaveCount(1);
