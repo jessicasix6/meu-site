@@ -1813,14 +1813,22 @@ async function runSearch(message) {
   }
 }
 
-bottomSearchForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const message = bottomSearchInput.value.trim();
+// task-012: a busca central do hero e a barra flutuante de baixo agora são
+// DOIS formulários (ids diferentes) chamando a MESMA lógica — extraída
+// aqui pra função só, em vez de duplicar o roteamento por intenção nos
+// dois handlers de submit.
+async function performSearch(message) {
   if (!message) return;
   // A busca só é visível no modo "solicitar" — troca de volta se a pessoa
   // buscar estando no modo "presto um serviço".
   if (providerView.hidden === false) setMode("requester");
-  bottomSearchInput.value = "";
+
+  // Contagem real de "buscas realizadas" (task-012, Números que conectam)
+  // — fire-and-forget, uma busca não deve esperar nem falhar por causa
+  // disso. Precisa ser aqui (não só em /api/chat) porque boa parte da
+  // busca resolve inteira no classifyIntent() abaixo, sem nunca chegar no
+  // servidor.
+  fetch("/api/search-events", { method: "POST" }).catch(() => {});
 
   // Espera o catálogo de serviços carregar antes de classificar — sem isso,
   // uma busca feita rápido demais (antes do fetch responder) poderia
@@ -1884,25 +1892,41 @@ bottomSearchForm.addEventListener("submit", async (event) => {
   }
 
   runSearch(message);
-});
+}
 
-// "Perguntar" na barra flutuante (task-009, item 4) foi removido de novo
-// (task-011, item 2) — duplicava "Perguntar agora" do hero, que já cobre
-// essa ação com destaque (título, texto, botão bem visível). Barra
-// flutuante fica só com "Solicito serviço"/"Presto serviço".
-document.getElementById("hero-ask-link").addEventListener("click", (event) => {
+bottomSearchForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  bottomSearchInput.focus();
+  const message = bottomSearchInput.value.trim();
+  bottomSearchInput.value = "";
+  performSearch(message);
 });
 
-// Exemplos clicáveis no hero (manicure, terreno, corrida, carro...) — mostra
-// logo de cara o tipo de coisa que dá pra pedir, pra quem chega no site sem
-// saber o que digitar. Preenche a mesma barra de busca e dispara a mesma
-// busca de sempre (sem formulário novo, sem rota paralela).
-document.querySelectorAll(".example-chip").forEach((chip) => {
+// Barra de busca central do hero (task-012) — mesmo motor de busca de
+// sempre (task-005), só um segundo formulário/ponto de entrada.
+const heroSearchForm = document.getElementById("hero-search-form");
+const heroSearchInput = document.getElementById("hero-search-input");
+heroSearchForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const message = heroSearchInput.value.trim();
+  heroSearchInput.value = "";
+  performSearch(message);
+});
+
+// Chips de categoria do hero (task-012) — cada um leva pra experiência já
+// existente daquela categoria, em vez de tentar simular um filtro de busca
+// que essas categorias (viagem, grupo) já resolvem melhor com tela própria.
+document.querySelectorAll("[data-hero-category]").forEach((chip) => {
   chip.addEventListener("click", () => {
-    bottomSearchInput.value = chip.dataset.example;
-    bottomSearchForm.requestSubmit();
+    const category = chip.dataset.heroCategory;
+    if (category === "profissional") {
+      highlightSection(rankingSection);
+    } else if (category === "viagem") {
+      highlightSection(ridesSection);
+    } else if (category === "grupo") {
+      highlightSection(document.getElementById("grupos"));
+    } else {
+      heroSearchInput.focus();
+    }
   });
 });
 
@@ -2400,3 +2424,207 @@ fetch("/api/auth/config")
   })
   .catch(() => {})
   .finally(() => showLoginSuggestionBannerIfApplicable());
+
+// task-012 — nova home "TOP3 SYSTEM": tudo que parece estatística ou
+// atividade aqui embaixo vem de consulta real (fetch pro backend), nunca
+// número fixo. Ver docs/visao-produto.md seção 4.22.
+
+// Indicador "Online" (item 1) — só aparece se /health responder de
+// verdade, nunca decorativo fixo. Sem tentar de novo: se falhar, o
+// indicador simplesmente não aparece (nada pra "cair" depois).
+(async function checkOnlineStatus() {
+  const indicator = document.getElementById("online-indicator");
+  try {
+    const res = await fetch("/health");
+    if (res.ok) indicator.hidden = false;
+  } catch (err) {
+    // sem indicador mesmo — melhor que fingir "online" sem checar nada.
+  }
+})();
+
+// "Mais" (menu do topo) — dropdown simples, fecha ao clicar fora ou ao
+// escolher um item.
+const navMoreToggle = document.getElementById("nav-more-toggle");
+const navMoreMenu = document.getElementById("nav-more-menu");
+navMoreToggle.addEventListener("click", (event) => {
+  event.stopPropagation();
+  const isOpen = !navMoreMenu.hidden;
+  navMoreMenu.hidden = isOpen;
+  navMoreToggle.setAttribute("aria-expanded", String(!isOpen));
+});
+document.addEventListener("click", (event) => {
+  if (navMoreMenu.hidden) return;
+  if (event.target.closest("#nav-more-menu, #nav-more-toggle")) return;
+  navMoreMenu.hidden = true;
+  navMoreToggle.setAttribute("aria-expanded", "false");
+});
+navMoreMenu.addEventListener("click", () => {
+  navMoreMenu.hidden = true;
+  navMoreToggle.setAttribute("aria-expanded", "false");
+});
+
+// "Criar conta" (header) — mesmo painel de "Entrar", só abre já na aba de
+// cadastro em vez de duplicar formulário/lógica.
+document.getElementById("signup-toggle").addEventListener("click", () => {
+  emailAuthToggle.click();
+  document.querySelector('.email-auth-tab[data-auth-mode="signup"]')?.click();
+});
+
+// "Comece agora" (chamada final) — mesmo raciocínio: não é uma ação nova,
+// é atalho pro mesmo caminho de sempre (criar conta).
+document.getElementById("final-cta-btn").addEventListener("click", () => {
+  document.getElementById("signup-toggle").click();
+  document.getElementById("email-auth-toggle").scrollIntoView({ behavior: "smooth", block: "center" });
+});
+
+// Categorias populares (item 7) — as de Grupos aplicam o mesmo filtro que
+// já existe na seção Grupos, só de outro ponto de entrada.
+document.querySelectorAll("#categorias .category-card[data-group-category]").forEach((card) => {
+  card.addEventListener("click", (event) => {
+    const category = card.dataset.groupCategory;
+    const categoryBtn = document.querySelector(`.group-category-btn[data-category="${category}"]`);
+    if (categoryBtn) {
+      event.preventDefault();
+      categoryBtn.click();
+      highlightSection(document.getElementById("grupos"));
+    }
+  });
+});
+
+// "há X min/h/d" a partir de um timestamp ISO real — usado em Atividade
+// recente (item 4). Sempre relativo a agora, nunca um texto fixo.
+function formatRelativeTime(isoString) {
+  const diffMs = Date.now() - new Date(isoString).getTime();
+  const diffMin = Math.round(diffMs / 60000);
+  if (diffMin < 1) return "agora mesmo";
+  if (diffMin < 60) return `há ${diffMin} min`;
+  const diffH = Math.round(diffMin / 60);
+  if (diffH < 24) return `há ${diffH}h`;
+  const diffD = Math.round(diffH / 24);
+  return `há ${diffD}d`;
+}
+
+// Destaques da sua região (item 3) — mistura pedidos (REQUESTS) e grupos
+// abertos (GROUP_OPPORTUNITIES) reais, ordenados por mais recente. Sem
+// posts suficientes, mostra só os que existem (nunca completa com
+// exemplo fictício); sem nenhum, mostra o empty state com ação.
+async function loadHighlights() {
+  const list = document.getElementById("highlights-list");
+  const empty = document.getElementById("highlights-empty");
+  try {
+    const [requestsRes, groupsRes] = await Promise.all([fetch("/api/requests"), fetch("/api/groups")]);
+    const { requests } = requestsRes.ok ? await requestsRes.json() : { requests: [] };
+    const { groups } = groupsRes.ok ? await groupsRes.json() : { groups: [] };
+
+    const items = [
+      ...requests
+        .filter((r) => r.status === "aberto")
+        .map((r) => ({
+          id: `r-${r.id}`,
+          createdAt: r.createdAt,
+          label: r.type,
+          title: r.title,
+          where: r.location || "local não informado",
+          price: `R$ ${r.price}`,
+          actionText: "Ver opções",
+          onAction: () => {
+            setMode("provider");
+            highlightSection(document.getElementById("provider"));
+          },
+        })),
+      ...groups
+        .filter((g) => g.status === "aberto")
+        .map((g) => ({
+          id: `g-${g.id}`,
+          createdAt: g.createdAt,
+          label: g.categoryLabel || g.category,
+          title: g.title,
+          where: g.city,
+          price: g.estimatedIndividualPrice ? `R$ ${g.estimatedIndividualPrice}/pessoa` : `${g.currentMembers}/${g.targetMembers} pessoas`,
+          actionText: g.category === "carona" ? "Ver carona" : "Participar",
+          onAction: () => {
+            const categoryBtn = document.querySelector(`.group-category-btn[data-category="${g.category}"]`);
+            if (categoryBtn) categoryBtn.click();
+            highlightSection(document.getElementById("grupos"));
+          },
+        })),
+    ]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 5);
+
+    if (items.length === 0) {
+      list.innerHTML = "";
+      empty.hidden = false;
+      return;
+    }
+    empty.hidden = true;
+    list.innerHTML = items
+      .map(
+        (item, index) => `
+      <li class="highlight-card">
+        <span class="highlight-badge">${escapeHtml(item.label)}</span>
+        <strong class="highlight-title">${escapeHtml(item.title)}</strong>
+        <span class="highlight-meta">${escapeHtml(item.where)}</span>
+        <span class="highlight-price">${escapeHtml(item.price)}</span>
+        <button type="button" class="highlight-action" data-highlight-index="${index}">${escapeHtml(item.actionText)}</button>
+      </li>`
+      )
+      .join("");
+    list.querySelectorAll(".highlight-action").forEach((btn) => {
+      btn.addEventListener("click", () => items[Number(btn.dataset.highlightIndex)].onAction());
+    });
+  } catch (err) {
+    list.innerHTML = "";
+    empty.hidden = false;
+  }
+}
+
+// TOP3 SYSTEM — Atividade recente (item 4).
+async function loadActivityFeed() {
+  const list = document.getElementById("activity-list");
+  const empty = document.getElementById("activity-empty");
+  try {
+    const res = await fetch("/api/activity-feed?limit=8");
+    const { events } = res.ok ? await res.json() : { events: [] };
+    if (!events || events.length === 0) {
+      list.innerHTML = "";
+      empty.hidden = false;
+      return;
+    }
+    empty.hidden = true;
+    list.innerHTML = events
+      .map(
+        (ev) => `
+      <li class="activity-item">
+        <span class="activity-text">${escapeHtml(ev.text)}</span>
+        <span class="activity-time">${escapeHtml(formatRelativeTime(ev.createdAt))}</span>
+      </li>`
+      )
+      .join("");
+  } catch (err) {
+    list.innerHTML = "";
+    empty.hidden = false;
+  }
+}
+
+// Números que conectam (item 6) — os 4 vêm todos de /api/home-stats, uma
+// query real cada, nunca arredondado nem simulado (mesmo se o número real
+// for baixo, ex: "3").
+async function loadHomeStats() {
+  try {
+    const res = await fetch("/api/home-stats");
+    if (!res.ok) return;
+    const stats = await res.json();
+    document.getElementById("stat-searches").textContent = stats.searchesLast7Days;
+    document.getElementById("stat-open").textContent = stats.openOpportunities;
+    document.getElementById("stat-groups").textContent = stats.groupsForming;
+    document.getElementById("stat-providers").textContent = stats.providersListed;
+  } catch (err) {
+    // Sem dado, os cards ficam com "—" (valor inicial do HTML) em vez de
+    // travar ou mostrar zero enganoso.
+  }
+}
+
+loadHighlights();
+loadActivityFeed();
+loadHomeStats();

@@ -1207,6 +1207,24 @@ function rateRequest(id, rating, comment) {
   return { ok: true, request };
 }
 
+// Contador de buscas de verdade (task-012, "Números que conectam") — só
+// timestamp, nenhum texto de busca guardado. Precisa de um endpoint
+// próprio (em vez de reaproveitar recordDemandSignal) porque bastante
+// busca resolve inteira no front-end via classifyIntent() (ex: "corrida
+// até o aeroporto" já casa local, nunca chega no servidor) — sem esse
+// contador explícito, chamado no mesmo handler de submit que dispara
+// qualquer busca (ver bottomSearchForm em assets/app.js), o número de
+// "buscas realizadas" ficaria bem menor que o real.
+const SEARCH_EVENTS = [];
+const SEARCH_EVENT_CAP = 5000;
+const SEARCH_EVENT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // guarda até 30 dias, mais que suficiente pra "últimos 7 dias"
+
+app.post("/api/search-events", (req, res) => {
+  SEARCH_EVENTS.push(Date.now());
+  if (SEARCH_EVENTS.length > SEARCH_EVENT_CAP) SEARCH_EVENTS.shift();
+  res.status(204).end();
+});
+
 // Pilar 4.2 — sinal de demanda não publicada: toda busca que chega aqui já
 // passou pela classificação do front-end e não caiu em serviço cadastrado
 // nem corrida/carona (ver classifyIntent em assets/app.js) — ou seja, é
@@ -1270,6 +1288,52 @@ app.get("/api/demand-signals", (req, res) => {
     .sort((a, b) => b.count - a.count)
     .slice(0, 8);
   res.json({ signals });
+});
+
+// "Números que conectam" (task-012) — os 4 sempre calculados na hora, a
+// partir do estado real (nunca fixo, nunca arredondado). Reaproveita os
+// mesmos arrays que o resto do site já usa pra listar posts/prestadores —
+// nenhum dado novo guardado só pra essa tela.
+app.get("/api/home-stats", (req, res) => {
+  const since = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const searchesLast7Days = SEARCH_EVENTS.filter((t) => t >= since).length;
+  const openRequests = REQUESTS.filter((r) => r.status === "aberto").length;
+  const openGroups = GROUP_OPPORTUNITIES.filter((g) => g.status === "aberto").length;
+  res.json({
+    searchesLast7Days,
+    openOpportunities: openRequests + openGroups,
+    groupsForming: openGroups,
+    providersListed: PROVIDERS.length + PROVIDER_PROFILES.length,
+  });
+});
+
+// "TOP3 SYSTEM — Atividade recente" (task-012) — eventos reais mais
+// recentes, sem nome de pessoa nenhum (só categoria/cidade, dado que já é
+// público em outro lugar do site — o próprio card do post/grupo). Mistura
+// GROUP_EVENTS (log que já existia, sem tela própria até agora — pilar
+// 4.14) com a criação de pedidos (REQUESTS), ordenado por data, sem
+// preencher com item inventado quando tem pouco: a lista simplesmente
+// fica curta.
+app.get("/api/activity-feed", (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 8, 20);
+  const events = [];
+
+  for (const ev of GROUP_EVENTS) {
+    if (ev.type !== "created") continue;
+    const group = GROUP_OPPORTUNITIES.find((g) => g.id === ev.groupId);
+    if (!group) continue;
+    const label = group.category === "carona" ? "carona" : "grupo";
+    events.push({ text: `Novo ${label} criado em ${group.city}`, createdAt: ev.at });
+  }
+
+  for (const r of REQUESTS) {
+    if (!r.createdAt) continue;
+    const where = r.location ? ` em ${r.location}` : "";
+    events.push({ text: `Novo pedido de ${r.type}${where}`, createdAt: r.createdAt });
+  }
+
+  events.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  res.json({ events: events.slice(0, limit) });
 });
 
 app.post("/api/chat", async (req, res) => {
@@ -1700,6 +1764,7 @@ function createRequest({ type, title, requester, when, price, whatsapp, location
     price: priceNum,
     status: "aberto",
     ownerUserId: ownerUserId || null,
+    createdAt: new Date().toISOString(),
   };
   REQUESTS.unshift(request);
   return { ok: true, request };
