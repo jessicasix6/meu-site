@@ -2968,7 +2968,13 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
   });
 
   test("Destaques da região: mostra posts reais com preço e ação, nunca card de exemplo fixo", async ({ page }) => {
-    await page.goto("/");
+    // Espera o fetch de /api/requests terminar antes de contar os cards —
+    // sem isso o count pode ser 0 antes do loadHighlights() terminar, o que
+    // leva a falso-vazio e faz o teste quebrar sob carga alta na suíte completa.
+    await Promise.all([
+      page.waitForResponse((res) => res.url().includes("/api/requests")),
+      page.goto("/"),
+    ]);
     const cards = page.locator("#highlights-list .highlight-card");
     const count = await cards.count();
     // Sempre reflete /api/requests + /api/groups reais — ou tem card (com

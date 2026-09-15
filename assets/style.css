@@ -15,24 +15,22 @@
 }
 
 :root {
-  --bg: #0a0c0d;
-  --bg-raised: #111516;
-  --bg-card: #14181a;
-  /* Vidro fosco (Jéssica, 2026-09-15) — cards e barra flutuante de baixo
-     usam isso em vez de --bg-card sólido, pro tema escuro/neon ficar com
-     cara de "produto premium" em vez de cor forte lisa jogada em cima.
-     --bg-card fica intocado de propósito: inputs de formulário continuam
-     opacos (texto digitado precisa de contraste sólido, não faz sentido
-     borrado atrás de um campo de texto). */
-  --glass-bg: rgba(20, 24, 26, 0.72);
-  --border: rgba(255, 255, 255, 0.09);
-  --border-strong: rgba(255, 255, 255, 0.16);
-  --accent: #21e6c1;
-  --accent-dim: #12352f;
-  --accent-ink: #04211d;
-  --text: #eef3f2;
-  --text-dim: #9db3ae;
-  --text-faint: #5e716d;
+  /* task-013 (print 15/09/2026): paleta realinhada aos tokens do mockup.
+     Fundo mais escuro (#06080B), ciano mais vivo (#35E6FF), texto mais
+     nítido (#EAFBFF). Nada inventado fora dessa lista. */
+  --bg: #06080b;
+  --bg-raised: #0b1117;
+  --bg-card: #0f1419;
+  /* Vidro fosco — mesmo conceito da task-011, agora base mais escura. */
+  --glass-bg: rgba(8, 14, 20, 0.72);
+  --border: rgba(53, 230, 255, 0.12);
+  --border-strong: rgba(53, 230, 255, 0.22);
+  --accent: #35e6ff;
+  --accent-dim: rgba(53, 230, 255, 0.10);
+  --accent-ink: #06080b;
+  --text: #eafbff;
+  --text-dim: #9db7c2;
+  --text-faint: #4a6470;
   --gold: #e8b64c;
   --silver: #c3ccd1;
   --bronze: #cd8c5c;
@@ -114,7 +112,7 @@ a {
 }
 
 .site-header {
-  background: rgba(10, 12, 13, 0.9);
+  background: rgba(6, 8, 11, 0.92);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
 }
@@ -234,10 +232,6 @@ a {
 
 .signup-toggle {
   flex-shrink: 0;
-  padding: 0.55rem 1.1rem;
-  font-size: 0.85rem;
-  border: none;
-  cursor: pointer;
 }
 
 .google-signin-wrap {
@@ -290,6 +284,8 @@ a {
   border-color: var(--text-dim);
 }
 
+/* task-013: era verde (#accent-dim = #12352f antes), completamente fora
+   da paleta. Agora escuro com blur + borda ciano fraca. */
 .login-suggestion-banner {
   display: flex;
   align-items: center;
@@ -297,14 +293,15 @@ a {
   gap: 1rem;
   flex-wrap: wrap;
   padding: 0.7rem 1.5rem;
-  background: var(--accent-dim);
-  border-bottom: 1px solid var(--border);
+  background: rgba(8, 14, 20, 0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(53, 230, 255, 0.25);
   text-align: center;
 }
 
 .login-suggestion-banner p {
   margin: 0;
-  color: var(--text);
+  color: #eafbff;
   font-size: 0.9rem;
 }
 
@@ -317,7 +314,7 @@ a {
 #login-suggestion-dismiss {
   background: none;
   border: none;
-  color: var(--text-dim);
+  color: #9db7c2;
   cursor: pointer;
   font-size: 1rem;
   line-height: 1;
@@ -325,7 +322,7 @@ a {
 }
 
 #login-suggestion-dismiss:hover {
-  color: var(--text);
+  color: var(--accent);
 }
 
 .user-panel {
@@ -333,7 +330,7 @@ a {
   top: calc(100% + 0.6rem);
   right: 0;
   min-width: 15rem;
-  background: #101516;
+  background: var(--bg-raised);
   border: 1px solid var(--border-strong);
   border-radius: 0.9rem;
   padding: 0.9rem;
@@ -673,7 +670,7 @@ a {
 }
 
 .accept-btn:hover:not(:disabled) {
-  background: #3df2cd;
+  background: #5aeeff;
 }
 
 .accept-btn:disabled {
@@ -855,7 +852,7 @@ a {
    vez" (task-009/011). */
 .hero-search-form:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 4px rgba(33, 230, 193, 0.18), 0 0 24px rgba(33, 230, 193, 0.25);
+  box-shadow: 0 0 0 4px rgba(53, 230, 255, 0.18), 0 0 24px rgba(53, 230, 255, 0.25);
 }
 
 .hero-search-form .search-icon {
@@ -902,13 +899,49 @@ a {
   font-weight: 600;
   font-size: 0.92rem;
   text-decoration: none;
-  border-radius: 8px;
-  transition: transform 0.15s ease, background 0.15s ease;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .cta-button:hover {
-  background: #3df2cd;
+  background: #5aeeff;
   transform: translateY(-1px);
+}
+
+/* task-013: "Criar conta" no header — ciano com brilho sutil, hierarquia
+   primária clara. O brilho sutil destaca o CTA sem violar a regra
+   "só um brilho por vez" porque é mais fraco e não há outro brilho ativo
+   no header. */
+#signup-toggle.cta-button {
+  padding: 0.55rem 1.1rem;
+  font-size: 0.85rem;
+  box-shadow: 0 0 16px rgba(53, 230, 255, 0.35);
+}
+
+/* task-013: "Entrar" no header — secundário glass com borda ciano fraca. */
+#email-auth-toggle.cta-secondary {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.85rem;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(53, 230, 255, 0.3);
+  border-radius: 10px;
+  color: #eafbff;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  text-decoration: none;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+#email-auth-toggle.cta-secondary:hover {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(53, 230, 255, 0.5);
+  border-bottom: 1px solid rgba(53, 230, 255, 0.5);
 }
 
 .cta-secondary {
@@ -1209,7 +1242,7 @@ button.cta-secondary:hover {
 }
 
 .rank-cta:hover {
-  background: #3df2cd;
+  background: #5aeeff;
 }
 
 /* resultado de busca (a busca em si mora só na barra fixa embaixo) */
@@ -1290,7 +1323,7 @@ button.cta-secondary:hover {
 }
 
 .result-action-btn:hover {
-  background: #3df2cd;
+  background: #5aeeff;
 }
 
 /* barra fixa embaixo (sempre visível, estilo app) */
@@ -1301,11 +1334,10 @@ button.cta-secondary:hover {
   right: 0;
   bottom: 0;
   z-index: 40;
-  /* Vidro fosco (Jéssica, 2026-09-15), mesma técnica do .site-header lá em
-     cima — translúcido + blur em vez de --bg-raised sólido. */
-  background: rgba(17, 21, 22, 0.75);
+  /* task-013: fundo ainda mais escuro alinhado aos novos tokens. */
+  background: rgba(8, 14, 20, 0.75);
   backdrop-filter: blur(16px);
-  border-top: 1px solid var(--border-strong);
+  border-top: 1px solid rgba(53, 230, 255, 0.15);
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.35);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -1330,7 +1362,7 @@ button.cta-secondary:hover {
    ativo aqui, que passa a ser a única ação primária fixa em toda tela —
    continua valendo "só um brilho por vez", só troca de dono. */
 .bottom-mode-btn.is-active {
-  box-shadow: 0 0 14px rgba(33, 230, 193, 0.55), 0 0 2px rgba(33, 230, 193, 0.8);
+  box-shadow: 0 0 14px rgba(53, 230, 255, 0.55), 0 0 2px rgba(53, 230, 255, 0.8);
 }
 
 .bottom-search-bar {
@@ -1344,25 +1376,29 @@ button.cta-secondary:hover {
   margin-left: 0.3rem;
 }
 
+/* task-013: campo de busca da barra inferior — fundo mais escuro, borda
+   ciano fraca, glow ao focar (mesmo padrão do hero search). */
 #bottom-search-input {
   flex: 1;
   min-width: 0;
-  background: var(--bg-card);
-  border: 1px solid var(--border-strong);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(53, 230, 255, 0.20);
   border-radius: 999px;
   padding: 0.65rem 1rem;
   color: var(--text);
   font-family: var(--font-body);
   font-size: 0.9rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 #bottom-search-input:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline: none;
+  border-color: rgba(53, 230, 255, 0.5);
+  box-shadow: 0 0 0 3px rgba(53, 230, 255, 0.12);
 }
 
 #bottom-search-input::placeholder {
-  color: var(--text-faint);
+  color: #9db7c2;
 }
 
 #bottom-search-input:disabled {
@@ -1383,7 +1419,7 @@ button.cta-secondary:hover {
 }
 
 .bottom-search-bar button[type="submit"]:hover {
-  background: #3df2cd;
+  background: #5aeeff;
 }
 
 /* post a request */
@@ -1483,7 +1519,7 @@ button.cta-secondary:hover {
 }
 
 .post-submit:hover {
-  background: #3df2cd;
+  background: #5aeeff;
 }
 
 .post-status {
@@ -1788,7 +1824,7 @@ button.cta-secondary:hover {
 }
 
 .ride-form button:hover {
-  background: #3df2cd;
+  background: #5aeeff;
 }
 
 .ride-results {
@@ -2071,7 +2107,7 @@ button.cta-secondary:hover {
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(33, 230, 193, 0.3);
+  box-shadow: 0 4px 14px rgba(53, 230, 255, 0.3);
 }
 
 .highlights-empty,
@@ -2106,7 +2142,7 @@ button.cta-secondary:hover {
   backdrop-filter: blur(16px);
   border: 1px solid var(--border);
   border-radius: 16px;
-  box-shadow: 0 0 60px rgba(33, 230, 193, 0.08);
+  box-shadow: 0 0 60px rgba(53, 230, 255, 0.08);
 }
 
 .activity-item {
@@ -2147,7 +2183,7 @@ button.cta-secondary:hover {
   backdrop-filter: blur(16px);
   border: 1px solid var(--border);
   border-radius: 16px;
-  box-shadow: 0 0 60px rgba(33, 230, 193, 0.08);
+  box-shadow: 0 0 60px rgba(53, 230, 255, 0.08);
 }
 
 .stat-value {
