@@ -44,6 +44,15 @@ module.exports = defineConfig({
       // pensados pra abuso real (ex: 20 cadastros/hora por IP) travam a
       // própria suíte de teste, que roda tudo do mesmo IP (localhost).
       DISABLE_RATE_LIMITS: "1",
+      // Geocodificação (task-008, Nominatim público) não tem chave pra
+      // "faltar" como as outras integrações opcionais — fica sempre ativa
+      // por padrão. Sem desligar aqui, a suíte inteira bateria de verdade
+      // no Nominatim a cada grupo/carona criado nos testes (lenta, sujeita
+      // à rede real, e arrisca estourar a política de uso deles com volume
+      // de automação). Default "1" (desligado) — passe
+      // DISABLE_GEOCODING=0 na hora de rodar pra testar a geocodificação de
+      // verdade (ver tests/e2e.spec.js).
+      DISABLE_GEOCODING: process.env.DISABLE_GEOCODING || "1",
     },
     // Sempre falso, mesmo localmente: já aconteceu mais de uma vez nesta
     // máquina de um processo de teste anterior ficar preso na porta (uma
