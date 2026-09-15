@@ -1537,13 +1537,31 @@ const postLocationStatus = document.getElementById("post-location-status");
 const postLatInput = document.getElementById("post-lat");
 const postLngInput = document.getElementById("post-lng");
 
+// getCurrentPosition é assíncrono e pode demorar — sem essa "geração", um
+// pedido antigo que só resolve depois (ex: a pessoa clicou duas vezes, ou
+// trocou o Tipo enquanto esperava) podia sobrescrever lat/lng com um
+// resultado desatualizado (achado do CodeRabbit, PR #76). Cada clique novo
+// invalida qualquer callback pendente de antes.
+let postLocationRequestGeneration = 0;
+
+function clearPostLocationCoordinates() {
+  postLatInput.value = "";
+  postLngInput.value = "";
+}
+
 function updatePostLocationGeoVisibility() {
   postLocationGeoField.hidden = postTypeSelect.value !== "corrida";
 }
-postTypeSelect.addEventListener("change", updatePostLocationGeoVisibility);
+postTypeSelect.addEventListener("change", () => {
+  postLocationRequestGeneration += 1;
+  clearPostLocationCoordinates();
+  updatePostLocationGeoVisibility();
+});
 updatePostLocationGeoVisibility();
 
 postUseLocationBtn.addEventListener("click", () => {
+  const requestGeneration = ++postLocationRequestGeneration;
+  clearPostLocationCoordinates();
   if (!navigator.geolocation) {
     postLocationStatus.textContent = "seu navegador não suporta localização";
     return;
@@ -1551,6 +1569,7 @@ postUseLocationBtn.addEventListener("click", () => {
   postLocationStatus.textContent = "obtendo localização…";
   navigator.geolocation.getCurrentPosition(
     (pos) => {
+      if (requestGeneration !== postLocationRequestGeneration) return;
       postLatInput.value = pos.coords.latitude;
       postLngInput.value = pos.coords.longitude;
       postLocationInput.value = "📍 Localização atual";
@@ -1558,6 +1577,7 @@ postUseLocationBtn.addEventListener("click", () => {
       postLocationStatus.textContent = "localização atual usada ✓";
     },
     () => {
+      if (requestGeneration !== postLocationRequestGeneration) return;
       postLocationStatus.textContent = "não consegui obter sua localização — preencha \"Onde\" manualmente";
     }
   );
@@ -1619,6 +1639,7 @@ postForm.addEventListener("submit", async (event) => {
 
     postStatus.textContent = "Publicado! Já aparece pra quem presta serviço.";
     postStatus.className = "post-status post-status--ok";
+    postLocationRequestGeneration += 1; // invalida qualquer geolocalização ainda pendente antes do reset
     postForm.reset();
     setPostDateToToday();
     postLocationAutoFilled = true;

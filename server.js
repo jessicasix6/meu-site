@@ -689,11 +689,18 @@ const SESSION_COOKIE = "top3_session";
 // (data/ próprio, descartável, num diretório temporário) sem sujar o
 // data/ real do checkout — produção/dev local nunca precisam setar isso.
 const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(__dirname, "data");
-const USERS_FILE = path.join(DATA_DIR, "users.json");
-const SESSIONS_FILE = path.join(DATA_DIR, "sessions.json");
+// USERS e SESSIONS num arquivo só, de propósito (achado do CodeRabbit no
+// PR #76): com dois arquivos separados, um processo morto bem no meio das
+// duas escritas (ex: durante logout) podia deixar um sessions.json velho
+// (ainda com o token removido) ao lado de um users.json novo — sem nenhum
+// jeito de detectar essa inconsistência na próxima subida, um token já
+// deslogado voltava a funcionar até expirar (30 dias). Um arquivo só
+// elimina esse cenário: ou a escrita inteira (users + sessions) entra,
+// ou fica a versão anterior completa — nunca uma mistura das duas.
+const DATA_FILE = path.join(DATA_DIR, "state.json");
 
 // Testes automatizados (Playwright) nunca devem ler nem escrever
-// data/users.json de verdade — sem isso, cada rodada de teste carregaria
+// data/state.json de verdade — sem isso, cada rodada de teste carregaria
 // contas de uma rodada anterior (colisão de e-mail, contagem de usuário
 // inesperada) e ainda por cima sujaria o arquivo real usado em
 // desenvolvimento local. Desligado por padrão só quando essa env var
@@ -705,31 +712,44 @@ function isUserPersistenceDisabled() {
 function loadPersistedUsersAndSessions() {
   if (isUserPersistenceDisabled()) return;
   try {
-    if (fs.existsSync(USERS_FILE)) {
-      const loadedUsers = JSON.parse(fs.readFileSync(USERS_FILE, "utf8"));
-      USERS.push(...loadedUsers);
+    if (fs.existsSync(DATA_FILE)) {
+      const loaded = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+      USERS.push(...(loaded.users || []));
       const maxId = USERS.reduce((max, u) => Math.max(max, Number(String(u.id).replace(/\D/g, "")) || 0), 0);
       nextUserId = maxId + 1;
-    }
-    if (fs.existsSync(SESSIONS_FILE)) {
-      const loadedSessions = JSON.parse(fs.readFileSync(SESSIONS_FILE, "utf8"));
-      for (const [token, session] of loadedSessions) SESSIONS.set(token, session);
+      for (const [token, session] of loaded.sessions || []) SESSIONS.set(token, session);
     }
   } catch (err) {
     console.error("[persistencia] falha ao carregar users/sessions salvos, começando do zero:", err.message);
   }
 }
 
-// Escrita síncrona de propósito: volume de dados é pequeno (não é um
-// banco de verdade, é só o suficiente pra sobreviver a um restart) e
-// roda também no handler de SIGTERM logo antes do processo morrer —
-// precisa terminar de escrever antes do `process.exit`.
+// Escrita síncrona, atômica e com permissão restrita (achados do
+// CodeRabbit no PR #76):
+// - Atômica: escreve num arquivo temporário e troca com fs.renameSync
+//   (mesma técnica já usada pra foto de perfil, ver buildPhotosFromFiles)
+//   — um SIGKILL/queda de energia no meio da escrita nunca deixa
+//   state.json pela metade (JSON inválido apagaria todo mundo no próximo
+//   boot); o pior caso vira "perdeu só o autosave mais recente".
+// - 0600/0700: o arquivo tem passwordHash e token de sessão — sem
+//   restringir, um umask permissivo no VPS deixaria qualquer usuário do
+//   sistema ler esse arquivo.
+// - Síncrona de propósito: roda também no handler de SIGTERM logo antes
+//   do processo morrer, precisa terminar antes do `process.exit`.
 function persistUsersAndSessions() {
   if (isUserPersistenceDisabled()) return;
   try {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(USERS_FILE, JSON.stringify(USERS));
-    fs.writeFileSync(SESSIONS_FILE, JSON.stringify([...SESSIONS.entries()]));
+    fs.mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 });
+    fs.chmodSync(DATA_DIR, 0o700);
+    const tmpFile = `${DATA_FILE}.tmp-${process.pid}`;
+    const payload = JSON.stringify({ users: USERS, sessions: [...SESSIONS.entries()] });
+    const fd = fs.openSync(tmpFile, "w", 0o600);
+    try {
+      fs.writeFileSync(fd, payload);
+    } finally {
+      fs.closeSync(fd);
+    }
+    fs.renameSync(tmpFile, DATA_FILE);
   } catch (err) {
     console.error("[persistencia] falha ao salvar users/sessions:", err.message);
   }
