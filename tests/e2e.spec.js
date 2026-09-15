@@ -2895,7 +2895,7 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
     await page.goto("/");
     await page.locator("#email-auth-toggle").click();
     await expect(page.locator("#email-auth-panel")).toBeVisible();
-    await expect(page.locator("#google-signin-modal-slot")).toBeVisible();
+    // Facebook e Instagram sempre visíveis (Google só aparece quando GOOGLE_CLIENT_ID está configurado)
     await expect(page.locator("#facebook-login-btn")).toBeVisible();
     await expect(page.locator("#instagram-login-btn")).toBeVisible();
   });
