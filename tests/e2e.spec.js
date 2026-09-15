@@ -2,6 +2,15 @@ const { test, expect, request: apiRequest } = require("@playwright/test");
 
 test.describe("Top3Profissional - fluxo básico", () => {
   test("carrega a página sem erros de console", async ({ page }) => {
+    // Domínio de teste do Umami (task-008, ver playwright.config.js) é
+    // propositalmente falso (stats.test.invalid) — numa instância real
+    // configurada de verdade, o script carrega normal. Aqui só interessa
+    // confirmar que o resto da página não gera erro nenhum, então o
+    // carregamento desse script específico é simulado (200, JS vazio).
+    await page.route("https://stats.test.invalid/script.js", (route) =>
+      route.fulfill({ status: 200, contentType: "application/javascript", body: "" })
+    );
+
     const consoleErrors = [];
     page.on("console", (msg) => {
       if (msg.type() === "error") consoleErrors.push(msg.text());
@@ -392,6 +401,13 @@ test.describe("Top3Profissional - mobile", () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
   test("funciona em viewport mobile: menu, busca e alternância de modo", async ({ page }) => {
+    // Ver comentário equivalente no primeiro teste do arquivo — domínio de
+    // teste do Umami é propositalmente falso, simula o carregamento aqui
+    // também.
+    await page.route("https://stats.test.invalid/script.js", (route) =>
+      route.fulfill({ status: 200, contentType: "application/javascript", body: "" })
+    );
+
     const consoleErrors = [];
     page.on("console", (msg) => {
       if (msg.type() === "error") consoleErrors.push(msg.text());
@@ -2525,6 +2541,32 @@ test.describe("Top3Profissional - anti-spam com ALTCHA, sem terceiro (task-008)"
       const second = await request.post("/api/groups", { data: { ...base, title: `replay 2 ${uniqueSuffix()}` } });
       expect(second.status()).toBe(400);
     });
+  });
+});
+
+test.describe("Top3Profissional - estatísticas do site via Umami, self-hosted (task-008)", () => {
+  test("/health e /api/auth/config reportam o Umami configurado (variáveis de teste)", async ({ request }) => {
+    const health = await (await request.get("/health")).json();
+    expect(health.umamiConfigured).toBe(true);
+
+    const config = await (await request.get("/api/auth/config")).json();
+    expect(config.umamiScriptUrl).toBe("https://stats.test.invalid/script.js");
+    expect(config.umamiWebsiteId).toBe("test-website-id-nao-usar-em-producao");
+  });
+
+  test("UI: script de rastreamento do Umami é injetado no <head> com o website-id certo, sem mandar dado pra terceiro (Google Analytics etc)", async ({
+    page,
+  }) => {
+    // Mesmo domínio de teste propositalmente falso das outras duas (ver
+    // primeiro teste do arquivo) — simula o carregamento pra não gerar
+    // barulho de rede de verdade contra um domínio que nunca resolve.
+    await page.route("https://stats.test.invalid/script.js", (route) =>
+      route.fulfill({ status: 200, contentType: "application/javascript", body: "" })
+    );
+    await page.goto("/");
+    const script = page.locator('head script[src="https://stats.test.invalid/script.js"]');
+    await expect(script).toHaveCount(1);
+    await expect(script).toHaveAttribute("data-website-id", "test-website-id-nao-usar-em-producao");
   });
 });
 
