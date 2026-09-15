@@ -122,21 +122,122 @@ a {
 .nav-inner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 1.5rem;
   padding: 1.1rem 1.5rem;
 }
 
+/* display:block (não flex/column) — CodeRabbit achou no PR #78 que
+   flex-direction:column tratava "TOP", o <span> do "3" e o subtítulo como
+   itens separados, cada um na própria linha ("T-O-P" e "3" quebrados).
+   Bloco normal deixa "TOP" + "3" fluírem juntos na mesma linha; só o
+   subtítulo (abaixo, com display:block próprio) quebra pra linha de
+   baixo. */
 .logo {
+  display: block;
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 1.05rem;
+  letter-spacing: 0.04em;
   color: var(--text);
   text-decoration: none;
+  flex-shrink: 0;
+}
+
+.logo-accent {
+  color: var(--accent);
+}
+
+.logo-subtitle {
+  display: block;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 0.62rem;
+  letter-spacing: 0.02em;
+  color: var(--text-faint);
+  text-transform: none;
 }
 
 .site-nav {
   display: flex;
+  align-items: center;
   gap: 2rem;
+  flex: 1;
+}
+
+/* task-012 item 1: dropdown "Mais" (Criar meu perfil/Benefícios/Como
+   funciona) — junta itens secundários do menu sem alongar a barra. */
+.site-nav-more {
+  position: relative;
+}
+
+.site-nav-more-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-dim);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.site-nav-more-toggle:hover {
+  color: var(--text);
+}
+
+.site-nav-more-menu {
+  position: absolute;
+  top: calc(100% + 0.8rem);
+  left: 0;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.site-nav-more-menu a {
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.88rem;
+}
+
+.site-nav-more-menu a:hover {
+  color: var(--text);
+  background: var(--bg-raised);
+}
+
+/* task-012 item 1: indicador "Online" — só some do hidden via JS depois
+   de um /health real responder, nunca decorativo por padrão. */
+.online-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.online-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #2ee6a8;
+  box-shadow: 0 0 6px #2ee6a8;
+}
+
+.signup-toggle {
+  flex-shrink: 0;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.85rem;
+  border: none;
+  cursor: pointer;
 }
 
 .google-signin-wrap {
@@ -685,38 +786,113 @@ a {
 
 /* hero */
 
-.hero {
-  padding: 5rem 0 5.5rem;
+/* task-012: hero centralizado, com busca real como peça principal (era um
+   mockup decorativo antes — .hero-preview/.preview-* abaixo saíram). */
+.hero--centered {
+  padding: 4.5rem 0 4rem;
   border-bottom: 1px solid var(--border);
+  text-align: center;
 }
 
-.hero-grid {
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 3.5rem;
+.hero-content {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
   align-items: center;
 }
 
-.hero h1 {
-  font-size: clamp(2rem, 4vw, 2.75rem);
-  line-height: 1.15;
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  margin-bottom: 1.5rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.hero-title {
+  font-size: clamp(2rem, 4.2vw, 2.9rem);
+  line-height: 1.2;
   letter-spacing: -0.01em;
   margin-bottom: 1.1rem;
+}
+
+.hero-title-accent {
+  color: var(--accent);
 }
 
 .hero .subtitle {
   color: var(--text-dim);
   font-size: 1.02rem;
   max-width: 42ch;
-  margin-bottom: 2rem;
+  margin: 0 auto 2rem;
 }
 
-.hero-actions {
+.hero-search-form {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
-  flex-wrap: wrap;
+  gap: 0.6rem;
+  width: 100%;
+  max-width: 640px;
+  padding: 0.5rem 0.5rem 0.5rem 1.1rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
+
+/* Glow ao redor quando em foco (nota de visual da task-012) — só nesse
+   estado, não fixo, pra não brigar com o princípio de "um brilho só por
+   vez" (task-009/011). */
+.hero-search-form:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(33, 230, 193, 0.18), 0 0 24px rgba(33, 230, 193, 0.25);
+}
+
+.hero-search-form .search-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+
+#hero-search-input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+}
+
+#hero-search-input:focus {
+  outline: none;
+}
+
+.hero-search-submit {
+  flex-shrink: 0;
+  border: none;
+  white-space: nowrap;
+}
+
+.hero-category-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 1.5rem;
+}
+
 
 .cta-button {
   display: inline-block;
@@ -775,20 +951,6 @@ button.cta-secondary:hover {
   border-color: var(--accent);
 }
 
-.hero-examples {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 1.4rem;
-}
-
-.hero-examples-label {
-  color: var(--text-faint);
-  font-size: 0.82rem;
-  margin-right: 0.15rem;
-}
-
 .example-chip {
   padding: 0.4rem 0.85rem;
   font-size: 0.82rem;
@@ -806,46 +968,6 @@ button.cta-secondary:hover {
 .example-chip:hover {
   color: var(--accent);
   border-color: var(--accent);
-}
-
-.preview-window {
-  background: var(--bg-raised);
-  border: 1px solid var(--border-strong);
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
-}
-
-.preview-search-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin: 1.25rem;
-  padding: 0.7rem 1rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  color: var(--text-dim);
-  font-size: 0.85rem;
-}
-
-.preview-search-bar .search-icon {
-  width: 16px;
-  height: 16px;
-  color: var(--text-faint);
-  flex-shrink: 0;
-}
-
-.preview-answer {
-  margin: 0 1.25rem 1.25rem;
-  padding: 0.9rem 1rem;
-  background: var(--glass-bg);
-  backdrop-filter: blur(14px);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text-dim);
-  font-size: 0.85rem;
-  line-height: 1.6;
 }
 
 /* sections */
@@ -1877,6 +1999,220 @@ button.cta-secondary:hover {
   font-size: 0.88rem;
   color: var(--text-dim);
   line-height: 1.55;
+}
+
+/* task-012: destaques da região */
+
+/* Fileira horizontal (igual a referência), não grid empilhando em coluna
+   única no celular — com grid, 5 cards de ~194px cada esticavam a seção
+   pra quase 900px de altura no mobile, ficando "atrás" da barra flutuante
+   fixa na posição de rolagem exata onde a seção aparece (mesmo a barra
+   sempre desenhando por cima — z-index certo — a checagem de
+   "elemento clicável" do Playwright falhava nesse trecho, achado rodando
+   a suíte de teste mobile). Fileira horizontal resolve os dois problemas
+   de uma vez: menos altura por seção e mais fiel ao layout de referência. */
+.highlights-list {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  list-style: none;
+  padding: 0.2rem 0.2rem 0.6rem;
+  margin: 1.3rem 0 0;
+}
+
+.highlight-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  flex: 0 0 220px;
+  padding: 1.25rem;
+  /* borda ciano suave + fundo translúcido (nota de visual da task-012) */
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--accent-dim);
+  border-radius: 14px;
+}
+
+.highlight-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+
+.highlight-title {
+  font-size: 0.98rem;
+  color: var(--text);
+}
+
+.highlight-meta {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+
+.highlight-price {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* Sombra sutil só no botão de ação do card, não no card inteiro (nota de
+   visual da task-012 — brilho contido, não espalhado). */
+.highlight-action {
+  margin-top: 0.3rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(33, 230, 193, 0.3);
+}
+
+.highlights-empty,
+.activity-empty {
+  color: var(--text-dim);
+  font-size: 0.92rem;
+  margin-top: 1.5rem;
+}
+
+.highlights-empty a {
+  color: var(--accent);
+}
+
+/* task-012: TOP3 SYSTEM — atividade recente / números que conectam —
+   painel com glow discreto de fundo (nota de visual da task-012),
+   diferente do glow forte e único do botão "Perguntar"/modo ativo: aqui é
+   só uma luz fraca atrás do painel inteiro, não um contorno vivo. */
+.activity-section .container,
+.stats-section .container {
+  position: relative;
+}
+
+.activity-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  list-style: none;
+  padding: 1.5rem;
+  margin: 1.5rem 0 0;
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 0 60px rgba(33, 230, 193, 0.08);
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0.2rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+.activity-item:last-child {
+  border-bottom: none;
+}
+
+.activity-text {
+  color: var(--text);
+}
+
+.activity-time {
+  flex-shrink: 0;
+  color: var(--text-faint);
+  font-size: 0.8rem;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.stat-card {
+  padding: 1.5rem;
+  text-align: center;
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 0 60px rgba(33, 230, 193, 0.08);
+}
+
+.stat-value {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 0.3rem;
+}
+
+.stat-label {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+
+/* task-012: categorias populares */
+
+.categories-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.category-card {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1.1rem 1.3rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.92rem;
+  font-weight: 600;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.category-card:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* task-012: chamada final */
+
+.final-cta-section {
+  padding: 3.5rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.final-cta-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.final-cta-text {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  color: var(--text);
 }
 
 /* footer */

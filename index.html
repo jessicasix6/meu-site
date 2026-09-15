@@ -38,18 +38,33 @@
   <div class="site-top">
     <header class="site-header">
       <div class="container nav-inner">
-        <a href="#top" class="logo">Top3Profissional</a>
+        <a href="#top" class="logo">
+          TOP<span class="logo-accent">3</span>
+          <span class="logo-subtitle">Inteligência em resultados</span>
+        </a>
         <nav class="site-nav">
-          <a href="#top3">Profissionais</a>
+          <a href="#top">Início</a>
+          <a href="#bottom-search-input" id="nav-buscar-link">Buscar</a>
           <a href="#grupos">Grupos</a>
-          <a href="#corridas">Publicar</a>
-          <a href="#criar-perfil">Criar meu perfil</a>
-          <a href="#beneficios">Benefícios</a>
-          <a href="#como-funciona">Como funciona</a>
+          <a href="#top3">Profissionais</a>
+          <a href="#corridas">Viagens</a>
+          <div class="site-nav-more">
+            <button type="button" id="nav-more-toggle" class="site-nav-more-toggle" aria-haspopup="true" aria-expanded="false">Mais</button>
+            <div id="nav-more-menu" class="site-nav-more-menu" hidden>
+              <a href="#criar-perfil">Criar meu perfil</a>
+              <a href="#beneficios">Benefícios</a>
+              <a href="#como-funciona">Como funciona</a>
+            </div>
+          </div>
         </nav>
+        <span id="online-indicator" class="online-indicator" hidden>
+          <span class="online-dot" aria-hidden="true"></span>
+          Online
+        </span>
         <div class="google-signin-wrap">
           <div id="google-signin-slot" class="google-signin-slot"></div>
           <button type="button" id="email-auth-toggle" class="cta-secondary email-auth-toggle">Entrar</button>
+          <button type="button" id="signup-toggle" class="cta-button signup-toggle">Criar conta</button>
           <div id="email-auth-panel" class="user-panel" hidden>
             <div class="email-auth-tabs" role="tablist" aria-label="Entrar ou criar conta">
               <button type="button" class="mode-btn email-auth-tab is-active" data-auth-mode="login">Entrar</button>
@@ -188,33 +203,106 @@
       </div>
     </div>
     <div id="requester-view">
-    <section id="top" class="hero">
-      <div class="container hero-grid">
-        <div class="hero-copy">
-          <p class="eyebrow">Busca por conversa, não por formulário</p>
-          <h1>Pare de rolar lista. Comece a perguntar.</h1>
-          <p class="subtitle">Descreva o que precisa em uma frase — um serviço, uma corrida, um terreno, o que for. Um agente de IA cruza isso com quem está disponível agora e busca na web quando precisa, respondendo com preço, distância e avaliação — sem filtro, sem catálogo infinito.</p>
-          <div class="hero-actions">
-            <a href="#bottom-search-input" class="cta-button" id="hero-ask-link">Perguntar agora</a>
-            <a href="#top3" class="cta-secondary">Ver quem está bem avaliado</a>
+    <section id="top" class="hero hero--centered">
+      <div class="container hero-content">
+        <p class="hero-badge">TOP3 SYSTEM <span aria-hidden="true">—</span> Conectando pessoas a mais oportunidades</p>
+        <h1 class="hero-title">O jeito mais simples de encontrar<br /><span class="hero-title-accent">o que você precisa.</span></h1>
+        <p class="subtitle">Profissionais, viagens, grupos, serviços e oportunidades em uma única busca inteligente.</p>
+        <form id="hero-search-form" class="hero-search-form" autocomplete="off">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="hero-search-input" type="text" placeholder="O que você está procurando?" aria-label="Buscar" />
+          <button type="submit" class="cta-button hero-search-submit">Buscar agora</button>
+        </form>
+        <div class="hero-category-chips">
+          <button type="button" class="example-chip" data-hero-category="profissional">Profissional</button>
+          <button type="button" class="example-chip" data-hero-category="viagem">Viagem</button>
+          <button type="button" class="example-chip" data-hero-category="grupo">Grupo</button>
+          <button type="button" class="example-chip" data-hero-category="servico">Serviço</button>
+          <button type="button" class="example-chip" data-hero-category="produto">Produto</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="destaques" class="highlights-section">
+      <div class="container">
+        <p class="eyebrow">O que estão buscando agora</p>
+        <h2 class="section-title">Destaques da sua região</h2>
+        <ul id="highlights-list" class="highlights-list" aria-live="polite"></ul>
+        <p id="highlights-empty" class="highlights-empty" hidden>
+          Ainda não tem nada publicado por aqui — <a href="#publicar">seja a primeira pessoa a publicar</a>.
+        </p>
+      </div>
+    </section>
+
+    <section id="atividade" class="activity-section">
+      <div class="container">
+        <p class="eyebrow">TOP3 SYSTEM — Em tempo real</p>
+        <h2 class="section-title">Atividade recente</h2>
+        <ul id="activity-list" class="activity-list" aria-live="polite"></ul>
+        <p id="activity-empty" class="activity-empty" hidden>Nenhuma atividade recente ainda.</p>
+      </div>
+    </section>
+
+    <section id="como-funciona" class="how-section">
+      <div class="container">
+        <p class="eyebrow">Simples. Rápido. Eficiente.</p>
+        <h2 class="section-title">Como funciona</h2>
+        <div class="steps">
+          <article class="step">
+            <span class="step-number">1</span>
+            <h3>Escreva naturalmente</h3>
+            <p>"Quero um pedreiro amanhã cedo"</p>
+          </article>
+          <article class="step">
+            <span class="step-number">2</span>
+            <h3>O TOP3 entende e organiza</h3>
+            <p>Busca, filtra e junta as melhores possibilidades.</p>
+          </article>
+          <article class="step">
+            <span class="step-number">3</span>
+            <h3>Você escolhe e age</h3>
+            <p>Entrar, participar, publicar interesse ou oferecer um serviço.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="numeros" class="stats-section">
+      <div class="container">
+        <p class="eyebrow">Pessoas reais. Oportunidades reais.</p>
+        <h2 class="section-title">Números que conectam</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-value" id="stat-searches">—</span>
+            <span class="stat-label">buscas nos últimos 7 dias</span>
           </div>
-          <div class="hero-examples">
-            <span class="hero-examples-label">Exemplos:</span>
-            <button type="button" class="example-chip" data-example="manicure perto de mim">manicure perto de mim</button>
-            <button type="button" class="example-chip" data-example="eletricista hoje">eletricista hoje</button>
-            <button type="button" class="example-chip" data-example="um terreno na região">um terreno</button>
-            <button type="button" class="example-chip" data-example="corrida até o aeroporto">corrida até o aeroporto</button>
-            <button type="button" class="example-chip" data-example="carro usado">carro usado</button>
+          <div class="stat-card">
+            <span class="stat-value" id="stat-open">—</span>
+            <span class="stat-label">oportunidades abertas</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value" id="stat-groups">—</span>
+            <span class="stat-label">grupos em formação</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value" id="stat-providers">—</span>
+            <span class="stat-label">profissionais listados</span>
           </div>
         </div>
-        <div class="hero-preview" aria-hidden="true">
-          <div class="preview-window">
-            <div class="preview-search-bar">
-              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <span>manicure amanhã em BH</span>
-            </div>
-            <p class="preview-answer">Ana Souza — 4.9★, 1,2 km, R$ 45, amanhã às 14h. Fernanda Reis — 4.8★, 2,1 km, R$ 40, amanhã às 09h.</p>
-          </div>
+      </div>
+    </section>
+
+    <section id="categorias" class="categories-section">
+      <div class="container">
+        <p class="eyebrow">Explore o que mais pessoas estão buscando</p>
+        <h2 class="section-title">Categorias populares</h2>
+        <div class="categories-grid">
+          <a href="#corridas" class="category-card"><span aria-hidden="true">🚗</span> Corridas e viagens</a>
+          <a href="#top3" class="category-card"><span aria-hidden="true">🧰</span> Serviços locais</a>
+          <a href="#grupos" class="category-card" data-group-category=""><span aria-hidden="true">👥</span> Grupos de economia</a>
+          <a href="#grupos" class="category-card" data-group-category="frete"><span aria-hidden="true">📦</span> Fretes compartilhados</a>
+          <a href="#grupos" class="category-card" data-group-category="compra"><span aria-hidden="true">🛒</span> Compras coletivas</a>
+          <a href="#grupos" class="category-card" data-group-category="curso"><span aria-hidden="true">🎓</span> Cursos e eventos</a>
         </div>
       </div>
     </section>
@@ -527,29 +615,6 @@
       </div>
     </section>
 
-    <section id="como-funciona" class="how-section">
-      <div class="container">
-        <p class="eyebrow">Sem mistério</p>
-        <h2 class="section-title">Como funciona</h2>
-        <div class="steps">
-          <article class="step">
-            <span class="step-number">01</span>
-            <h3>Diga o que precisa</h3>
-            <p>Uma frase, do jeito que você falaria com uma pessoa. Sem categorias pra escolher, sem campos obrigatórios.</p>
-          </article>
-          <article class="step">
-            <span class="step-number">02</span>
-            <h3>O agente cruza os dados</h3>
-            <p>Disponibilidade, distância, preço e avaliação — tudo comparado na hora, sem você abrir dez abas.</p>
-          </article>
-          <article class="step">
-            <span class="step-number">03</span>
-            <h3>Você decide com contexto</h3>
-            <p>A resposta já vem com o que importa pra escolher: quem, quando, quanto custa e o quão perto está.</p>
-          </article>
-        </div>
-      </div>
-    </section>
 
     <section id="beneficios" class="benefits-section">
       <div class="container">
@@ -629,12 +694,19 @@
         </div>
       </section>
     </div>
+
+    <section id="cta-final" class="final-cta-section">
+      <div class="container final-cta-content">
+        <p class="final-cta-text">"Menos complicação. Mais resultados reais."</p>
+        <button type="button" id="final-cta-btn" class="cta-button">Comece agora</button>
+      </div>
+    </section>
   </main>
 
   <footer class="site-footer">
     <div class="container footer-grid">
-      <span class="logo">Top3Profissional</span>
-      <p>Protótipo experimental — profissionais e avaliações são dados fictícios, usados para testar a busca por IA.</p>
+      <span class="logo">TOP<span class="logo-accent">3</span></span>
+      <p>Inteligência em resultados — profissionais cadastrados de verdade, grupos e pedidos publicados pela própria comunidade.</p>
     </div>
   </footer>
 
