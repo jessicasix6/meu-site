@@ -41,7 +41,6 @@
         <a href="#top" class="logo">Top3Profissional</a>
         <nav class="site-nav">
           <a href="#top3">Profissionais</a>
-          <a href="#bottom-search-input" id="nav-ask-link">Perguntar</a>
           <a href="#grupos">Grupos</a>
           <a href="#corridas">Publicar</a>
           <a href="#criar-perfil">Criar meu perfil</a>
@@ -446,6 +445,12 @@
             <label for="post-location">Onde (opcional se já estiver em "O que você precisa", ex: "Centro → Rodoviária")</label>
             <input id="post-location" name="location" type="text" placeholder="ex: Savassi, Belo Horizonte" />
           </div>
+          <div class="post-field post-field--checkbox" id="post-location-geo" hidden>
+            <button type="button" id="post-use-location" class="cta-secondary">📍 Usar minha localização</button>
+            <span id="post-location-status" class="post-status"></span>
+            <input id="post-lat" name="lat" type="hidden" />
+            <input id="post-lng" name="lng" type="hidden" />
+          </div>
           <div class="post-field">
             <label for="post-whatsapp">Seu WhatsApp</label>
             <input id="post-whatsapp" name="whatsapp" type="tel" placeholder="ex: (31) 99999-0000" required />
@@ -635,6 +640,7 @@
 
   <div class="bottom-bar">
     <div class="bottom-mode-suggestions" role="tablist" aria-label="Escolher tipo de uso">
+      <button type="button" id="bottom-ask-btn" class="bottom-ask-btn">Perguntar</button>
       <button type="button" class="mode-btn bottom-mode-btn is-active" data-mode="requester" role="tab" aria-selected="true" aria-label="Solicitar serviço">Solicito serviço</button>
       <button type="button" class="mode-btn bottom-mode-btn" data-mode="provider" role="tab" aria-selected="false" aria-label="Presto um serviço">Presto serviço</button>
     </div>

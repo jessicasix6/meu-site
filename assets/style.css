@@ -18,6 +18,13 @@
   --bg: #0a0c0d;
   --bg-raised: #111516;
   --bg-card: #14181a;
+  /* Vidro fosco (Jéssica, 2026-09-15) — cards e barra flutuante de baixo
+     usam isso em vez de --bg-card sólido, pro tema escuro/neon ficar com
+     cara de "produto premium" em vez de cor forte lisa jogada em cima.
+     --bg-card fica intocado de propósito: inputs de formulário continuam
+     opacos (texto digitado precisa de contraste sólido, não faz sentido
+     borrado atrás de um campo de texto). */
+  --glass-bg: rgba(20, 24, 26, 0.72);
   --border: rgba(255, 255, 255, 0.09);
   --border-strong: rgba(255, 255, 255, 0.16);
   --accent: #21e6c1;
@@ -443,7 +450,8 @@ a {
 
 .demand-signal-item {
   padding: 0.85rem 1.1rem;
-  background: var(--bg-card);
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
   border: 1px solid var(--border);
   border-radius: 12px;
   color: var(--text-dim);
@@ -459,7 +467,8 @@ a {
   align-items: center;
   gap: 1.1rem;
   padding: 1.1rem 1.25rem;
-  background: var(--bg-card);
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
   border: 1px solid var(--border);
   border-radius: 14px;
   opacity: 0;
@@ -798,7 +807,8 @@ a {
 .preview-answer {
   margin: 0 1.25rem 1.25rem;
   padding: 0.9rem 1rem;
-  background: var(--bg-card);
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
   border: 1px solid var(--border);
   border-radius: 10px;
   color: var(--text-dim);
@@ -896,7 +906,8 @@ a {
   display: flex;
   flex-direction: column;
   padding: 1.5rem;
-  background: var(--bg-card);
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
   border: 1px solid var(--border);
   border-radius: 14px;
   opacity: 0;
@@ -1090,7 +1101,8 @@ a {
 
 .result-answer {
   padding: 1rem 1.2rem;
-  background: var(--bg-card);
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   color: var(--text);
@@ -1135,7 +1147,10 @@ a {
   right: 0;
   bottom: 0;
   z-index: 40;
-  background: var(--bg-raised);
+  /* Vidro fosco (Jéssica, 2026-09-15), mesma técnica do .site-header lá em
+     cima — translúcido + blur em vez de --bg-raised sólido. */
+  background: rgba(17, 21, 22, 0.75);
+  backdrop-filter: blur(16px);
   border-top: 1px solid var(--border-strong);
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.35);
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -1153,6 +1168,33 @@ a {
   padding: 0.4rem 0.85rem;
   font-size: 0.78rem;
   white-space: nowrap;
+}
+
+/* task-009 item 4: "Perguntar" saiu do menu do topo e mora aqui agora —
+   cor de destaque (mesma do resto dos CTAs primários do site) pra ficar
+   bem visível ao lado dos dois botões de modo, que são neutros.
+   Brilho forte (Jéssica, 2026-09-15) só AQUI, de propósito — é a única
+   ação primária que aparece em toda tela (barra fixa), então é o único
+   botão do site com glow; outro CTA brilhando junto cancelaria o efeito. */
+.bottom-ask-btn {
+  flex-shrink: 0;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: var(--font-body);
+  white-space: nowrap;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  cursor: pointer;
+  box-shadow: 0 0 14px rgba(33, 230, 193, 0.55), 0 0 2px rgba(33, 230, 193, 0.8);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bottom-ask-btn:hover {
+  background: #3df2cd;
+  box-shadow: 0 0 20px rgba(33, 230, 193, 0.7), 0 0 3px rgba(33, 230, 193, 0.9);
 }
 
 .bottom-search-bar {
@@ -1326,7 +1368,8 @@ a {
 .provider-result {
   margin-top: 1.25rem;
   padding: 1.1rem 1.3rem;
-  background: var(--bg-card);
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
   border: 1px solid var(--accent);
   border-radius: 10px;
   max-width: 620px;
@@ -1625,7 +1668,8 @@ a {
 
 .ride-match {
   padding: 0.9rem 1.1rem;
-  background: var(--bg-card);
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
   border: 1px solid var(--border);
   border-radius: 10px;
   font-size: 0.92rem;

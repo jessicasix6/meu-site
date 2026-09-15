@@ -53,6 +53,11 @@ module.exports = defineConfig({
       // DISABLE_GEOCODING=0 na hora de rodar pra testar a geocodificação de
       // verdade (ver tests/e2e.spec.js).
       DISABLE_GEOCODING: process.env.DISABLE_GEOCODING || "1",
+      // Persistência de USERS/SESSIONS em disco (task-009, item 6b) — sem
+      // desligar aqui, cada rodada de teste carregaria contas de uma rodada
+      // anterior (data/users.json) em vez de começar do zero, e ainda
+      // sujaria esse arquivo com e-mails de teste.
+      DISABLE_USER_PERSISTENCE: "1",
     },
     // Sempre falso, mesmo localmente: já aconteceu mais de uma vez nesta
     // máquina de um processo de teste anterior ficar preso na porta (uma
