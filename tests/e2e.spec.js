@@ -2247,6 +2247,70 @@ test.describe("Top3Profissional - busca por palavra-chave, sem IA (task-005)", (
   });
 });
 
+test.describe("Top3Profissional - referência de preço externa, sem IA (task-007)", () => {
+  test("exige o campo 'description'", async ({ request }) => {
+    const res = await request.get("/api/price-reference?local=BH");
+    expect(res.status()).toBe(400);
+  });
+
+  test("busca de referência de preço retorna resultados reais da web, sem nenhuma IA (só roda com SearXNG/Brave configurados)", async ({
+    request,
+  }) => {
+    test.skip(
+      !(process.env.SEARXNG_URL || process.env.BRAVE_SEARCH_API_KEY),
+      "precisa de SEARXNG_URL ou BRAVE_SEARCH_API_KEY pra testar a busca de referência de verdade"
+    );
+    const res = await request.get("/api/price-reference?description=" + encodeURIComponent("faxina residencial") + "&local=Belo Horizonte");
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.available).toBe(true);
+    expect(body.results.length).toBeGreaterThan(0);
+    expect(body.results[0]).toHaveProperty("title");
+    expect(body.results[0]).toHaveProperty("url");
+    expect(body.results[0].url).toMatch(/^https?:\/\//);
+  });
+
+  test("sem SearXNG nem Brave configurados, devolve 'não disponível' em vez de erro (nunca trava a tela)", async ({ request }) => {
+    test.skip(
+      Boolean(process.env.SEARXNG_URL || process.env.BRAVE_SEARCH_API_KEY),
+      "esse teste verifica o caso SEM nenhuma busca configurada — pula quando uma das duas está ativa nesse ambiente"
+    );
+    const res = await request.get("/api/price-reference?description=teste&local=BH");
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.available).toBe(false);
+    expect(body.results).toEqual([]);
+  });
+
+  test("UI: botão 'Ver preços de referência' aparece no formulário de criar grupo e mostra resultados ao clicar (só roda com SearXNG/Brave configurados)", async ({
+    page,
+  }) => {
+    test.skip(
+      !(process.env.SEARXNG_URL || process.env.BRAVE_SEARCH_API_KEY),
+      "precisa de SEARXNG_URL ou BRAVE_SEARCH_API_KEY pra testar a busca de referência de verdade"
+    );
+    await page.goto("/");
+    await page.getByRole("button", { name: "+ Criar um grupo" }).click();
+    await page.locator("#group-title").fill("Diarista para faxina residencial");
+    await page.locator("#group-city").fill("Belo Horizonte");
+    await page.getByRole("button", { name: "Ver preços de referência" }).click();
+
+    const panel = page.locator("#group-price-reference-panel");
+    await expect(panel.locator("a").first()).toBeVisible({ timeout: 15000 });
+    await expect(panel.locator("a").first()).toHaveAttribute("href", /^https?:\/\//);
+  });
+
+  test("UI: clicar em 'Ver preços de referência' sem preencher o que o grupo quer conseguir só foca o campo, sem travar", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "+ Criar um grupo" }).click();
+    await page.getByRole("button", { name: "Ver preços de referência" }).click();
+    await expect(page.locator("#group-title")).toBeFocused();
+    await expect(page.locator("#group-price-reference-panel")).toBeHidden();
+  });
+});
+
 test.describe("Top3Profissional - infra", () => {
   test("/health responde 200 (usado pelo host pra saber se o processo está de pé)", async ({ request }) => {
     const res = await request.get("/health");

@@ -185,6 +185,29 @@ function currentMonthKey() {
   return `${now.getFullYear()}-${now.getMonth()}`;
 }
 
+// Reserva a cota ANTES do fetch (não depois da resposta) pra duas chamadas
+// concorrentes (ex: /api/chat e /api/price-reference quase ao mesmo tempo)
+// não lerem o mesmo braveSearchCount desatualizado e passarem as duas do
+// teto mensal juntas. Libera a reserva de novo se o fetch falhar, já que
+// uma chamada que não completou não deveria contar pra cota.
+function reserveBraveSearchQuota() {
+  const monthKey = currentMonthKey();
+  if (braveSearchMonth !== monthKey) {
+    braveSearchMonth = monthKey;
+    braveSearchCount = 0;
+  }
+  if (braveSearchCount >= BRAVE_SEARCH_MONTHLY_LIMIT) return false;
+  braveSearchCount++;
+  return true;
+}
+
+// Chamada em qualquer caminho que não completou uma busca de verdade (HTTP
+// não-ok, JSON malformado, erro de rede) — nunca deixa uma reserva presa por
+// causa de uma falha que não é da pessoa usando o site.
+function releaseBraveSearchQuota() {
+  braveSearchCount = Math.max(0, braveSearchCount - 1);
+}
+
 // Caminho grátis, preferido (decisão da Jéssica, 2026-09-14): SearXNG
 // autohospedado (Docker, sem chave, sem custo por busca — ver
 // docs/visao-produto.md seção 4.3). Só ativa se SEARXNG_URL estiver
@@ -216,43 +239,117 @@ async function searchWebViaBrave(query) {
   if (!process.env.BRAVE_SEARCH_API_KEY) {
     return "Busca na web não configurada neste servidor.";
   }
-  const monthKey = currentMonthKey();
-  if (braveSearchMonth !== monthKey) {
-    braveSearchMonth = monthKey;
-    braveSearchCount = 0;
-  }
-  if (braveSearchCount >= BRAVE_SEARCH_MONTHLY_LIMIT) {
+  if (!reserveBraveSearchQuota()) {
     return "Limite mensal de buscas na web atingido. Responda só com os dados internos disponíveis.";
   }
 
-  const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=5`;
-  const res = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-      "X-Subscription-Token": process.env.BRAVE_SEARCH_API_KEY,
-    },
-  });
-  if (!res.ok) {
-    // Não conta pro teto mensal: falha de rede/API não é uma busca que
-    // efetivamente consumiu a cota da Brave.
-    return `Busca na web falhou (status ${res.status}).`;
+  try {
+    const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=5`;
+    const res = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        "X-Subscription-Token": process.env.BRAVE_SEARCH_API_KEY,
+      },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) {
+      // Não conta pro teto mensal: falha de rede/API não é uma busca que
+      // efetivamente consumiu a cota da Brave.
+      releaseBraveSearchQuota();
+      return `Busca na web falhou (status ${res.status}).`;
+    }
+    const data = await res.json();
+    const results = (data.web && data.web.results) || [];
+    if (results.length === 0) {
+      return "Nenhum resultado encontrado na web pra essa busca.";
+    }
+    return results
+      .slice(0, 5)
+      .map((r) => `- ${r.title}\n  ${r.url}\n  ${r.description || ""}`)
+      .join("\n");
+  } catch (err) {
+    releaseBraveSearchQuota();
+    return "Busca na web falhou. Tente de novo em instantes.";
   }
-  braveSearchCount++;
-  const data = await res.json();
-  const results = (data.web && data.web.results) || [];
-  if (results.length === 0) {
-    return "Nenhum resultado encontrado na web pra essa busca.";
-  }
-  return results
-    .slice(0, 5)
-    .map((r) => `- ${r.title}\n  ${r.url}\n  ${r.description || ""}`)
-    .join("\n");
 }
 
 async function searchWeb(query) {
   const searxResult = await searchWebViaSearxng(query);
   if (searxResult !== null) return searxResult;
   return searchWebViaBrave(query);
+}
+
+// Versões estruturadas (task-007) — mesma fonte (SearXNG preferido, Brave
+// como fallback), mas devolvem array de {title, url, snippet} em vez de
+// texto formatado, pra "Ver preços de referência" mostrar como lista de
+// cards clicáveis em vez de um bloco de texto corrido. Funções separadas
+// das de cima de propósito (searchWeb já está em produção, testada — evita
+// arriscar mudar o formato que /api/chat e o WhatsApp já dependem).
+// SearXNG/Brave devolvem a URL do resultado como veio da web — nunca confia
+// nela sem checar o esquema antes de expor pro front-end (que usa direto
+// como href): um resultado indexado com "javascript:..." não pode virar link
+// clicável.
+function isSafeHttpUrl(url) {
+  try {
+    const protocol = new URL(url).protocol;
+    return protocol === "http:" || protocol === "https:";
+  } catch (err) {
+    return false;
+  }
+}
+
+async function searchWebStructuredViaSearxng(query) {
+  if (!process.env.SEARXNG_URL) return null;
+  try {
+    const base = process.env.SEARXNG_URL.replace(/\/+$/, "");
+    const url = `${base}/search?q=${encodeURIComponent(query)}&format=json`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const results = data.results || [];
+    return results
+      .filter((r) => isSafeHttpUrl(r.url))
+      .slice(0, 5)
+      .map((r) => ({ title: r.title, url: r.url, snippet: r.content || "" }));
+  } catch (err) {
+    return null;
+  }
+}
+
+async function searchWebStructuredViaBrave(query) {
+  if (!process.env.BRAVE_SEARCH_API_KEY) return null;
+  if (!reserveBraveSearchQuota()) return null;
+  try {
+    const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=5`;
+    const res = await fetch(url, {
+      headers: { Accept: "application/json", "X-Subscription-Token": process.env.BRAVE_SEARCH_API_KEY },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) {
+      releaseBraveSearchQuota();
+      return null;
+    }
+    const data = await res.json();
+    const results = (data.web && data.web.results) || [];
+    return results
+      .filter((r) => isSafeHttpUrl(r.url))
+      .slice(0, 5)
+      .map((r) => ({ title: r.title, url: r.url, snippet: r.description || "" }));
+  } catch (err) {
+    releaseBraveSearchQuota();
+    return null;
+  }
+}
+
+// null (não array vazio) quando NENHUMA fonte respondeu — diferencia "busca
+// rodou e não achou nada" de "SearXNG/Brave indisponíveis agora", pra o
+// front-end saber quando simplesmente esconder o botão em vez de mostrar
+// "nenhum resultado" (task-007: "se a instância do SearXNG estiver fora do
+// ar... o botão simplesmente não aparece").
+async function searchWebStructured(query) {
+  const searx = await searchWebStructuredViaSearxng(query);
+  if (searx !== null) return searx;
+  return searchWebStructuredViaBrave(query);
 }
 
 // Teto de segurança pra melhoria de foto (pilar 4.12 — ver docs/visao-produto.md
@@ -1318,6 +1415,38 @@ app.get("/api/search", (req, res) => {
   SEARCH_CACHE.set(normalizedQuery, { result, at: Date.now() });
 
   res.json({ ...result, cached: false });
+});
+
+// Referência de preço externa (task-007), sem IA — busca crua na web
+// (SearXNG grátis, Brave como fallback pago) pra ajudar quem está criando
+// um post a ver preços reais de referência antes de publicar. Devolve os
+// resultados brutos, sem resumir/interpretar (extrair "faixa de preço"
+// automaticamente exigiria IA lendo texto, o que contraria a decisão de
+// manter isso sem custo de API — a pessoa lê e decide sozinha).
+const isPriceReferenceRateLimited = makeHourlyRateLimiter(60);
+
+app.get("/api/price-reference", async (req, res) => {
+  if (isPriceReferenceRateLimited(req.ip)) {
+    return res.status(429).json({ error: "muitas buscas de referência recentemente a partir daqui — tente de novo mais tarde" });
+  }
+  const description = typeof req.query.description === "string" ? req.query.description.trim().slice(0, 120) : "";
+  const local = typeof req.query.local === "string" ? req.query.local.trim().slice(0, 80) : "";
+  if (!description) {
+    return res.status(400).json({ error: "informe o campo 'description' (o que você está oferecendo/precisando)" });
+  }
+  const query = ["preço", description, local].filter(Boolean).join(" ");
+
+  try {
+    const results = await searchWebStructured(query);
+    if (results === null) {
+      // Nem SearXNG nem Brave responderam — "não disponível no momento", não
+      // um erro (task-007: nunca trava a tela principal de criar post).
+      return res.json({ available: false, results: [] });
+    }
+    res.json({ available: true, results });
+  } catch (err) {
+    res.json({ available: false, results: [] });
+  }
 });
 
 // ownerUserId nunca aparece numa resposta pública (mesma regra já aplicada

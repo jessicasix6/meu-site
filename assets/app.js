@@ -419,6 +419,18 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// O servidor já filtra URL com esquema perigoso (server.js: isSafeHttpUrl),
+// mas o front-end confere de novo antes de usar como href — não confia em
+// dado vindo de busca externa (SearXNG/Brave) sem checar duas vezes.
+function safeHref(url) {
+  try {
+    const protocol = new URL(url, window.location.href).protocol;
+    return protocol === "http:" || protocol === "https:" ? url : null;
+  } catch (err) {
+    return null;
+  }
+}
+
 function formatMessage(text) {
   return escapeHtml(text)
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
@@ -577,6 +589,8 @@ const groupCreateToggle = document.getElementById("group-create-toggle");
 const groupForm = document.getElementById("group-form");
 const groupStatus = document.getElementById("group-status");
 const groupSuggestions = document.getElementById("group-suggestions");
+const groupPriceReferenceBtn = document.getElementById("group-price-reference-btn");
+const groupPriceReferencePanel = document.getElementById("group-price-reference-panel");
 let currentGroupCategory = "";
 
 // Busca extra de carona (origem/destino/data/perto de mim) — só aparece
@@ -1251,6 +1265,53 @@ function renderGroupSuggestions(suggestions) {
   `;
 }
 
+// Referência de preço externa (task-007), sem IA — busca crua na web
+// (mesma fonte de sempre: SearXNG grátis, Brave como fallback) só pra
+// mostrar preços reais de referência antes de publicar. Nunca resume nem
+// interpreta os resultados — a pessoa lê e decide sozinha.
+groupPriceReferenceBtn.addEventListener("click", async () => {
+  const description = document.getElementById("group-title").value.trim();
+  const local = document.getElementById("group-city").value.trim();
+  if (!description) {
+    document.getElementById("group-title").focus();
+    return;
+  }
+  groupPriceReferenceBtn.disabled = true;
+  groupPriceReferencePanel.hidden = false;
+  groupPriceReferencePanel.innerHTML = "buscando preços de referência…";
+
+  try {
+    const res = await fetch(`/api/price-reference?description=${encodeURIComponent(description)}&local=${encodeURIComponent(local)}`);
+    const data = await res.json();
+    if (!res.ok || !data.available || data.results.length === 0) {
+      groupPriceReferencePanel.innerHTML = '<p class="user-panel-empty">Referência de preço não disponível no momento.</p>';
+      return;
+    }
+    groupPriceReferencePanel.innerHTML = `
+      <ul class="user-panel-list">
+        ${data.results
+          .map((r) => {
+            const href = safeHref(r.url);
+            const titleHtml = `<strong>${escapeHtml(r.title)}</strong>`;
+            return `
+          <li class="user-panel-item">
+            <span>
+              ${href ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${titleHtml}</a>` : titleHtml}
+              <br />
+              <span class="user-panel-empty">${escapeHtml(r.snippet)}</span>
+            </span>
+          </li>`;
+          })
+          .join("")}
+      </ul>
+    `;
+  } catch (err) {
+    groupPriceReferencePanel.innerHTML = '<p class="user-panel-empty">Referência de preço não disponível no momento.</p>';
+  } finally {
+    groupPriceReferenceBtn.disabled = false;
+  }
+});
+
 groupForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const data = new FormData(groupForm);
@@ -1291,6 +1352,8 @@ groupForm.addEventListener("submit", async (event) => {
     updateGroupFormFieldsForCategory();
     delete caronaHorarioInput.dataset.touched;
     caronaLocationStatus.textContent = "";
+    groupPriceReferencePanel.hidden = true;
+    groupPriceReferencePanel.innerHTML = "";
     groupForm.hidden = true;
     await loadGroups();
   } catch (err) {
