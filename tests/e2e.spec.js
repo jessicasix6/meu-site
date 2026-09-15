@@ -2541,6 +2541,52 @@ test.describe("Top3Profissional - geocodificação via Nominatim público, sem c
       },
     });
     expect(res.status()).toBe(201);
+
+    // Carona sem geocodificação real continua criando normalmente, só sem
+    // a distância aproximada (task-008, item 2 — Haversine + multiplicador).
+    const carona = await request.post("/api/groups", {
+      data: {
+        category: "carona",
+        tipo: "passageiro",
+        title: `sem geocode carona ${uniqueSuffix()}`,
+        city: "Cidade Qualquer",
+        origemTexto: "Origem Qualquer",
+        destinoTexto: "Destino Qualquer",
+        dataViagem: "2026-10-01",
+        whatsapp: "31999990002",
+      },
+    });
+    expect(carona.status()).toBe(201);
+    expect((await carona.json()).carona.distanciaAproximadaKm).toBeNull();
+  });
+
+  test("com geocodificação ativada, carona ganha distância aproximada (Haversine + multiplicador, só roda com DISABLE_GEOCODING=0)", async ({
+    request,
+  }) => {
+    test.skip(process.env.DISABLE_GEOCODING !== "0", "precisa rodar com DISABLE_GEOCODING=0 pra testar a geocodificação de verdade");
+
+    // Contagem → Betim, região metropolitana de BH: linha reta real é
+    // ~15-20km. Com o multiplicador de correção (1.3 padrão), o valor
+    // retornado tem que ser maior que a linha reta pura, mas ainda dentro
+    // de uma faixa plausível pra não pegar um erro de geocodificação
+    // grosseiro sem quebrar por causa de uma pequena variação do provedor.
+    const res = await request.post("/api/groups", {
+      data: {
+        category: "carona",
+        tipo: "passageiro",
+        title: `carona com distância ${uniqueSuffix()}`,
+        city: "Contagem, MG",
+        origemTexto: "Contagem, MG",
+        destinoTexto: "Betim, MG",
+        dataViagem: "2026-10-02",
+        whatsapp: "31999990003",
+      },
+    });
+    expect(res.status()).toBe(201);
+    const { carona } = await res.json();
+    expect(typeof carona.distanciaAproximadaKm).toBe("number");
+    expect(carona.distanciaAproximadaKm).toBeGreaterThan(5);
+    expect(carona.distanciaAproximadaKm).toBeLessThan(60);
   });
 
   test("com geocodificação ativada, sugestão entre grupos usa distância real além do texto (só roda com DISABLE_GEOCODING=0)", async ({
