@@ -270,33 +270,6 @@ a {
   gap: 0.6rem;
 }
 
-.social-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
-  width: 100%;
-  padding: 0.65rem 1rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-  transition: opacity 0.15s, transform 0.1s;
-}
-
-.social-btn:hover { opacity: 0.88; }
-.social-btn:active { transform: scale(0.98); }
-
-.social-btn--facebook {
-  background: #1877f2;
-  color: #fff;
-}
-
-.social-btn--instagram {
-  background: linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
-  color: #fff;
-}
 
 .user-chip {
   display: flex;
@@ -965,7 +938,7 @@ a {
 .hero-search-form .search-icon {
   width: 18px;
   height: 18px;
-  color: var(--text-faint);
+  color: var(--accent);
   flex-shrink: 0;
 }
 
@@ -1357,7 +1330,7 @@ button.cta-secondary:hover {
 .search-icon {
   width: 18px;
   height: 18px;
-  color: var(--text-faint);
+  color: var(--accent);
   flex-shrink: 0;
 }
 

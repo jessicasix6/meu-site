@@ -2500,15 +2500,6 @@ document.getElementById("final-cta-btn")?.addEventListener("click", () => {
   document.getElementById("email-auth-toggle").scrollIntoView({ behavior: "smooth", block: "center" });
 });
 
-// Facebook/Instagram — OAuth ainda não configurado; mostra aviso ao usuário
-document.getElementById("facebook-login-btn")?.addEventListener("click", () => {
-  const status = document.getElementById("email-auth-status");
-  if (status) { status.textContent = "Login com Facebook em breve."; status.style.color = "var(--text-dim)"; }
-});
-document.getElementById("instagram-login-btn")?.addEventListener("click", () => {
-  const status = document.getElementById("email-auth-status");
-  if (status) { status.textContent = "Login com Instagram em breve."; status.style.color = "var(--text-dim)"; }
-});
 
 // Categorias populares (item 7) — as de Grupos aplicam o mesmo filtro que
 // já existe na seção Grupos, só de outro ponto de entrada.
