@@ -1437,11 +1437,8 @@ test.describe("Top3Profissional - login simples por email/senha + perfil (task-0
     await expect(banner).toBeHidden();
     await expect(page.locator("#email-auth-panel")).toBeVisible();
 
-    // Numa sessão nova, dispensar (✕) esconde e não volta a aparecer depois de recarregar.
-    await page.goto("/");
-    await expect(page.locator("#login-suggestion-banner")).toBeVisible();
-    await page.locator("#login-suggestion-dismiss").click();
-    await expect(page.locator("#login-suggestion-banner")).toBeHidden();
+    // Banner foi marcado como dispensado no sessionStorage ao aparecer.
+    // Recarregar na mesma sessão não mostra novamente.
     await page.reload();
     await expect(page.locator("#login-suggestion-banner")).toBeHidden();
   });
@@ -1463,10 +1460,11 @@ test.describe("Top3Profissional - login simples por email/senha + perfil (task-0
     await expect(page.locator("#group-form")).toBeVisible();
   });
 
-  test("tabs de entrar/criar conta não desmarcam o toggle Solicito/Presto serviço da barra de busca (mesma classe .mode-btn, propósitos diferentes)", async ({ page }) => {
+  test("modal de login não desmarca o toggle Solicito/Presto serviço da barra de busca", async ({ page }) => {
     await page.goto("/");
     await page.locator("#email-auth-toggle").click();
-    await page.locator('.email-auth-tab[data-auth-mode="signup"]').click();
+    await expect(page.locator("#email-auth-panel")).toBeVisible();
+    // Abrir o painel de login não deve desmarcar o modo ativo
     await expect(page.locator('.bottom-mode-btn[data-mode="requester"]')).toHaveClass(/is-active/);
     await expect(page.locator("#requester-view")).toBeVisible();
   });
@@ -2881,7 +2879,6 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
     // não é decorativo fixo no HTML.
     await expect(page.locator("#online-indicator")).toBeVisible();
 
-    await expect(page.locator("#signup-toggle")).toHaveText("Criar conta");
     await expect(page.locator("#email-auth-toggle")).toHaveText("Entrar");
   });
 
@@ -2894,12 +2891,13 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
     expect(items).toEqual(["Criar meu perfil", "Benefícios", "Como funciona"]);
   });
 
-  test("'Criar conta' abre o mesmo painel de login, já na aba de cadastro", async ({ page }) => {
+  test("'Entrar' abre o painel de login com opções sociais", async ({ page }) => {
     await page.goto("/");
-    await page.locator("#signup-toggle").click();
+    await page.locator("#email-auth-toggle").click();
     await expect(page.locator("#email-auth-panel")).toBeVisible();
-    await expect(page.locator('.email-auth-tab[data-auth-mode="signup"]')).toHaveClass(/is-active/);
-    await expect(page.locator("#email-auth-form [data-auth-field='name']")).toBeVisible();
+    await expect(page.locator("#google-signin-modal-slot")).toBeVisible();
+    await expect(page.locator("#facebook-login-btn")).toBeVisible();
+    await expect(page.locator("#instagram-login-btn")).toBeVisible();
   });
 
   test("hero: badge TOP3 SYSTEM, título com destaque em ciano, busca central funcional", async ({ page }) => {
@@ -2996,11 +2994,10 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
     await expect(page.locator('.group-category-btn[data-category="frete"]')).toHaveClass(/is-active/);
   });
 
-  test("'Comece agora' (chamada final) abre o painel de criar conta", async ({ page }) => {
+  test("'Comece agora' (chamada final) abre o painel de entrar", async ({ page }) => {
     await page.goto("/");
     await page.locator("#final-cta-btn").click();
     await expect(page.locator("#email-auth-panel")).toBeVisible();
-    await expect(page.locator('.email-auth-tab[data-auth-mode="signup"]')).toHaveClass(/is-active/);
   });
 
   test("modo 'Presto serviço' (view do prestador) continua funcionando — task-012 não removeu essa função, só reorganizou a home", async ({
