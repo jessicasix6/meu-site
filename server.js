@@ -554,11 +554,14 @@ const UPLOADS_DIR = path.join(__dirname, "uploads");
 // Armazenamento de foto (task-008): MinIO self-hosted (S3-compatível, grátis,
 // sem custo por uso) quando configurado; sem isso, cai pro disco local do
 // próprio servidor (comportamento de sempre) — nunca trava a criação de
-// perfil por falta dessa infra opcional. Bucket é privado por padrão (nunca
-// público): toda URL de foto servida é uma URL assinada de curta duração,
-// gerada na hora de responder, nunca guardada pronta.
+// perfil por falta dessa infra opcional. Bucket é privado (nunca público) e
+// o MinIO nunca é exposto na internet: o próprio servidor Node busca o
+// objeto e repassa os bytes pra quem pediu (ver rota /uploads/providers
+// abaixo) — a URL que o front-end recebe é sempre a mesma
+// "/uploads/providers/<id>/<arquivo>" de sempre, funcionando com o
+// domínio/TLS que o site já tem, sem precisar de subdomínio nem certificado
+// novo só pro MinIO.
 const MINIO_BUCKET = process.env.MINIO_BUCKET || "top3-uploads";
-const MINIO_PRESIGN_SECONDS = 60 * 60; // 1h — tempo suficiente pra pessoa ver a página, curto o bastante pra não virar link permanente
 const minioClient = process.env.MINIO_ENDPOINT
   ? new Minio.Client({
       endPoint: process.env.MINIO_ENDPOINT,
@@ -568,51 +571,39 @@ const minioClient = process.env.MINIO_ENDPOINT
       secretKey: process.env.MINIO_SECRET_KEY,
     })
   : null;
-if (minioClient) {
-  minioClient
-    .bucketExists(MINIO_BUCKET)
-    .then((exists) => (exists ? null : minioClient.makeBucket(MINIO_BUCKET)))
-    .catch((err) => console.warn("[minio] não consegui confirmar/criar o bucket:", err.message));
-} else {
+
+// Promise única e compartilhada — toda escrita/leitura no MinIO espera ela
+// primeiro, garantindo que o bucket já existe antes de qualquer putObject,
+// mesmo pra o primeiro upload logo depois do servidor subir (sem isso, uma
+// foto enviada nos primeiros instantes podia chegar antes do bucket existir).
+const minioBucketReady = minioClient
+  ? minioClient
+      .bucketExists(MINIO_BUCKET)
+      .then((exists) => (exists ? null : minioClient.makeBucket(MINIO_BUCKET)))
+      .catch((err) => {
+        console.warn("[minio] não consegui confirmar/criar o bucket:", err.message);
+        throw err;
+      })
+  : null;
+if (!minioClient) {
   fs.mkdirSync(path.join(UPLOADS_DIR, "providers"), { recursive: true });
   console.warn("MINIO_ENDPOINT não definida — fotos de perfil ficam salvas em disco local (uploads/), como antes.");
 }
 
 // Grava um arquivo enviado (foto original, versão melhorada, ou com fundo
-// novo) no backend configurado. Devolve uma "referência" — chave de objeto
-// no MinIO, ou caminho público local — nunca a URL final pronta (essa só é
-// montada na hora de responder, via resolvePhotoRef, porque a assinada
-// expira e não pode ficar guardada).
+// novo) no backend configurado. Devolve sempre a mesma forma de URL
+// pública ("/uploads/providers/<id>/<arquivo>"), independente de onde o
+// arquivo realmente está guardado — quem consome a resposta (front-end,
+// página pública do prestador) nunca precisa saber qual backend está ativo.
 async function storePhoto(buffer, dir, id, filename, mimetype) {
   if (minioClient) {
+    await minioBucketReady;
     const key = `providers/${id}/${filename}`;
     await minioClient.putObject(MINIO_BUCKET, key, buffer, buffer.length, { "Content-Type": mimetype });
-    return key;
+  } else {
+    fs.writeFileSync(path.join(dir, filename), buffer);
   }
-  fs.writeFileSync(path.join(dir, filename), buffer);
   return `/uploads/providers/${id}/${filename}`;
-}
-
-// Converte uma referência de foto (ver storePhoto) na URL de verdade pra
-// mostrar na tela. Local: já é a URL pronta (/uploads/...). MinIO: gera uma
-// URL assinada nova a cada resposta — nunca reaproveita uma velha, pra não
-// vazar acesso além do tempo configurado.
-async function resolvePhotoRef(ref) {
-  if (!ref) return null;
-  if (!minioClient) return ref;
-  return minioClient.presignedGetObject(MINIO_BUCKET, ref, MINIO_PRESIGN_SECONDS);
-}
-
-async function resolveProviderPhotos(provider) {
-  if (!minioClient || !provider.photos || provider.photos.length === 0) return provider;
-  const photos = await Promise.all(
-    provider.photos.map(async (p) => ({
-      url: await resolvePhotoRef(p.url),
-      enhancedUrl: await resolvePhotoRef(p.enhancedUrl),
-      newBackgroundUrl: await resolvePhotoRef(p.newBackgroundUrl),
-    }))
-  );
-  return { ...provider, photos };
 }
 
 const upload = multer({
@@ -685,6 +676,28 @@ const app = express();
 app.set("trust proxy", 1);
 app.use(express.json());
 app.use(cookieParser());
+// Modo MinIO: o servidor busca o objeto e repassa os bytes — o bucket nunca
+// fica exposto na internet, e a URL que o resto do site usa não muda (ver
+// storePhoto acima). Modo disco local (sem MINIO_ENDPOINT): cai direto pro
+// express.static de sempre, sem passar por aqui.
+if (minioClient) {
+  app.get("/uploads/providers/:id/:filename", async (req, res) => {
+    const ext = path.extname(req.params.filename).toLowerCase();
+    const contentType = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : ext === ".jpg" ? "image/jpeg" : null;
+    if (!contentType) return res.status(404).end();
+    try {
+      await minioBucketReady;
+      const key = `providers/${req.params.id}/${req.params.filename}`;
+      const stream = await minioClient.getObject(MINIO_BUCKET, key);
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", "private, max-age=3600");
+      stream.on("error", () => res.status(404).end());
+      stream.pipe(res);
+    } catch (err) {
+      res.status(404).end();
+    }
+  });
+}
 app.use("/uploads", express.static(UPLOADS_DIR));
 app.use(express.static(__dirname));
 
@@ -2722,7 +2735,7 @@ app.post("/api/providers", (req, res, next) => {
       createdAt: new Date().toISOString(),
     };
     PROVIDER_PROFILES.unshift(provider);
-    res.status(201).json({ provider: await resolveProviderPhotos(provider) });
+    res.status(201).json({ provider });
   } catch (err) {
     fs.rmSync(dir, { recursive: true, force: true });
     res.status(500).json({ error: "falha ao criar o perfil, tente de novo" });
@@ -2783,7 +2796,7 @@ app.put("/api/providers/:slug", uploadProviderPhotos, async (req, res) => {
     provider.location = fields.location;
     provider.whatsapp = fields.whatsapp;
     provider.updatedAt = new Date().toISOString();
-    res.json({ provider: await resolveProviderPhotos(provider) });
+    res.json({ provider });
   } catch (err) {
     res.status(500).json({ error: "falha ao salvar as alterações, tente de novo" });
   }
@@ -2795,19 +2808,18 @@ app.put("/api/providers/:slug", uploadProviderPhotos, async (req, res) => {
 // o perfil de visitantes, não tira da própria pessoa a capacidade de gerir
 // o que ela já tem). Quem fica de fato escondido é a página pública
 // compartilhável (ver GET /prestador/:slug) e o ranking/busca.
-app.get("/api/providers/:slug", async (req, res) => {
+app.get("/api/providers/:slug", (req, res) => {
   const provider = PROVIDER_PROFILES.find((p) => p.slug === req.params.slug);
   if (!provider) return res.status(404).json({ error: "perfil não encontrado" });
-  res.json({ provider: await resolveProviderPhotos(provider) });
+  res.json({ provider });
 });
 
 // Página pública do prestador — renderizada no servidor porque é um link
 // compartilhável de verdade (WhatsApp, Instagram etc precisam de uma URL
 // que funcione sem JS do resto do site rodar primeiro).
-app.get("/prestador/:slug", async (req, res) => {
-  const found = PROVIDER_PROFILES.find((p) => p.slug === req.params.slug);
-  if (!found || isOwnerSuspended(found.ownerUserId)) return res.status(404).send("Perfil não encontrado.");
-  const provider = await resolveProviderPhotos(found);
+app.get("/prestador/:slug", (req, res) => {
+  const provider = PROVIDER_PROFILES.find((p) => p.slug === req.params.slug);
+  if (!provider || isOwnerSuspended(provider.ownerUserId)) return res.status(404).send("Perfil não encontrado.");
 
   const bestPhotoUrl = (p) => p.newBackgroundUrl || p.enhancedUrl || p.url;
   const cover = provider.photos[0];

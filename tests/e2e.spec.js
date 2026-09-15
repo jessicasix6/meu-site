@@ -2320,7 +2320,7 @@ test.describe("Top3Profissional - armazenamento de fotos no MinIO, self-hosted (
     expect(health.minioConfigured).toBe(false);
   });
 
-  test("com MINIO_ENDPOINT configurado, foto de perfil vai pro MinIO (URL assinada, bucket privado) em vez de disco local (só roda com MinIO configurado)", async ({
+  test("com MINIO_ENDPOINT configurado, foto de perfil vai pro MinIO (bucket privado, nunca exposto) em vez de disco local (só roda com MinIO configurado)", async ({
     request,
   }) => {
     test.skip(!process.env.MINIO_ENDPOINT, "precisa de MINIO_ENDPOINT pra testar o armazenamento de verdade");
@@ -2341,19 +2341,22 @@ test.describe("Top3Profissional - armazenamento de fotos no MinIO, self-hosted (
     const { provider } = await res.json();
     const photoUrl = provider.photos[0].url;
 
-    // URL assinada de verdade (não link local /uploads/...) — prova que não
-    // caiu no disco solto do servidor da aplicação (critério de pronto do
-    // task-008).
-    expect(photoUrl).not.toMatch(/^\/uploads\//);
-    expect(photoUrl).toContain("X-Amz-Signature");
-
+    // Mesma forma de URL de sempre (/uploads/providers/...), venha do MinIO
+    // ou do disco — o servidor busca o objeto e repassa os bytes, o MinIO em
+    // si nunca fica exposto (critério de pronto do task-008: bucket
+    // privado).
+    expect(photoUrl).toMatch(/^\/uploads\/providers\//);
     const photoRes = await request.get(photoUrl);
     expect(photoRes.status()).toBe(200);
+    expect(photoRes.headers()["content-type"]).toBe("image/png");
+    expect((await photoRes.body()).length).toBeGreaterThan(0);
 
-    // Bucket privado por padrão: sem a assinatura, o objeto não é acessível.
-    const unsignedUrl = photoUrl.split("?")[0];
-    const unsignedRes = await request.get(unsignedUrl);
-    expect(unsignedRes.status()).toBe(403);
+    // Acessar o objeto direto no MinIO (sem passar pelo proxy do servidor,
+    // sem credencial) não funciona — bucket privado de verdade, não só uma
+    // URL "escondida".
+    const directUrl = `http://${process.env.MINIO_ENDPOINT}:${process.env.MINIO_PORT || 9000}/${process.env.MINIO_BUCKET || "top3-uploads"}/providers/${provider.id}/0.png`;
+    const directRes = await request.get(directUrl);
+    expect(directRes.status()).toBe(403);
   });
 });
 
