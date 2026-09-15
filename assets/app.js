@@ -1343,6 +1343,7 @@ groupForm.addEventListener("submit", async (event) => {
     if (!res.ok) {
       groupStatus.textContent = result.error || "Não consegui criar o grupo.";
       groupStatus.className = "post-status post-status--error";
+      resetAltchaWidget("group-altcha-slot");
       return;
     }
     groupStatus.textContent = "Grupo criado!";
@@ -1355,10 +1356,15 @@ groupForm.addEventListener("submit", async (event) => {
     groupPriceReferencePanel.hidden = true;
     groupPriceReferencePanel.innerHTML = "";
     groupForm.hidden = true;
+    // A solução do desafio já foi consumida nesta criação — o formulário
+    // pode ser reaberto pra criar outro grupo depois, então precisa de um
+    // desafio novo já pronto pra essa próxima vez.
+    resetAltchaWidget("group-altcha-slot");
     await loadGroups();
   } catch (err) {
     groupStatus.textContent = "Falha de conexão. Tente de novo.";
     groupStatus.className = "post-status post-status--error";
+    resetAltchaWidget("group-altcha-slot");
   } finally {
     submitBtn.disabled = false;
   }
@@ -1736,15 +1742,20 @@ emailAuthForm.addEventListener("submit", async (event) => {
     if (!res.ok) {
       emailAuthStatus.textContent = result.error || "Não consegui completar.";
       emailAuthStatus.className = "post-status post-status--error";
+      resetAltchaWidget("email-auth-altcha-slot");
       return;
     }
     const meRes = await fetch("/api/auth/me");
     const me = meRes.ok ? await meRes.json() : { providers: [], groups: [], requests: [] };
     renderLoggedInUser(result.user, me.providers, me.groups, me.requests);
     emailAuthForm.reset();
+    // Mesma lógica do grupo: se a pessoa deslogar e cadastrar outra conta
+    // sem recarregar a página, precisa de um desafio novo.
+    resetAltchaWidget("email-auth-altcha-slot");
   } catch (err) {
     emailAuthStatus.textContent = "Falha de conexão. Tente de novo.";
     emailAuthStatus.className = "post-status post-status--error";
+    resetAltchaWidget("email-auth-altcha-slot");
   } finally {
     emailAuthSubmit.disabled = false;
   }
@@ -2076,6 +2087,20 @@ function createAltchaWidget(slot) {
   widget.setAttribute("auto", "onfocus");
   widget.setAttribute("hidelogo", "");
   slot.appendChild(widget);
+}
+
+// Uma solução do ALTCHA só vale uma vez (proteção contra replay no
+// servidor) — se o envio falhar por QUALQUER motivo (e-mail já cadastrado,
+// queda de conexão, etc), a solução que já foi resolvida fica queimada. Sem
+// recriar o widget aqui, a pessoa tentaria de novo com o mesmo desafio já
+// usado e cairia sempre em "verificação anti-spam inválida", mascarando o
+// erro de verdade (achado na revisão do CodeRabbit, PR #68). Só recria se
+// já existia um widget de verdade (ALTCHA configurado) — no-op sem isso.
+function resetAltchaWidget(slotId) {
+  const slot = document.getElementById(slotId);
+  if (!slot || !slot.querySelector("altcha-widget")) return;
+  slot.innerHTML = "";
+  createAltchaWidget(slot);
 }
 
 fetch("/api/auth/config")
