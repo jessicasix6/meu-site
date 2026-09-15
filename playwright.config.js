@@ -33,6 +33,12 @@ module.exports = defineConfig({
       // verdade. Sem isso, a rota de resolução de denúncia (task-004) fica
       // sempre desativada (503) e não dá pra testar o fluxo completo.
       ADMIN_SECRET: "test-admin-secret-nao-usar-em-producao",
+      // Valores fixos só pro servidor de teste isolado — testa que o script
+      // de rastreamento do Umami (task-008) é injetado corretamente com as
+      // variáveis configuradas, sem precisar de uma instância real rodando
+      // (o teste confere o <script> no DOM, não se ele carrega de verdade).
+      UMAMI_SCRIPT_URL: "https://stats.test.invalid/script.js",
+      UMAMI_WEBSITE_ID: "test-website-id-nao-usar-em-producao",
       // A suíte cria muitas contas/grupos em sequência pra cobrir regras de
       // negócio (avaliação, denúncia, task-004) — sem isso, os rate limits
       // pensados pra abuso real (ex: 20 cadastros/hora por IP) travam a

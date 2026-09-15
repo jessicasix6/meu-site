@@ -54,6 +54,7 @@ npm start
 | `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | não* | Credenciais do MinIO. *Obrigatórias só se `MINIO_ENDPOINT` estiver definida. |
 | `MINIO_BUCKET` | não | Nome do bucket (padrão `top3-uploads`) — criado automaticamente se não existir, sempre privado. A URL de foto que o site usa é sempre a mesma (`/uploads/providers/<id>/...`, cacheável por 1h no navegador) — quem serve o arquivo de verdade é o próprio servidor, buscando no MinIO por trás. |
 | `MINIO_USE_SSL` | não | `true` pra usar HTTPS ao falar com o MinIO (padrão `false`, só permitido quando `MINIO_ENDPOINT` é um endereço local/privado — `localhost`, `127.0.0.1` ou IP de rede privada. Um `MINIO_ENDPOINT` roteável de verdade sem `MINIO_USE_SSL=true` é rejeitado na subida do servidor, pra nunca mandar credencial nem foto sem criptografia pela rede). |
+| `UMAMI_SCRIPT_URL` / `UMAMI_WEBSITE_ID` | não | URL do script de rastreamento e id do site numa instância do [Umami](https://umami.is/) self-hosted (task-008) — estatísticas de visita sem mandar dado pra terceiro (tipo Google Analytics). Sem as duas, o site funciona normal, só sem rastreamento nenhum. |
 
 ## Integração com WhatsApp
 
