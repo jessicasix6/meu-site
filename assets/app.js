@@ -705,6 +705,9 @@ function renderCaronaGroupCard(g) {
   const isMotorista = c.tipo === "motorista";
   const routeText = `${escapeHtml(c.origemTexto)} → ${escapeHtml(c.destinoTexto)}`;
   const whenText = `${escapeHtml(c.dataViagem)}${c.horarioAproximado ? " · " + escapeHtml(c.horarioAproximado) : ""}`;
+  // Estimativa por Haversine + multiplicador (task-008), não é rota exata —
+  // "aproximada" sempre no texto pra não passar a impressão de km medido.
+  const distanciaText = typeof c.distanciaAproximadaKm === "number" ? ` · ~${c.distanciaAproximadaKm.toFixed(0)} km (aproximado)` : "";
   const vagasText = isMotorista
     ? c.vagasRestantes === 0
       ? "sem vagas"
@@ -725,7 +728,7 @@ function renderCaronaGroupCard(g) {
       <span class="request-info">
         <strong>${escapeHtml(g.title)}</strong>
         <br />
-        <span class="request-meta">${routeText} · ${whenText}</span>
+        <span class="request-meta">${routeText}${distanciaText} · ${whenText}</span>
         <br />
         <span class="request-meta">${escapeHtml(g.city)} · ${vagasText}</span>
         <p class="group-assinatura-notice">${escapeHtml(GROUP_CARONA_NOTICE)}</p>

@@ -57,6 +57,25 @@ function haversineKm(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// Distância aproximada de estrada (task-008, item 2 da 2ª versão do spec):
+// linha reta (Haversine) multiplicada por um fator de correção, sem OSRM
+// nem nenhum outro serviço de rotas — estrada real é sempre mais longa que
+// a linha reta, e esse multiplicador é só uma aproximação grosseira disso,
+// suficiente pra estimativa de rateio de carona (não é a rota exata).
+// Number(process.env...) || 1.3 sozinho deixaria passar qualquer valor
+// "truthy" incluindo negativo ou Infinity (ex: DISTANCE_CORRECTION_FACTOR="-1"
+// gera distância negativa, guardada e devolvida por groupSummary() —
+// achado do CodeRabbit, PR #74) — por isso a validação explícita abaixo.
+const configuredDistanceCorrectionFactor = Number(process.env.DISTANCE_CORRECTION_FACTOR);
+const DISTANCE_CORRECTION_FACTOR =
+  Number.isFinite(configuredDistanceCorrectionFactor) && configuredDistanceCorrectionFactor > 0
+    ? configuredDistanceCorrectionFactor
+    : 1.3;
+
+function estimatedRoadDistanceKm(lat1, lng1, lat2, lng2) {
+  return haversineKm(lat1, lng1, lat2, lng2) * DISTANCE_CORRECTION_FACTOR;
+}
+
 const REQUESTS = [
   {
     id: "r1",
@@ -2070,6 +2089,12 @@ function groupSummary(group) {
           // handleCreateCaronaGroup) — a diferença é exatamente os assentos
           // de passageiro ainda livres.
           vagasRestantes: group.carona.tipo === "motorista" ? group.targetMembers - group.members.length : null,
+          // Estimativa pro rateio (task-008, Haversine + multiplicador) —
+          // null quando origem e/ou destino não foram geocodificados. Só o
+          // número aproximado sai daqui, nunca lat/lng cru (mesmo padrão já
+          // usado pro resto da geocodificação: coordenada fica só no
+          // servidor).
+          distanciaAproximadaKm: group.carona.distanciaAproximadaKm ?? null,
         }
       : null,
   };
@@ -2220,13 +2245,32 @@ async function handleCreateCaronaGroup(req, res) {
   // localização" não usado), tenta geocodificar o texto da origem digitado
   // — best-effort, segue em frente com lat/lng null se falhar, o matching
   // por texto (locationsMatch) continua funcionando normalmente sem isso.
-  if (caronaFields.lat == null || caronaFields.lng == null) {
-    const geocoded = await geocodeAddress(caronaFields.origemTexto);
-    if (geocoded) {
-      caronaFields.lat = geocoded.lat;
-      caronaFields.lng = geocoded.lng;
-    }
+  // Destino nunca vem do navegador (o botão "usar minha localização" só
+  // preenche a origem) — sempre tenta geocodificar o texto digitado. As duas
+  // chamadas (origem, quando falta, e destino) são disparadas juntas: o
+  // throttle global de geocodeAddress() já serializa as requisições de rede
+  // de verdade, então Promise.all só evita esperar uma pra só então começar
+  // a outra.
+  const [origemGeocoded, destinoGeocoded] = await Promise.all([
+    caronaFields.lat == null || caronaFields.lng == null ? geocodeAddress(caronaFields.origemTexto) : Promise.resolve(null),
+    geocodeAddress(caronaFields.destinoTexto),
+  ]);
+  if (origemGeocoded) {
+    caronaFields.lat = origemGeocoded.lat;
+    caronaFields.lng = origemGeocoded.lng;
   }
+  if (destinoGeocoded) {
+    caronaFields.destinoLat = destinoGeocoded.lat;
+    caronaFields.destinoLng = destinoGeocoded.lng;
+  }
+  // Distância aproximada (Haversine + multiplicador, task-008 item 2) só
+  // sai do null quando os dois pontos foram geocodificados — best-effort,
+  // igual o resto da geocodificação: se faltar um dos dois, a criação do
+  // post segue normalmente sem essa informação.
+  const distanciaAproximadaKm =
+    caronaFields.lat != null && caronaFields.lng != null && caronaFields.destinoLat != null && caronaFields.destinoLng != null
+      ? estimatedRoadDistanceKm(caronaFields.lat, caronaFields.lng, caronaFields.destinoLat, caronaFields.destinoLng)
+      : null;
 
   // Motorista: "vagas" são assentos de PASSAGEIRO — o motorista não é um
   // deles, então targetMembers = vagas + o próprio motorista (que já entra
@@ -2270,6 +2314,9 @@ async function handleCreateCaronaGroup(req, res) {
       horarioAproximado: caronaFields.horarioAproximado,
       lat: caronaFields.lat,
       lng: caronaFields.lng,
+      destinoLat: caronaFields.destinoLat ?? null,
+      destinoLng: caronaFields.destinoLng ?? null,
+      distanciaAproximadaKm,
       cnhNumero: caronaFields.cnhNumero,
       veiculoPlaca: caronaFields.veiculoPlaca,
       veiculoModelo: caronaFields.veiculoModelo,
