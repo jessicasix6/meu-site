@@ -431,9 +431,23 @@ function safeHref(url) {
   }
 }
 
+// Sem a Claude escrevendo a resposta (decisão da Jéssica, 2026-09-14), o
+// texto que chega aqui agora é a lista de resultados de busca crua (título +
+// URL + trecho) — precisa virar link clicável de verdade, senão a pessoa não
+// consegue visitar o site sem copiar e colar a URL na mão. O regex só casa
+// string que já começa literalmente com "http://"/"https://", então nunca
+// linkifica um esquema perigoso tipo "javascript:" sozinho — safeHref (ver
+// price-reference) ainda confere de novo antes de virar href, por segurança.
 function formatMessage(text) {
   return escapeHtml(text)
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    // "url" aqui já veio de escapeHtml(text) acima — está pronto pra ir
+    // direto num atributo HTML, não escapar de novo (senão vira "&amp;amp;"
+    // em qualquer URL com "&" de verdade, ex: query string de busca).
+    .replace(/(https?:\/\/[^\s<]+)/g, (url) => {
+      const href = safeHref(url);
+      return href ? `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>` : url;
+    })
     .replace(/\n/g, "<br>");
 }
 

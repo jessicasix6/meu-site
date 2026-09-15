@@ -53,11 +53,11 @@ async function sendWhatsAppMessage(to, text) {
   }
 }
 
-// askAgent: (message: string) => Promise<string>
+// searchWeb: (query: string) => Promise<string>
 // acceptRequest: (id: string, provider?: string) => { ok: boolean, request?: object, error?: string }
 // completeRequest: (id: string) => { ok: boolean, request?: object, error?: string }
 // rateRequest: (id: string, rating: number, comment?: string) => { ok: boolean, request?: object, error?: string }
-function registerWhatsAppRoutes(app, { askAgent, acceptRequest, completeRequest, rateRequest }) {
+function registerWhatsAppRoutes(app, { searchWeb, acceptRequest, completeRequest, rateRequest }) {
   // Meta chama essa rota uma vez, quando você configura o webhook no painel,
   // pra confirmar que o servidor é seu.
   app.get("/webhook/whatsapp", (req, res) => {
@@ -125,13 +125,13 @@ function registerWhatsAppRoutes(app, { askAgent, acceptRequest, completeRequest,
         return;
       }
 
-      // Qualquer outra mensagem vira uma pergunta pro mesmo agente do site.
+      // Qualquer outra mensagem faz a mesma busca na web usada pelo site.
       try {
-        const reply = await askAgent(text);
+        const reply = await searchWeb(text);
         await sendWhatsAppMessage(from, reply);
-      } catch (agentErr) {
-        console.error("[whatsapp] falha ao consultar o agente:", agentErr.message);
-        await sendWhatsAppMessage(from, "Não consegui consultar o agente agora. Tenta de novo em instantes.");
+      } catch (searchErr) {
+        console.error("[whatsapp] falha ao buscar:", searchErr.message);
+        await sendWhatsAppMessage(from, "Não consegui buscar agora. Tenta de novo em instantes.");
       }
     } catch (err) {
       console.error("[whatsapp] erro processando mensagem recebida:", err.message);

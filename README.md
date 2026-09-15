@@ -1,6 +1,6 @@
 # Top3Profissional
 
-Marketplace de serviços locais com busca por IA. Domínio: top3profissional.com.br (registrado no registro.br).
+Marketplace de serviços locais. Domínio: top3profissional.com.br (registrado no registro.br).
 
 📄 **Visão completa do produto**: [`docs/visao-produto.md`](docs/visao-produto.md) — a fonte da verdade da ideia, consultada e expandida antes de qualquer missão de implementação grande. Inclui também os [princípios estratégicos](docs/visao-produto.md#3-princípios-estratégicos-inspirados-em-a-arte-da-guerra-sugestão-da-jéssica-2026-09-10) inspirados em [A Arte da Guerra](docs/a-arte-da-guerra.md).
 
@@ -32,7 +32,6 @@ O site é instalável como app (PWA) — "adicionar à tela inicial" no celular 
 
 ```
 npm install
-echo "ANTHROPIC_API_KEY=sk-ant-..." > .env
 npm start
 ```
 
@@ -40,12 +39,11 @@ npm start
 
 | Variável | Obrigatória | Descrição |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | recomendada | Chave da Claude API (console.anthropic.com/settings/keys). Sem ela o servidor sobe normalmente, mas `/api/chat` e as respostas via WhatsApp retornam erro. |
 | `WHATSAPP_VERIFY_TOKEN` | não | Ver seção WhatsApp abaixo. |
 | `WHATSAPP_ACCESS_TOKEN` | não | Ver seção WhatsApp abaixo. |
 | `WHATSAPP_PHONE_NUMBER_ID` | não | Ver seção WhatsApp abaixo. |
 | `SEARXNG_URL` | não | URL de uma instância do [SearXNG](https://docs.searxng.org/) (self-hosted, grátis, sem chave — ex: `http://localhost:8888`). Caminho **preferido** de busca na web (decisão 2026-09-14, ver `docs/visao-produto.md` seção 4.3) — sem custo por busca. |
-| `BRAVE_SEARCH_API_KEY` | não | Chave da [Brave Search API](https://api-dashboard.search.brave.com/register). Fallback pago: só é usado se `SEARXNG_URL` não estiver configurada ou a busca local falhar. Sem nenhum dos dois, o agente responde só com o catálogo interno de profissionais (mock). Tem um limite mensal de segurança no código (`BRAVE_SEARCH_MONTHLY_LIMIT` em `server.js`) pra não estourar orçamento, caso o fallback seja usado com frequência. |
+| `BRAVE_SEARCH_API_KEY` | não | Chave da [Brave Search API](https://api-dashboard.search.brave.com/register). Fallback pago: só é usado se `SEARXNG_URL` não estiver configurada ou a busca local falhar. Sem nenhum dos dois, `/api/chat` e o WhatsApp respondem que não há busca configurada. Tem um limite mensal de segurança no código (`BRAVE_SEARCH_MONTHLY_LIMIT` em `server.js`) pra não estourar orçamento, caso o fallback seja usado com frequência. |
 | `GEMINI_API_KEY` | não | Chave do [Google AI Studio](https://aistudio.google.com/apikey) (Gemini API), usada só pra melhorar automaticamente as fotos do perfil profissional (pilar 4.12 — modelo `gemini-3.1-flash-image`, "Nano Banana"). Tem tier grátis (500 imagens/dia). Sem ela, o perfil é criado normalmente, só com a foto como foi enviada. Tem um limite mensal de segurança (`PHOTO_ENHANCE_MONTHLY_LIMIT` em `server.js`) pra não estourar orçamento. |
 | `GOOGLE_CLIENT_ID` | não | Client ID OAuth do [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (pilar 4.13 — login com Google, opcional). Sem ela, o botão de login simplesmente não aparece — o resto do site (inclusive criar perfil) funciona normalmente sem login. |
 | `ADMIN_SECRET` | não | Chave pra resolver denúncia (task-004, `PATCH /api/denuncias/:id`, header `X-Admin-Key`) — capacidade só-API nesta v1, sem tela própria. Sem ela, essa rota fica desativada (503); o resto do site funciona normalmente. |
@@ -67,21 +65,17 @@ O código do webhook já está em `whatsapp.js`, plugado em `/webhook/whatsapp`,
 4. Publique o servidor em algum domínio público (localhost não funciona aqui — use `ngrok` pra testar antes do deploy real).
 5. Na aba **Configuration** do app, configure o webhook apontando para `https://SEU-DOMINIO/webhook/whatsapp`, usando o mesmo `WHATSAPP_VERIFY_TOKEN`, e assine o campo `messages`.
 
-Depois de configurado: qualquer mensagem de texto recebida vira uma pergunta pro mesmo agente que responde no site. Comandos reconhecidos, espelhando o ciclo de vida do pedido (ver seção abaixo):
+Depois de configurado: qualquer mensagem de texto recebida faz a mesma busca na web usada pelo site (sem IA, sem conversa). Comandos reconhecidos, espelhando o ciclo de vida do pedido (ver seção abaixo):
 
 - `aceitar r1` ou `aceitar r1 Carlos Motoboy` — aceita um pedido em aberto
 - `concluir r1` — marca um pedido aceito como concluído
 - `avaliar r1 5 Ótimo atendimento!` — avalia (1-5) um pedido concluído, comentário opcional
 
-## Publicar por conversa (sem formulário)
-
-Além do formulário, o agente (`/api/chat`, e por consequência o WhatsApp também) consegue publicar um pedido direto pela conversa — a pessoa só precisa confirmar a intenção ("quero publicar uma corrida do Centro pra Rodoviária hoje às 20h, pago R$25"). O agente nunca publica sozinho só porque alguém descreveu o que procura — sempre espera confirmação explícita, e confirma de volta o que foi publicado.
-
-## Perfil profissional gerado por IA
+## Perfil profissional
 
 Quem presta serviço pode criar uma página própria (`/prestador/<slug>`), compartilhável fora do site: manda nome, serviço, onde atende, WhatsApp, uma descrição informal do que faz e pelo menos uma foto (formulário "Criar meu perfil", ou pedindo pela barra de busca — "quero criar meu perfil profissional"). O servidor:
 
-- Usa a Claude API pra transformar a descrição informal numa bio curta e profissional (sem inventar fatos que a pessoa não mencionou).
+- A bio é a própria descrição informal que a pessoa escreveu, sem edição por IA (a Claude API foi removida do site em 2026-09-15).
 - Toda foto recebe um ajuste técnico automático grátis (exposição/contraste/nitidez via `sharp`, sem custo, sem chave). Se `GEMINI_API_KEY` estiver configurada, tenta primeiro a edição por IA generativa (modelo `gemini-3.1-flash-image`/"Nano Banana") antes desse ajuste básico.
 - **Trocar o fundo da foto (opcional, a pessoa marca uma caixinha no formulário — nunca automático):** recorta a pessoa com um modelo de segmentação local (U²-Net portátil, roda 100% no servidor via `onnxruntime-node`, sem chave, sem custo, sem depender de terceiro em tempo de execução) e compõe num fundo em degradê combinando com as cores do site. Modelo em `models/u2netp.onnx`, licença Apache 2.0 — ver [U²-Net](https://github.com/xuebinqin/U-2-Net) (Qin et al., 2020).
 - Fotos são servidas sempre em `/uploads/providers/<id>/...`, mas onde ficam guardadas depende de `MINIO_ENDPOINT` (task-008): sem ela, disco local (`uploads/`, fora do git, `.gitignore`d); com ela, um bucket privado no [MinIO](https://min.io/) self-hosted — o servidor busca o objeto e repassa os bytes, o MinIO em si nunca fica exposto na internet nem precisa de domínio/TLS próprio.
