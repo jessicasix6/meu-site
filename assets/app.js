@@ -224,7 +224,18 @@ function setMode(mode) {
 }
 
 modeButtons.forEach((btn) => {
-  btn.addEventListener("click", () => setMode(btn.dataset.mode));
+  btn.addEventListener("click", () => {
+    const prevMode = requesterView.hidden ? "provider" : "requester";
+    setMode(btn.dataset.mode);
+    if (btn.dataset.mode === "requester") {
+      const publishSection = document.getElementById("publicar");
+      if (publishSection) {
+        publishSection.scrollIntoView({ behavior: "smooth", block: "start" });
+        const postType = document.getElementById("post-type");
+        if (postType) postType.value = "outro";
+      }
+    }
+  });
 });
 
 // Filtro de tipo + palavra-chave (task-009, item 5) — "produto" não tem
@@ -1962,7 +1973,6 @@ function updateEmailAuthMode() {
 
 emailAuthToggle.addEventListener("click", () => {
   emailAuthPanel.hidden = !emailAuthPanel.hidden;
-  if (!emailAuthPanel.hidden) document.getElementById("auth-email").focus();
 });
 
 emailAuthTabs.forEach((tab) => {
@@ -2075,9 +2085,10 @@ function renderUserPanel() {
 let currentUserProfile = null;
 
 // Sugestão discreta de login (task-003) nas telas de "Quero solicitar"/
-// "Quero prestar" — nunca bloqueia o uso anônimo, só aparece pra quem ainda
-// não está logado e ainda não dispensou (localStorage, por navegador —
-// dispensar aqui não afeta outro aparelho nem outra pessoa).
+// "Quero prestar" — nunca bloqueia o uso anônimo. task-014: agora aparece
+// só uma vez por sessão (sessionStorage "já foi exibido") e nunca depois
+// de logar. Fechar (×) também guarda no sessionStorage — banner não volta
+// mais na mesma aba, nem após navegar de volta.
 const LOGIN_SUGGESTION_DISMISSED_KEY = "top3_login_suggestion_dismissed";
 const loginSuggestionBanner = document.getElementById("login-suggestion-banner");
 const loginSuggestionCta = document.getElementById("login-suggestion-cta");
@@ -2085,15 +2096,30 @@ const loginSuggestionDismiss = document.getElementById("login-suggestion-dismiss
 
 function wasLoginSuggestionDismissed() {
   try {
-    return localStorage.getItem(LOGIN_SUGGESTION_DISMISSED_KEY) === "1";
+    // sessionStorage: só nessa aba/sessão. localStorage (fallback legado):
+    // persiste entre visitas — mantido pra quem já tinha dispensado antes.
+    return (
+      sessionStorage.getItem(LOGIN_SUGGESTION_DISMISSED_KEY) === "1" ||
+      localStorage.getItem(LOGIN_SUGGESTION_DISMISSED_KEY) === "1"
+    );
   } catch (err) {
     return false;
+  }
+}
+
+function markLoginSuggestionDismissed() {
+  try {
+    sessionStorage.setItem(LOGIN_SUGGESTION_DISMISSED_KEY, "1");
+  } catch (err) {
+    // storage indisponível — banner pode reaparecer nessa visita, sem problema.
   }
 }
 
 function showLoginSuggestionBannerIfApplicable() {
   if (currentUserProfile || wasLoginSuggestionDismissed()) return;
   loginSuggestionBanner.hidden = false;
+  // Marca como exibido assim que aparece — não mostra de novo na mesma sessão.
+  markLoginSuggestionDismissed();
 }
 
 function hideLoginSuggestionBanner() {
@@ -2104,17 +2130,11 @@ loginSuggestionCta.addEventListener("click", () => {
   hideLoginSuggestionBanner();
   emailAuthPanel.hidden = false;
   emailAuthToggle.scrollIntoView({ behavior: "smooth", block: "center" });
-  document.getElementById("auth-email").focus();
 });
 
 loginSuggestionDismiss.addEventListener("click", () => {
   hideLoginSuggestionBanner();
-  try {
-    localStorage.setItem(LOGIN_SUGGESTION_DISMISSED_KEY, "1");
-  } catch (err) {
-    // localStorage indisponível (modo privado, storage bloqueado) — sem
-    // problema, o banner só volta a aparecer nessa mesma visita.
-  }
+  markLoginSuggestionDismissed();
 });
 
 function renderLoggedInUser(user, providers, groups, requests) {
@@ -2132,6 +2152,7 @@ function renderLoggedInUser(user, providers, groups, requests) {
   `;
   emailAuthToggle.hidden = true;
   emailAuthPanel.hidden = true;
+  // signup-toggle removido (tarefa de simplificação do login)
   hideLoginSuggestionBanner();
   renderUserPanel();
 }
@@ -2332,11 +2353,10 @@ function initGoogleSignIn(clientId, attemptsLeft) {
   // restringindo cookie de terceiro por padrão, o que pode quebrar
   // silenciosamente o fluxo clássico sem nenhum erro visível — FedCM é o
   // mecanismo atual recomendado pelo Google pra não depender disso.
-  // auto_select: false (task-013) — sem isso o GIS pode mostrar o popup
-  // One Tap automaticamente assim que a página carrega, antes de qualquer
-  // ação do usuário. O botão de login com Google deve aparecer DENTRO do
-  // modal quando a pessoa clica em "Entrar", não flutuando sozinho na home.
-  google.accounts.id.initialize({ client_id: clientId, callback: handleGoogleCredential, use_fedcm_for_button: true, auto_select: false });
+  // auto_select: false + auto_prompt: false (task-013/014) — sem esses dois
+  // o GIS pode mostrar o popup One Tap sozinho na home, antes de qualquer
+  // ação do usuário. O botão do Google deve aparecer DENTRO do modal "Entrar".
+  google.accounts.id.initialize({ client_id: clientId, callback: handleGoogleCredential, use_fedcm_for_button: true, auto_select: false, auto_prompt: false });
   // Botão "standard" (com texto "Fazer login com o Google") tem largura fixa
   // ~240px — em telas estreitas (mesmo corte de .site-nav no CSS) isso vaza
   // pra fora do header, cortado. "icon" é um botão circular compacto, cabe
@@ -2348,12 +2368,19 @@ function initGoogleSignIn(clientId, attemptsLeft) {
   // preto (--bg: #0a0c0d). "filled_black" é o tema oficial do próprio
   // Google pra contexto escuro, combina com o resto do site sem precisar
   // customizar nada por fora das diretrizes de marca deles.
-  google.accounts.id.renderButton(googleSigninSlot, {
-    theme: "filled_black",
-    size: "medium",
-    type: isNarrow ? "icon" : "standard",
-    locale: "pt-BR",
-  });
+  // task-014: renderiza dentro do modal "Entrar", não no header — o botão
+  // deve aparecer só quando a pessoa abrir o modal explicitamente.
+  const modalSlot = document.getElementById("google-signin-modal-slot");
+  if (modalSlot) {
+    modalSlot.hidden = false;
+    google.accounts.id.renderButton(modalSlot, {
+      theme: "filled_black",
+      size: "large",
+      type: "standard",
+      locale: "pt-BR",
+      width: 300,
+    });
+  }
 }
 
 // ALTCHA (task-008) — só cria o widget de verdade se o servidor confirmar
@@ -2467,18 +2494,20 @@ navMoreMenu.addEventListener("click", () => {
   navMoreToggle.setAttribute("aria-expanded", "false");
 });
 
-// "Criar conta" (header) — mesmo painel de "Entrar", só abre já na aba de
-// cadastro em vez de duplicar formulário/lógica.
-document.getElementById("signup-toggle").addEventListener("click", () => {
+// "Comece agora" (chamada final) → abre modal de login
+document.getElementById("final-cta-btn")?.addEventListener("click", () => {
   emailAuthToggle.click();
-  document.querySelector('.email-auth-tab[data-auth-mode="signup"]')?.click();
+  document.getElementById("email-auth-toggle").scrollIntoView({ behavior: "smooth", block: "center" });
 });
 
-// "Comece agora" (chamada final) — mesmo raciocínio: não é uma ação nova,
-// é atalho pro mesmo caminho de sempre (criar conta).
-document.getElementById("final-cta-btn").addEventListener("click", () => {
-  document.getElementById("signup-toggle").click();
-  document.getElementById("email-auth-toggle").scrollIntoView({ behavior: "smooth", block: "center" });
+// Facebook/Instagram — OAuth ainda não configurado; mostra aviso ao usuário
+document.getElementById("facebook-login-btn")?.addEventListener("click", () => {
+  const status = document.getElementById("email-auth-status");
+  if (status) { status.textContent = "Login com Facebook em breve."; status.style.color = "var(--text-dim)"; }
+});
+document.getElementById("instagram-login-btn")?.addEventListener("click", () => {
+  const status = document.getElementById("email-auth-status");
+  if (status) { status.textContent = "Login com Instagram em breve."; status.style.color = "var(--text-dim)"; }
 });
 
 // Categorias populares (item 7) — as de Grupos aplicam o mesmo filtro que
