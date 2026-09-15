@@ -2751,6 +2751,153 @@ test.describe("Top3Profissional - correções de UX no formulário de Publicar (
     expect(publicarBox.y).toBeGreaterThan(corridasBox.y);
     expect(publicarBox.y - (corridasBox.y + corridasBox.height)).toBeLessThan(50);
   });
+
+  test("item 1: botão 'Usar minha localização' só aparece pra Tipo 'corrida', preenche 'Onde' e lat/lng ficam de fora do público", async ({
+    page,
+    context,
+    request,
+  }) => {
+    await context.grantPermissions(["geolocation"]);
+    await context.setGeolocation({ latitude: -19.925, longitude: -43.935 });
+    await page.goto("/");
+
+    // Some pros outros tipos, só aparece em "corrida".
+    await page.locator("#post-type").selectOption("outro");
+    await expect(page.locator("#post-location-geo")).toBeHidden();
+    await page.locator("#post-type").selectOption("corrida");
+    await expect(page.locator("#post-location-geo")).toBeVisible();
+
+    await page.locator("#post-use-location").click();
+    await expect(page.locator("#post-location-status")).toHaveText("localização atual usada ✓");
+    await expect(page.locator("#post-location")).toHaveValue("📍 Localização atual");
+    await expect(page.locator("#post-lat")).not.toHaveValue("");
+
+    // Publica e confirma que lat/lng nunca aparecem na resposta pública —
+    // mesmo padrão de privacidade que carona/grupos já seguem.
+    await page.locator("#post-title").fill(`corrida com localização ${Date.now()}`);
+    await page.locator("#post-whatsapp").fill("31999990030");
+    await page.locator("#post-price").fill("20");
+    await page.locator("#post-form button[type=submit]").click();
+    await expect(page.locator("#post-status")).toContainText("Publicado!");
+
+    const { requests } = await (await request.get("/api/requests")).json();
+    const created = requests.find((r) => r.location === "📍 Localização atual");
+    expect(created).toBeTruthy();
+    expect(created.lat).toBeUndefined();
+    expect(created.lng).toBeUndefined();
+  });
+
+  test("item 1: negar a permissão de localização não trava nada — 'Onde' continua editável na mão", async ({
+    page,
+    context,
+  }) => {
+    await context.clearPermissions();
+    await page.goto("/");
+    await page.locator("#post-type").selectOption("corrida");
+    await page.locator("#post-use-location").click();
+    await expect(page.locator("#post-location-status")).toContainText("não consegui obter sua localização");
+    await page.locator("#post-location").fill("Preenchido na mão");
+    await expect(page.locator("#post-location")).toHaveValue("Preenchido na mão");
+  });
+
+  test("item 4: 'Perguntar' mora na barra flutuante de baixo, não duplicado no menu do topo", async ({ page }) => {
+    await page.goto("/");
+    const navLinks = await page.locator(".site-nav a").evaluateAll((links) => links.map((a) => a.textContent.trim()));
+    expect(navLinks).not.toContain("Perguntar");
+    expect(page.locator("#nav-ask-link")).toHaveCount(0);
+
+    await expect(page.locator("#bottom-ask-btn")).toBeVisible();
+    await expect(page.locator("#bottom-ask-btn")).toHaveText("Perguntar");
+    // Junto dos botões de modo, não escondido em outro canto da tela.
+    const askBox = await page.locator("#bottom-ask-btn").boundingBox();
+    const modeBox = await page.locator('.bottom-mode-btn[data-mode="requester"]').boundingBox();
+    expect(Math.abs(askBox.y - modeBox.y)).toBeLessThan(10);
+
+    await page.locator('.bottom-mode-btn[data-mode="provider"]').click();
+    await page.locator("#bottom-ask-btn").click();
+    await expect(page.locator("#bottom-search-input")).toBeFocused();
+    await expect(page.locator('.bottom-mode-btn[data-mode="requester"]')).toHaveClass(/is-active/);
+  });
+
+  test("item 6a: botão do Google usa o tema oficial escuro (filled_black), não o claro (outline)", async ({ page }) => {
+    // Não dá pra testar o iframe renderizado pelo próprio Google sem
+    // credencial real — confere a configuração que o site manda pro GIS,
+    // que é exatamente o que decide "outline" (branco, feio no fundo
+    // escuro) vs "filled_black" (o fix).
+    await page.goto("/");
+    const appJs = await (await page.request.get("/assets/app.js")).text();
+    expect(appJs).toContain('theme: "filled_black"');
+    expect(appJs).not.toContain('theme: "outline"');
+  });
+});
+
+test.describe("Top3Profissional - persistência de login sobrevive a restart (task-009, item 6b)", () => {
+  test("USERS/SESSIONS sobrevivem a um restart gracioso (SIGTERM), igual o deploy faz a cada push", async () => {
+    const { spawn } = require("child_process");
+    const os = require("os");
+    const fsSync = require("fs");
+    const pathMod = require("path");
+
+    const dataDir = fsSync.mkdtempSync(pathMod.join(os.tmpdir(), "top3-persist-test-"));
+    const port = 8299; // porta dedicada, longe da 8199 usada pelo resto da suíte
+    const baseUrl = `http://localhost:${port}`;
+    const projectRoot = pathMod.join(__dirname, "..");
+    const env = { ...process.env, PORT: String(port), DATA_DIR: dataDir, DISABLE_RATE_LIMITS: "1", DISABLE_GEOCODING: "1" };
+    delete env.DISABLE_USER_PERSISTENCE; // precisa estar LIGADA aqui — é o oposto do resto da suíte, de propósito
+
+    function startServer() {
+      return spawn("node", ["server.js"], { cwd: projectRoot, env, stdio: "pipe" });
+    }
+
+    async function waitForHealth(timeoutMs = 10000) {
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        try {
+          const res = await fetch(`${baseUrl}/health`);
+          if (res.ok) return;
+        } catch (err) {
+          // servidor ainda não subiu — tenta de novo
+        }
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      throw new Error("servidor não respondeu /health a tempo");
+    }
+
+    let child = startServer();
+    try {
+      await waitForHealth();
+
+      const email = `persist-${Date.now()}@example.com`;
+      const signupRes = await fetch(`${baseUrl}/api/auth/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Persiste Teste", email, password: "senha12345", whatsapp: "31999998888" }),
+      });
+      expect(signupRes.status).toBe(201);
+      const cookie = signupRes.headers.get("set-cookie").split(";")[0];
+
+      const meBefore = await fetch(`${baseUrl}/api/auth/me`, { headers: { Cookie: cookie } });
+      expect((await meBefore.json()).user.email).toBe(email);
+
+      // Restart gracioso — mesmo sinal que `systemctl restart` manda no
+      // deploy de verdade (ver .github/workflows/deploy-vps.yml).
+      const exited = new Promise((resolve) => child.once("exit", resolve));
+      child.kill("SIGTERM");
+      await exited;
+
+      child = startServer();
+      await waitForHealth();
+
+      const meAfter = await fetch(`${baseUrl}/api/auth/me`, { headers: { Cookie: cookie } });
+      expect(meAfter.status).toBe(200);
+      const afterBody = await meAfter.json();
+      expect(afterBody.user).toBeTruthy();
+      expect(afterBody.user.email).toBe(email);
+    } finally {
+      child.kill("SIGKILL");
+      fsSync.rmSync(dataDir, { recursive: true, force: true });
+    }
+  });
 });
 
 test.describe("Top3Profissional - infra", () => {

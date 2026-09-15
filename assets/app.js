@@ -1522,6 +1522,47 @@ function autoFillLocationFromTitle() {
 }
 postTitleInput.addEventListener("input", autoFillLocationFromTitle);
 
+// task-009 item 1: pra categoria "corrida" especificamente, um botão
+// "Usar minha localização" ao lado de "Onde" — mesmo padrão já usado em
+// Carona (task-002): pede permissão do navegador uma única vez por
+// clique (não é rastreamento contínuo), guarda lat/lng em campos ocultos
+// e preenche "Onde" com um rótulo amigável (sem tentar reverse geocoding
+// via Nominatim pra isso — "guardando lat/lng direto" já é a alternativa
+// mais simples que o próprio arquivo da task permite). Se a permissão for
+// negada, o campo continua editável na mão, nada trava.
+const postTypeSelect = document.getElementById("post-type");
+const postLocationGeoField = document.getElementById("post-location-geo");
+const postUseLocationBtn = document.getElementById("post-use-location");
+const postLocationStatus = document.getElementById("post-location-status");
+const postLatInput = document.getElementById("post-lat");
+const postLngInput = document.getElementById("post-lng");
+
+function updatePostLocationGeoVisibility() {
+  postLocationGeoField.hidden = postTypeSelect.value !== "corrida";
+}
+postTypeSelect.addEventListener("change", updatePostLocationGeoVisibility);
+updatePostLocationGeoVisibility();
+
+postUseLocationBtn.addEventListener("click", () => {
+  if (!navigator.geolocation) {
+    postLocationStatus.textContent = "seu navegador não suporta localização";
+    return;
+  }
+  postLocationStatus.textContent = "obtendo localização…";
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      postLatInput.value = pos.coords.latitude;
+      postLngInput.value = pos.coords.longitude;
+      postLocationInput.value = "📍 Localização atual";
+      postLocationAutoFilled = false;
+      postLocationStatus.textContent = "localização atual usada ✓";
+    },
+    () => {
+      postLocationStatus.textContent = "não consegui obter sua localização — preencha \"Onde\" manualmente";
+    }
+  );
+});
+
 // task-009 item 3: WhatsApp e nome pré-preenchidos a partir do perfil de
 // quem está logada (task-003) — continuam editáveis (publicar em nome de
 // outra pessoa, outro número só pra esse post). Sem conta, ficam em branco
@@ -1555,6 +1596,8 @@ postForm.addEventListener("submit", async (event) => {
     requester: data.get("requester"),
     whatsapp: data.get("whatsapp"),
     location,
+    lat: data.get("lat") || null,
+    lng: data.get("lng") || null,
   };
 
   postStatus.textContent = "publicando…";
@@ -1579,6 +1622,8 @@ postForm.addEventListener("submit", async (event) => {
     postForm.reset();
     setPostDateToToday();
     postLocationAutoFilled = true;
+    postLocationStatus.textContent = "";
+    updatePostLocationGeoVisibility();
     prefillPostFormFromProfile();
     // A view do prestador vive escondida enquanto este formulário está
     // visível (são mutuamente exclusivas), então não tem como recarregar
@@ -1820,8 +1865,12 @@ bottomSearchForm.addEventListener("submit", async (event) => {
   runSearch(message);
 });
 
-document.getElementById("nav-ask-link").addEventListener("click", (event) => {
-  event.preventDefault();
+// "Perguntar" saiu do menu do topo e mora só na barra flutuante de baixo
+// agora (task-009, item 4, decisão já confirmada) — junto de "Solicito
+// serviço"/"Presto serviço", bem visível, sem duplicar a mesma ação em
+// dois lugares da tela.
+document.getElementById("bottom-ask-btn").addEventListener("click", () => {
+  setMode("requester");
   bottomSearchInput.focus();
 });
 
@@ -2236,8 +2285,14 @@ function initGoogleSignIn(clientId, attemptsLeft) {
   // pra fora do header, cortado. "icon" é um botão circular compacto, cabe
   // em qualquer largura.
   const isNarrow = window.innerWidth < 640;
+  // Já era o botão oficial do Google (renderButton, não um customizado) —
+  // o "feio" reportado (task-009, item 6) era o tema "outline", pensado
+  // pra fundo claro: vira um quadrado branco chapado num header quase
+  // preto (--bg: #0a0c0d). "filled_black" é o tema oficial do próprio
+  // Google pra contexto escuro, combina com o resto do site sem precisar
+  // customizar nada por fora das diretrizes de marca deles.
   google.accounts.id.renderButton(googleSigninSlot, {
-    theme: "outline",
+    theme: "filled_black",
     size: "medium",
     type: isNarrow ? "icon" : "standard",
     locale: "pt-BR",

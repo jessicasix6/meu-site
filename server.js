@@ -652,6 +652,11 @@ app.use("/uploads", express.static(UPLOADS_DIR));
 // Widget do ALTCHA (task-008) servido do próprio site, não de CDN de
 // terceiro — pacote já baixado via npm, só expõe o bundle pronto.
 app.use("/vendor/altcha", express.static(path.join(__dirname, "node_modules", "altcha", "dist", "main")));
+// Bloqueia /data ANTES do static(__dirname) logo abaixo — esse diretório
+// guarda USERS/SESSIONS persistidos em disco (task-009, item 6b), com
+// passwordHash e dado pessoal; sem isso, express.static(__dirname) serviria
+// data/users.json pra qualquer um que pedisse GET /data/users.json.
+app.use("/data", (req, res) => res.status(404).end());
 app.use(express.static(__dirname));
 
 // Pilar 4.13 — login com Google, opcional (perfil continua podendo ser
@@ -667,6 +672,70 @@ const USERS = [];
 let nextUserId = 1;
 const SESSIONS = new Map(); // token de sessão -> { userId, expiresAt }
 const SESSION_COOKIE = "top3_session";
+
+// Persistência de USERS/SESSIONS em disco (task-009, item 6b) — o cookie
+// já durava 30 dias (SESSION_MAX_AGE_MS abaixo), mas USERS/SESSIONS
+// sempre viveram só na memória do processo Node. Como o deploy reinicia
+// o processo (systemctl restart top3profissional) a cada push pra main —
+// e isso acontece com frequência neste projeto — toda conta e toda
+// sessão eram apagadas silenciosamente em cada deploy, mesmo com o
+// cookie do navegador ainda válido. Isso, não o tempo de expiração, era
+// a causa real de "a sessão cai sozinha". Resto do estado (grupos,
+// pedidos, perfis de prestador) continua só em memória de propósito —
+// esse arquivo resolve especificamente login/sessão, que é o que a
+// Jéssica reportou; persistir tudo o mais é uma decisão maior, fora do
+// escopo desta correção de UX.
+// Configurável via env var só pra teste automatizado conseguir isolar
+// (data/ próprio, descartável, num diretório temporário) sem sujar o
+// data/ real do checkout — produção/dev local nunca precisam setar isso.
+const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(__dirname, "data");
+const USERS_FILE = path.join(DATA_DIR, "users.json");
+const SESSIONS_FILE = path.join(DATA_DIR, "sessions.json");
+
+// Testes automatizados (Playwright) nunca devem ler nem escrever
+// data/users.json de verdade — sem isso, cada rodada de teste carregaria
+// contas de uma rodada anterior (colisão de e-mail, contagem de usuário
+// inesperada) e ainda por cima sujaria o arquivo real usado em
+// desenvolvimento local. Desligado por padrão só quando essa env var
+// explícita está setada (ver playwright.config.js).
+function isUserPersistenceDisabled() {
+  return process.env.DISABLE_USER_PERSISTENCE === "1";
+}
+
+function loadPersistedUsersAndSessions() {
+  if (isUserPersistenceDisabled()) return;
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      const loadedUsers = JSON.parse(fs.readFileSync(USERS_FILE, "utf8"));
+      USERS.push(...loadedUsers);
+      const maxId = USERS.reduce((max, u) => Math.max(max, Number(String(u.id).replace(/\D/g, "")) || 0), 0);
+      nextUserId = maxId + 1;
+    }
+    if (fs.existsSync(SESSIONS_FILE)) {
+      const loadedSessions = JSON.parse(fs.readFileSync(SESSIONS_FILE, "utf8"));
+      for (const [token, session] of loadedSessions) SESSIONS.set(token, session);
+    }
+  } catch (err) {
+    console.error("[persistencia] falha ao carregar users/sessions salvos, começando do zero:", err.message);
+  }
+}
+
+// Escrita síncrona de propósito: volume de dados é pequeno (não é um
+// banco de verdade, é só o suficiente pra sobreviver a um restart) e
+// roda também no handler de SIGTERM logo antes do processo morrer —
+// precisa terminar de escrever antes do `process.exit`.
+function persistUsersAndSessions() {
+  if (isUserPersistenceDisabled()) return;
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(USERS_FILE, JSON.stringify(USERS));
+    fs.writeFileSync(SESSIONS_FILE, JSON.stringify([...SESSIONS.entries()]));
+  } catch (err) {
+    console.error("[persistencia] falha ao salvar users/sessions:", err.message);
+  }
+}
+
+loadPersistedUsersAndSessions();
 const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 // maxAge do cookie só controla até quando o NAVEGADOR guarda o cookie — não
@@ -697,6 +766,7 @@ function startSession(req, res, user) {
     secure: req.secure,
     maxAge: SESSION_MAX_AGE_MS,
   });
+  persistUsersAndSessions();
 }
 
 // Só os campos seguros pra devolver ao cliente — nunca passwordHash, nunca
@@ -1042,7 +1112,10 @@ app.get("/api/auth/me", (req, res) => {
 
 app.post("/api/auth/logout", (req, res) => {
   const token = req.cookies && req.cookies[SESSION_COOKIE];
-  if (token) SESSIONS.delete(token);
+  if (token) {
+    SESSIONS.delete(token);
+    persistUsersAndSessions();
+  }
   res.clearCookie(SESSION_COOKIE);
   res.json({ ok: true });
 });
@@ -1505,8 +1578,13 @@ app.get("/api/price-reference", async (req, res) => {
 // ownerUserId nunca aparece numa resposta pública (mesma regra já aplicada
 // em Grupos e Perfis) — só existe pra filtrar "meus pedidos" no painel
 // pessoal de quem publicou logado.
+// lat/lng (task-009, item 1) ficam de fora do público por padrão, mesmo
+// motivo de sempre: coordenada exata de onde alguém está é mais sensível
+// que a localização em texto que a própria pessoa já escolheu mostrar —
+// mesmo padrão que carona/grupos já seguem (lat/lng nunca sai em
+// groupSummary, só o derivado disso, tipo distanceKm).
 function requestSummary(r) {
-  const { ownerUserId, ...rest } = r;
+  const { ownerUserId, lat, lng, ...rest } = r;
   return rest;
 }
 
@@ -1517,7 +1595,7 @@ app.get("/api/requests", (req, res) => {
 // ownerUserId só é gravado quando quem publica está logada (POST
 // /api/requests, abaixo) — sem sessão de navegador pra amarrar, o post
 // fica sem dono (ver docs/visao-produto.md pilar 4.13).
-function createRequest({ type, title, requester, when, price, whatsapp, location, ownerUserId }) {
+function createRequest({ type, title, requester, when, price, whatsapp, location, lat, lng, ownerUserId }) {
   if (!type || typeof type !== "string" || !type.trim()) {
     return { ok: false, error: "diga o tipo do que você precisa (ex: corrida, imóvel, produto...)" };
   }
@@ -1560,6 +1638,20 @@ function createRequest({ type, title, requester, when, price, whatsapp, location
   if (normalizedLocation.length > REQUEST_LOCATION_MAX_LENGTH) {
     return { ok: false, error: `localização muito longa (máximo ${REQUEST_LOCATION_MAX_LENGTH} caracteres)` };
   }
+  // lat/lng (task-009, item 1) só vêm do botão "Usar minha localização" —
+  // guardados direto, sem reverse geocoding (mesmo "se for mais simples"
+  // que o próprio arquivo da task permite). Best-effort, igual location:
+  // inválido vira null em vez de travar a publicação.
+  let latNum = null;
+  let lngNum = null;
+  if (lat !== undefined && lat !== null && lat !== "") {
+    const n = Number(lat);
+    if (Number.isFinite(n) && Math.abs(n) <= 90) latNum = n;
+  }
+  if (lng !== undefined && lng !== null && lng !== "") {
+    const n = Number(lng);
+    if (Number.isFinite(n) && Math.abs(n) <= 180) lngNum = n;
+  }
 
   const request = {
     id: `r${nextRequestId++}`,
@@ -1569,6 +1661,8 @@ function createRequest({ type, title, requester, when, price, whatsapp, location
     when: (when && when.trim()) || "a combinar",
     whatsapp: normalizedWhatsapp,
     location: normalizedLocation,
+    lat: latNum,
+    lng: lngNum,
     distanceKm: null,
     price: priceNum,
     status: "aberto",
@@ -3035,6 +3129,27 @@ app.get("/health", (req, res) => {
 });
 
 registerWhatsAppRoutes(app, { searchWeb, acceptRequest, completeRequest, rateRequest });
+
+// Autosave periódico (task-009, item 6b) — rede de segurança contra um
+// encerramento não-gracioso (crash, SIGKILL) que pularia o handler de
+// SIGTERM abaixo. .unref() deixa o processo terminar sozinho mesmo com
+// esse timer pendente (importante pro servidor de teste do Playwright,
+// que precisa encerrar limpo entre rodadas).
+if (!isUserPersistenceDisabled()) {
+  setInterval(persistUsersAndSessions, 5_000).unref();
+}
+
+// systemctl restart (usado no deploy, ver .github/workflows/deploy-vps.yml)
+// manda SIGTERM antes de matar o processo — esse handler garante que o
+// estado mais recente de USERS/SESSIONS é gravado em disco bem antes do
+// processo morrer, pra ninguém deslogar sozinho a cada deploy (a causa
+// real do problema reportado, não o tempo de expiração do cookie).
+function shutdownGracefully() {
+  persistUsersAndSessions();
+  process.exit(0);
+}
+process.on("SIGTERM", shutdownGracefully);
+process.on("SIGINT", shutdownGracefully);
 
 const PORT = process.env.PORT || 8123;
 app.listen(PORT, () => {
