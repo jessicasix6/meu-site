@@ -2332,7 +2332,11 @@ function initGoogleSignIn(clientId, attemptsLeft) {
   // restringindo cookie de terceiro por padrão, o que pode quebrar
   // silenciosamente o fluxo clássico sem nenhum erro visível — FedCM é o
   // mecanismo atual recomendado pelo Google pra não depender disso.
-  google.accounts.id.initialize({ client_id: clientId, callback: handleGoogleCredential, use_fedcm_for_button: true });
+  // auto_select: false (task-013) — sem isso o GIS pode mostrar o popup
+  // One Tap automaticamente assim que a página carrega, antes de qualquer
+  // ação do usuário. O botão de login com Google deve aparecer DENTRO do
+  // modal quando a pessoa clica em "Entrar", não flutuando sozinho na home.
+  google.accounts.id.initialize({ client_id: clientId, callback: handleGoogleCredential, use_fedcm_for_button: true, auto_select: false });
   // Botão "standard" (com texto "Fazer login com o Google") tem largura fixa
   // ~240px — em telas estreitas (mesmo corte de .site-nav no CSS) isso vaza
   // pra fora do header, cortado. "icon" é um botão circular compacto, cabe
