@@ -1894,10 +1894,16 @@ async function geocodeAddress(query) {
     lastNominatimCallAt = Date.now();
 
     try {
+      // Sem piso mínimo aqui de propósito (CodeRabbit, PR #71): um piso tipo
+      // Math.max(.., 1000) deixaria o fetch estourar o prazo total de 6s em
+      // até ~1s quando sobra pouco tempo — recalcula o tempo restante na
+      // hora e desiste antes do fetch se já não sobrou nada.
+      const fetchTimeLeft = deadline - Date.now();
+      if (fetchTimeLeft <= 0) return null;
       const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(normalized)}&format=json&limit=1&countrycodes=br`;
       const res = await fetch(url, {
         headers: { "User-Agent": NOMINATIM_USER_AGENT },
-        signal: AbortSignal.timeout(Math.max(deadline - Date.now(), 1_000)),
+        signal: AbortSignal.timeout(fetchTimeLeft),
       });
       if (!res.ok) return null;
       const data = await res.json();
