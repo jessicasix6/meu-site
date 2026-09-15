@@ -588,6 +588,7 @@ function uploadProviderPhotos(req, res, next) {
 // é reaproveitado por outros endpoints mais abaixo (grupos de economia).
 function makeHourlyRateLimiter(limitPerHour) {
   const counts = new Map();
+  let callsSinceSweep = 0;
   return function isRateLimited(ip) {
     // Só desativa com a env var explícita, setada só pelo servidor isolado
     // de teste do Playwright (ver playwright.config.js) — nunca em produção.
@@ -596,6 +597,20 @@ function makeHourlyRateLimiter(limitPerHour) {
     // pra tráfego de abuso real.
     if (process.env.DISABLE_RATE_LIMITS === "1") return false;
     const now = Date.now();
+    // Varredura periódica (achado do CodeRabbit, PR #78): sem isso, `counts`
+    // só limpa a entrada do PRÓPRIO IP que voltou a pedir depois da janela
+    // expirar — um IP que aparece uma vez só fica esquecido no Map pra
+    // sempre, crescimento sem limite ao longo da vida do processo. A cada
+    // 1000 chamadas (de qualquer IP, em qualquer limitador — essa função é
+    // reaproveitada por cadastro/login/grupo/busca), remove entrada já
+    // expirada de todo mundo.
+    callsSinceSweep += 1;
+    if (callsSinceSweep >= 1000) {
+      callsSinceSweep = 0;
+      for (const [trackedIp, trackedEntry] of counts) {
+        if (now - trackedEntry.windowStart > 60 * 60 * 1000) counts.delete(trackedIp);
+      }
+    }
     const entry = counts.get(ip);
     if (!entry || now - entry.windowStart > 60 * 60 * 1000) {
       counts.set(ip, { count: 1, windowStart: now });
