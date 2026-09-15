@@ -240,6 +240,14 @@ Esse é o coração diferencial da ideia, mais importante que qualquer integraç
 - **UI:** botão "Ver preços de referência" no formulário de criar post de Grupos de Economia, ao lado do campo de descrição — mostra os resultados (título + link + trecho) num painel, sem nenhum texto gerado por IA em cima deles.
 - **Status (2026-09-14): implementado e testado.**
 
+### 4.19 Infraestrutura própria self-hosted, sem custo por uso (task-008)
+
+- **Origem (2026-09-14, Jéssica, task-008):** adicionar infraestrutura própria (geocodificação, rotas, armazenamento de foto, estatísticas, anti-spam) rodando no VPS já existente via Docker, sem depender de API paga por requisição — o limite que existe passa a ser capacidade de servidor, não licença/cobrança.
+- **Checagem de capacidade antes de instalar qualquer coisa:** o VPS de produção tem só 1 vCPU e 3.8GB de RAM. Nominatim e OSRM com o extrato do Brasil inteiro (geocodificação e rotas, os outros dois itens do task-008 original) exigem bem mais RAM do que isso pra importar sem risco de derrubar o site ao vivo durante o processo — **ficam pendentes**, decisão da Jéssica (2026-09-14) até decidir entre extrato menor, upgrade do VPS, ou manter a comparação por texto que já existe (task-005).
+- **MinIO (armazenamento de foto), implementado:** self-hosted via Docker no VPS (imagem oficial saiu do Docker Hub, agora em `quay.io/minio/minio`), compatível com S3. Foto de perfil profissional (pilar 4.12) passa a ser salva lá em vez de disco solto do servidor da aplicação, quando `MINIO_ENDPOINT` está configurada — sem ela, cai pro disco local de sempre (mesmo padrão de fallback grátis-primeiro já usado em SearXNG/Gemini/Google Login). Bucket privado por padrão (nunca público): toda URL de foto é assinada, expira em 1h, gerada de novo a cada resposta — nunca guardada pronta.
+- **Umami e Altcha:** pendentes, próximos desta mesma tarefa.
+- **Status (2026-09-14): MinIO implementado e testado** (local, com container MinIO real). Nominatim/OSRM pendentes por decisão explícita da Jéssica.
+
 ## 5. Como isso se conecta com o que já existe no site hoje
 
 O site atual (top3profissional.com.br) já tem, em produção:

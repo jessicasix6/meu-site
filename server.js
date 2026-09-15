@@ -7,6 +7,7 @@ const cookieParser = require("cookie-parser");
 const { OAuth2Client } = require("google-auth-library");
 const bcrypt = require("bcryptjs");
 const multer = require("multer");
+const Minio = require("minio");
 const sharp = require("sharp");
 const ort = require("onnxruntime-node");
 const { BackgroundRemover } = require("@tugrul/rembg");
@@ -549,7 +550,71 @@ function matchesImageSignature(buffer, mimetype) {
 }
 
 const UPLOADS_DIR = path.join(__dirname, "uploads");
-fs.mkdirSync(path.join(UPLOADS_DIR, "providers"), { recursive: true });
+
+// Armazenamento de foto (task-008): MinIO self-hosted (S3-compatível, grátis,
+// sem custo por uso) quando configurado; sem isso, cai pro disco local do
+// próprio servidor (comportamento de sempre) — nunca trava a criação de
+// perfil por falta dessa infra opcional. Bucket é privado por padrão (nunca
+// público): toda URL de foto servida é uma URL assinada de curta duração,
+// gerada na hora de responder, nunca guardada pronta.
+const MINIO_BUCKET = process.env.MINIO_BUCKET || "top3-uploads";
+const MINIO_PRESIGN_SECONDS = 60 * 60; // 1h — tempo suficiente pra pessoa ver a página, curto o bastante pra não virar link permanente
+const minioClient = process.env.MINIO_ENDPOINT
+  ? new Minio.Client({
+      endPoint: process.env.MINIO_ENDPOINT,
+      port: process.env.MINIO_PORT ? Number(process.env.MINIO_PORT) : 9000,
+      useSSL: process.env.MINIO_USE_SSL === "true",
+      accessKey: process.env.MINIO_ACCESS_KEY,
+      secretKey: process.env.MINIO_SECRET_KEY,
+    })
+  : null;
+if (minioClient) {
+  minioClient
+    .bucketExists(MINIO_BUCKET)
+    .then((exists) => (exists ? null : minioClient.makeBucket(MINIO_BUCKET)))
+    .catch((err) => console.warn("[minio] não consegui confirmar/criar o bucket:", err.message));
+} else {
+  fs.mkdirSync(path.join(UPLOADS_DIR, "providers"), { recursive: true });
+  console.warn("MINIO_ENDPOINT não definida — fotos de perfil ficam salvas em disco local (uploads/), como antes.");
+}
+
+// Grava um arquivo enviado (foto original, versão melhorada, ou com fundo
+// novo) no backend configurado. Devolve uma "referência" — chave de objeto
+// no MinIO, ou caminho público local — nunca a URL final pronta (essa só é
+// montada na hora de responder, via resolvePhotoRef, porque a assinada
+// expira e não pode ficar guardada).
+async function storePhoto(buffer, dir, id, filename, mimetype) {
+  if (minioClient) {
+    const key = `providers/${id}/${filename}`;
+    await minioClient.putObject(MINIO_BUCKET, key, buffer, buffer.length, { "Content-Type": mimetype });
+    return key;
+  }
+  fs.writeFileSync(path.join(dir, filename), buffer);
+  return `/uploads/providers/${id}/${filename}`;
+}
+
+// Converte uma referência de foto (ver storePhoto) na URL de verdade pra
+// mostrar na tela. Local: já é a URL pronta (/uploads/...). MinIO: gera uma
+// URL assinada nova a cada resposta — nunca reaproveita uma velha, pra não
+// vazar acesso além do tempo configurado.
+async function resolvePhotoRef(ref) {
+  if (!ref) return null;
+  if (!minioClient) return ref;
+  return minioClient.presignedGetObject(MINIO_BUCKET, ref, MINIO_PRESIGN_SECONDS);
+}
+
+async function resolveProviderPhotos(provider) {
+  if (!minioClient || !provider.photos || provider.photos.length === 0) return provider;
+  const photos = await Promise.all(
+    provider.photos.map(async (p) => ({
+      url: await resolvePhotoRef(p.url),
+      enhancedUrl: await resolvePhotoRef(p.enhancedUrl),
+      newBackgroundUrl: await resolvePhotoRef(p.newBackgroundUrl),
+    }))
+  );
+  return { ...provider, photos };
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 8 * 1024 * 1024, files: 6 },
@@ -2581,13 +2646,12 @@ async function buildPhotosFromFiles(files, dir, id, newBackground) {
   for (const [index, file] of files.entries()) {
     const ext = file.mimetype === "image/png" ? "png" : file.mimetype === "image/webp" ? "webp" : "jpg";
     const filename = `${index}.${ext}`;
-    fs.writeFileSync(path.join(dir, filename), file.buffer);
+    const url = await storePhoto(file.buffer, dir, id, filename, file.mimetype);
     let enhancedUrl = null;
     const enhancedBuffer = await enhancePhoto(file.buffer, file.mimetype);
     if (enhancedBuffer) {
       const enhancedFilename = `${index}-melhorada.png`;
-      fs.writeFileSync(path.join(dir, enhancedFilename), enhancedBuffer);
-      enhancedUrl = `/uploads/providers/${id}/${enhancedFilename}`;
+      enhancedUrl = await storePhoto(enhancedBuffer, dir, id, enhancedFilename, "image/png");
     }
     // Fundo novo é opcional — só roda se a pessoa marcar no formulário,
     // nunca automático (às vezes o fundo original importa pro trabalho).
@@ -2596,11 +2660,10 @@ async function buildPhotosFromFiles(files, dir, id, newBackground) {
       const bgBuffer = await applyNewBackground(file.buffer);
       if (bgBuffer) {
         const bgFilename = `${index}-fundo-novo.png`;
-        fs.writeFileSync(path.join(dir, bgFilename), bgBuffer);
-        newBackgroundUrl = `/uploads/providers/${id}/${bgFilename}`;
+        newBackgroundUrl = await storePhoto(bgBuffer, dir, id, bgFilename, "image/png");
       }
     }
-    photos.push({ url: `/uploads/providers/${id}/${filename}`, enhancedUrl, newBackgroundUrl });
+    photos.push({ url, enhancedUrl, newBackgroundUrl });
   }
   return photos;
 }
@@ -2659,7 +2722,7 @@ app.post("/api/providers", (req, res, next) => {
       createdAt: new Date().toISOString(),
     };
     PROVIDER_PROFILES.unshift(provider);
-    res.status(201).json({ provider });
+    res.status(201).json({ provider: await resolveProviderPhotos(provider) });
   } catch (err) {
     fs.rmSync(dir, { recursive: true, force: true });
     res.status(500).json({ error: "falha ao criar o perfil, tente de novo" });
@@ -2720,7 +2783,7 @@ app.put("/api/providers/:slug", uploadProviderPhotos, async (req, res) => {
     provider.location = fields.location;
     provider.whatsapp = fields.whatsapp;
     provider.updatedAt = new Date().toISOString();
-    res.json({ provider });
+    res.json({ provider: await resolveProviderPhotos(provider) });
   } catch (err) {
     res.status(500).json({ error: "falha ao salvar as alterações, tente de novo" });
   }
@@ -2732,18 +2795,19 @@ app.put("/api/providers/:slug", uploadProviderPhotos, async (req, res) => {
 // o perfil de visitantes, não tira da própria pessoa a capacidade de gerir
 // o que ela já tem). Quem fica de fato escondido é a página pública
 // compartilhável (ver GET /prestador/:slug) e o ranking/busca.
-app.get("/api/providers/:slug", (req, res) => {
+app.get("/api/providers/:slug", async (req, res) => {
   const provider = PROVIDER_PROFILES.find((p) => p.slug === req.params.slug);
   if (!provider) return res.status(404).json({ error: "perfil não encontrado" });
-  res.json({ provider });
+  res.json({ provider: await resolveProviderPhotos(provider) });
 });
 
 // Página pública do prestador — renderizada no servidor porque é um link
 // compartilhável de verdade (WhatsApp, Instagram etc precisam de uma URL
 // que funcione sem JS do resto do site rodar primeiro).
-app.get("/prestador/:slug", (req, res) => {
-  const provider = PROVIDER_PROFILES.find((p) => p.slug === req.params.slug);
-  if (!provider || isOwnerSuspended(provider.ownerUserId)) return res.status(404).send("Perfil não encontrado.");
+app.get("/prestador/:slug", async (req, res) => {
+  const found = PROVIDER_PROFILES.find((p) => p.slug === req.params.slug);
+  if (!found || isOwnerSuspended(found.ownerUserId)) return res.status(404).send("Perfil não encontrado.");
+  const provider = await resolveProviderPhotos(found);
 
   const bestPhotoUrl = (p) => p.newBackgroundUrl || p.enhancedUrl || p.url;
   const cover = provider.photos[0];
@@ -2791,6 +2855,7 @@ app.get("/health", (req, res) => {
     braveSearchConfigured: Boolean(process.env.BRAVE_SEARCH_API_KEY),
     geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
     googleLoginConfigured: Boolean(googleClient),
+    minioConfigured: Boolean(minioClient),
     uptimeSeconds: Math.round(process.uptime()),
   });
 });
