@@ -42,9 +42,8 @@
         <nav class="site-nav">
           <a href="#top3">Profissionais</a>
           <a href="#bottom-search-input" id="nav-ask-link">Perguntar</a>
-          <a href="#corridas">Corridas</a>
           <a href="#grupos">Grupos</a>
-          <a href="#publicar">Publicar</a>
+          <a href="#corridas">Publicar</a>
           <a href="#criar-perfil">Criar meu perfil</a>
           <a href="#beneficios">Benefícios</a>
           <a href="#como-funciona">Como funciona</a>
@@ -259,27 +258,6 @@
       </div>
     </section>
 
-    <section id="corridas" class="rides-section">
-      <div class="container">
-        <p class="eyebrow" id="rides-today">Corrida ou carona compartilhada</p>
-        <h2 class="section-title">Corridas e entregas</h2>
-        <p class="rides-subtitle">
-          Diga de onde e pra onde — mostramos o que já tem publicado nesse trajeto (corrida, carona ou entrega), ou você publica em segundos.
-        </p>
-        <div class="ride-type-toggle" role="tablist" aria-label="Tipo de trajeto">
-          <button type="button" class="mode-btn ride-type-btn is-active" data-ride-type="corrida" role="tab" aria-selected="true">Corrida / carona</button>
-          <button type="button" class="mode-btn ride-type-btn" data-ride-type="entrega" role="tab" aria-selected="false">Entrega</button>
-        </div>
-        <form id="ride-form" class="ride-form">
-          <input id="ride-from" type="text" placeholder="De onde" aria-label="De onde" required />
-          <span class="ride-arrow" aria-hidden="true">→</span>
-          <input id="ride-to" type="text" placeholder="Pra onde" aria-label="Pra onde" required />
-          <button type="submit">Buscar</button>
-        </form>
-        <div id="ride-results" class="ride-results" aria-live="polite"></div>
-      </div>
-    </section>
-
     <section id="grupos" class="groups-section">
       <div class="container">
         <p class="eyebrow">Junte-se a quem quer a mesma coisa</p>
@@ -419,6 +397,27 @@
         <div id="group-price-reference-panel" hidden></div>
         <p id="group-status" class="post-status" aria-live="polite"></p>
         <div id="group-suggestions" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section id="corridas" class="rides-section">
+      <div class="container">
+        <p class="eyebrow" id="rides-today">Corrida ou carona compartilhada</p>
+        <h2 class="section-title">Corridas e entregas, busca rápida</h2>
+        <p class="rides-subtitle">
+          Diga de onde e pra onde — mostramos o que já tem publicado nesse trajeto (corrida, carona ou entrega). Não achou? É o mesmo formulário de publicar logo abaixo, já com o tipo certo escolhido.
+        </p>
+        <div class="ride-type-toggle" role="tablist" aria-label="Tipo de trajeto">
+          <button type="button" class="mode-btn ride-type-btn is-active" data-ride-type="corrida" role="tab" aria-selected="true">Corrida / carona</button>
+          <button type="button" class="mode-btn ride-type-btn" data-ride-type="entrega" role="tab" aria-selected="false">Entrega</button>
+        </div>
+        <form id="ride-form" class="ride-form">
+          <input id="ride-from" type="text" placeholder="De onde" aria-label="De onde" required />
+          <span class="ride-arrow" aria-hidden="true">→</span>
+          <input id="ride-to" type="text" placeholder="Pra onde" aria-label="Pra onde" required />
+          <button type="submit">Buscar</button>
+        </form>
+        <div id="ride-results" class="ride-results" aria-live="polite"></div>
       </div>
     </section>
 

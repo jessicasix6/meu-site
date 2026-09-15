@@ -2732,6 +2732,25 @@ test.describe("Top3Profissional - correções de UX no formulário de Publicar (
     await page.locator("#requests-filter-type").selectOption("corrida");
     await expect(page.locator(`.request-item[data-id="${tvRequest.id}"]`)).toHaveCount(0);
   });
+
+  test("item 4: menu do topo não repete 'Corridas' e 'Publicar' como destinos separados — 'Publicar' abre a busca rápida seguida do formulário completo", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const navLinks = await page.locator(".site-nav a").evaluateAll((links) => links.map((a) => a.textContent.trim()));
+    expect(navLinks).not.toContain("Corridas");
+    expect(navLinks).toContain("Publicar");
+    await expect(page.locator('.site-nav a:has-text("Publicar")')).toHaveAttribute("href", "#corridas");
+
+    // As duas seções (busca rápida De onde/Pra onde + formulário completo)
+    // ficam fisicamente juntas na página — "Publicar" abre já na primeira,
+    // rolando naturalmente pra segunda, em vez de serem dois destinos
+    // distantes e concorrentes.
+    const corridasBox = await page.locator("#corridas").boundingBox();
+    const publicarBox = await page.locator("#publicar").boundingBox();
+    expect(publicarBox.y).toBeGreaterThan(corridasBox.y);
+    expect(publicarBox.y - (corridasBox.y + corridasBox.height)).toBeLessThan(50);
+  });
 });
 
 test.describe("Top3Profissional - infra", () => {
