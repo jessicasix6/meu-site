@@ -2086,7 +2086,17 @@ function initGoogleSignIn(clientId, attemptsLeft) {
     return;
   }
   google.accounts.id.initialize({ client_id: clientId, callback: handleGoogleCredential });
-  google.accounts.id.renderButton(googleSigninSlot, { theme: "outline", size: "medium", locale: "pt-BR" });
+  // Botão "standard" (com texto "Fazer login com o Google") tem largura fixa
+  // ~240px — em telas estreitas (mesmo corte de .site-nav no CSS) isso vaza
+  // pra fora do header, cortado. "icon" é um botão circular compacto, cabe
+  // em qualquer largura.
+  const isNarrow = window.innerWidth < 640;
+  google.accounts.id.renderButton(googleSigninSlot, {
+    theme: "outline",
+    size: "medium",
+    type: isNarrow ? "icon" : "standard",
+    locale: "pt-BR",
+  });
 }
 
 // ALTCHA (task-008) — só cria o widget de verdade se o servidor confirmar
