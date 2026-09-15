@@ -2299,14 +2299,16 @@ function initGoogleSignIn(clientId, attemptsLeft) {
     if (attemptsLeft > 0) setTimeout(() => initGoogleSignIn(clientId, attemptsLeft - 1), 150);
     return;
   }
-  // use_fedcm_for_prompt (task-011, item 3): navegadores recentes vêm
+  // use_fedcm_for_button (task-011, item 3 — corrigido no PR #77 depois
+  // do achado do CodeRabbit): `use_fedcm_for_prompt` só afeta o fluxo de
+  // One Tap/prompt e já está depreciado/ignorado pelo próprio Google —
+  // não fazia nada pro botão renderizado abaixo (renderButton), que é
+  // exatamente o fluxo que a Jéssica reportou como quebrado. A flag certa
+  // pro botão é use_fedcm_for_button. Navegadores recentes vêm
   // restringindo cookie de terceiro por padrão, o que pode quebrar
-  // silenciosamente o fluxo clássico de popup do GIS sem nenhum erro
-  // visível. FedCM é o mecanismo atual recomendado pelo próprio Google
-  // pra login federado sem depender de cookie de terceiro — habilitar
-  // explicitamente cobre esse caso em vez de confiar só no comportamento
-  // padrão (que pode variar por navegador/versão).
-  google.accounts.id.initialize({ client_id: clientId, callback: handleGoogleCredential, use_fedcm_for_prompt: true });
+  // silenciosamente o fluxo clássico sem nenhum erro visível — FedCM é o
+  // mecanismo atual recomendado pelo Google pra não depender disso.
+  google.accounts.id.initialize({ client_id: clientId, callback: handleGoogleCredential, use_fedcm_for_button: true });
   // Botão "standard" (com texto "Fazer login com o Google") tem largura fixa
   // ~240px — em telas estreitas (mesmo corte de .site-nav no CSS) isso vaza
   // pra fora do header, cortado. "icon" é um botão circular compacto, cabe
