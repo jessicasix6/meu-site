@@ -750,6 +750,19 @@ function persistUsersAndSessions() {
       fs.closeSync(fd);
     }
     fs.renameSync(tmpFile, DATA_FILE);
+    // Decisão consciente (CodeRabbit, PR #76): não chama fsync no arquivo
+    // temporário nem no diretório antes/depois do rename. Isso protegeria
+    // contra queda de energia física bem no instante entre o rename e o
+    // disco confirmar a escrita de verdade — sem fsync, esse caso muito
+    // raro poderia perder só o autosave mais recente (no máximo os
+    // últimos 5s de estado, ver setInterval mais abaixo). O que esse
+    // arquivo resolve de fato — sessão sendo apagada a cada deploy
+    // (systemctl restart, SIGTERM) — já fica coberto sem fsync algum,
+    // porque o processo sempre termina normalmente nesse caminho, nunca
+    // é cortado no meio da escrita. Adicionar fsync (E fsync no
+    // diretório, pra garantir que o próprio rename persista) é proteção
+    // desproporcional pro risco real deste projeto (dado de sessão, não
+    // financeiro, num VPS) frente à complexidade que adiciona.
   } catch (err) {
     console.error("[persistencia] falha ao salvar users/sessions:", err.message);
   }
