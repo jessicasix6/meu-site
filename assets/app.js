@@ -444,9 +444,17 @@ function formatMessage(text) {
     // "url" aqui já veio de escapeHtml(text) acima — está pronto pra ir
     // direto num atributo HTML, não escapar de novo (senão vira "&amp;amp;"
     // em qualquer URL com "&" de verdade, ex: query string de busca).
+    // Pontuação de fim de frase colada na URL (ex: "...achados em
+    // https://exemplo.com.") não faz parte do link — sem separar isso, ela
+    // vira parte do href de verdade (achado na revisão do CodeRabbit, PR #69).
     .replace(/(https?:\/\/[^\s<]+)/g, (url) => {
-      const href = safeHref(url);
-      return href ? `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>` : url;
+      const trailingMatch = url.match(/[.,;:!?)]+$/);
+      const trailing = trailingMatch ? trailingMatch[0] : "";
+      const cleanUrl = trailing ? url.slice(0, -trailing.length) : url;
+      const href = safeHref(cleanUrl);
+      return href
+        ? `<a href="${href}" target="_blank" rel="noopener noreferrer">${cleanUrl}</a>${trailing}`
+        : url;
     })
     .replace(/\n/g, "<br>");
 }
@@ -455,7 +463,7 @@ function renderResult(query, state, text) {
   chatSection.hidden = false;
   const actionButton =
     state === "ok"
-      ? '<button type="button" class="result-action-btn" id="result-solicitar-btn">Solicitar / publicar pedido</button>'
+      ? '<button type="button" class="result-action-btn" id="result-solicitar-btn">Ir para o formulário de pedido</button>'
       : "";
   results.innerHTML = `
     <p class="result-query">Resultados para "${escapeHtml(query)}"</p>
