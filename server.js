@@ -1217,8 +1217,16 @@ function rateRequest(id, rating, comment) {
 // "buscas realizadas" ficaria bem menor que o real.
 const SEARCH_EVENTS = [];
 const SEARCH_EVENT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // guarda até 30 dias, mais que suficiente pra "últimos 7 dias"
+// Poda por tempo (abaixo) sozinha não impede alguém de inundar o endpoint
+// com requisição repetida — crescimento de memória sem limite mesmo
+// dentro dos 30 dias (achado do CodeRabbit, PR #78). Mesmo limitador de
+// hora por IP já usado em cadastro/login/criar grupo (ver
+// makeHourlyRateLimiter), bem generoso — é só sinal de "alguém buscou",
+// não precisa ser tão restrito quanto cadastro.
+const isSearchEventRateLimited = makeHourlyRateLimiter(300);
 
 app.post("/api/search-events", (req, res) => {
+  if (isSearchEventRateLimited(req.ip)) return res.status(204).end();
   SEARCH_EVENTS.push(Date.now());
   // Poda por TEMPO, não por contagem (achado do CodeRabbit, PR #78): um
   // corte por quantidade (shift() ao passar de N) descartava evento ainda
