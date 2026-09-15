@@ -1886,15 +1886,10 @@ bottomSearchForm.addEventListener("submit", async (event) => {
   runSearch(message);
 });
 
-// "Perguntar" saiu do menu do topo e mora só na barra flutuante de baixo
-// agora (task-009, item 4, decisão já confirmada) — junto de "Solicito
-// serviço"/"Presto serviço", bem visível, sem duplicar a mesma ação em
-// dois lugares da tela.
-document.getElementById("bottom-ask-btn").addEventListener("click", () => {
-  setMode("requester");
-  bottomSearchInput.focus();
-});
-
+// "Perguntar" na barra flutuante (task-009, item 4) foi removido de novo
+// (task-011, item 2) — duplicava "Perguntar agora" do hero, que já cobre
+// essa ação com destaque (título, texto, botão bem visível). Barra
+// flutuante fica só com "Solicito serviço"/"Presto serviço".
 document.getElementById("hero-ask-link").addEventListener("click", (event) => {
   event.preventDefault();
   bottomSearchInput.focus();
@@ -2274,7 +2269,11 @@ async function handleGoogleCredential(response) {
     renderLoggedInUser(user, me.providers, me.groups, me.requests);
   } catch (err) {
     // Login é só um extra opcional — falha aqui não deve incomodar quem só
-    // quer usar o site sem logar.
+    // quer usar o site sem logar. console.error só pra quem for depurar
+    // (task-011, item 3) — antes falhava 100% em silêncio, sem rastro
+    // nenhum nem no DevTools de quem estava tentando entender por que não
+    // logou.
+    console.error("[login google] falha ao completar login:", err);
   }
 }
 
@@ -2300,7 +2299,16 @@ function initGoogleSignIn(clientId, attemptsLeft) {
     if (attemptsLeft > 0) setTimeout(() => initGoogleSignIn(clientId, attemptsLeft - 1), 150);
     return;
   }
-  google.accounts.id.initialize({ client_id: clientId, callback: handleGoogleCredential });
+  // use_fedcm_for_button (task-011, item 3 — corrigido no PR #77 depois
+  // do achado do CodeRabbit): `use_fedcm_for_prompt` só afeta o fluxo de
+  // One Tap/prompt e já está depreciado/ignorado pelo próprio Google —
+  // não fazia nada pro botão renderizado abaixo (renderButton), que é
+  // exatamente o fluxo que a Jéssica reportou como quebrado. A flag certa
+  // pro botão é use_fedcm_for_button. Navegadores recentes vêm
+  // restringindo cookie de terceiro por padrão, o que pode quebrar
+  // silenciosamente o fluxo clássico sem nenhum erro visível — FedCM é o
+  // mecanismo atual recomendado pelo Google pra não depender disso.
+  google.accounts.id.initialize({ client_id: clientId, callback: handleGoogleCredential, use_fedcm_for_button: true });
   // Botão "standard" (com texto "Fazer login com o Google") tem largura fixa
   // ~240px — em telas estreitas (mesmo corte de .site-nav no CSS) isso vaza
   // pra fora do header, cortado. "icon" é um botão circular compacto, cabe

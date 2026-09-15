@@ -2800,23 +2800,29 @@ test.describe("Top3Profissional - correções de UX no formulário de Publicar (
     await expect(page.locator("#post-location")).toHaveValue("Preenchido na mão");
   });
 
-  test("item 4: 'Perguntar' mora na barra flutuante de baixo, não duplicado no menu do topo", async ({ page }) => {
+  test("item 4 (task-009): 'Perguntar' não aparece duplicado no menu do topo", async ({ page }) => {
     await page.goto("/");
     const navLinks = await page.locator(".site-nav a").evaluateAll((links) => links.map((a) => a.textContent.trim()));
     expect(navLinks).not.toContain("Perguntar");
-    expect(page.locator("#nav-ask-link")).toHaveCount(0);
+    await expect(page.locator("#nav-ask-link")).toHaveCount(0);
+  });
 
-    await expect(page.locator("#bottom-ask-btn")).toBeVisible();
-    await expect(page.locator("#bottom-ask-btn")).toHaveText("Perguntar");
-    // Junto dos botões de modo, não escondido em outro canto da tela.
-    const askBox = await page.locator("#bottom-ask-btn").boundingBox();
-    const modeBox = await page.locator('.bottom-mode-btn[data-mode="requester"]').boundingBox();
-    expect(Math.abs(askBox.y - modeBox.y)).toBeLessThan(10);
+  test("item 2 (task-011): 'Perguntar' saiu da barra flutuante também — hero 'Perguntar agora' é a única entrada pra essa ação, barra fica só com Solicito/Presto", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    expect(await page.locator("#bottom-ask-btn").count()).toBe(0);
+    expect(await page.locator(".bottom-mode-suggestions").getByText("Perguntar", { exact: true }).count()).toBe(0);
 
-    await page.locator('.bottom-mode-btn[data-mode="provider"]').click();
-    await page.locator("#bottom-ask-btn").click();
+    const modeButtons = page.locator(".bottom-mode-suggestions .bottom-mode-btn");
+    await expect(modeButtons).toHaveCount(2);
+    await expect(modeButtons.nth(0)).toHaveText("Solicito serviço");
+    await expect(modeButtons.nth(1)).toHaveText("Presto serviço");
+
+    // "Perguntar agora" do hero continua sendo o único caminho — ainda
+    // rola até a barra de busca e foca nela.
+    await page.locator("#hero-ask-link").click();
     await expect(page.locator("#bottom-search-input")).toBeFocused();
-    await expect(page.locator('.bottom-mode-btn[data-mode="requester"]')).toHaveClass(/is-active/);
   });
 
   test("item 6a: botão do Google usa o tema oficial escuro (filled_black), não o claro (outline)", async ({ page }) => {
