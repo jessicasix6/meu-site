@@ -789,8 +789,22 @@ function publicUserFields(user) {
   };
 }
 
+// Estatísticas do site (task-008) — Umami self-hosted, sem mandar dado de
+// visita pra terceiro (Google Analytics etc). UMAMI_SCRIPT_URL é a URL do
+// script de rastreamento da própria instância (ex:
+// "https://stats.exemplo.com/script.js"), UMAMI_WEBSITE_ID é o id do site
+// cadastrado nela. Sem as duas, o site funciona normalmente, só sem
+// rastreamento nenhum.
+function isUmamiConfigured() {
+  return Boolean(process.env.UMAMI_SCRIPT_URL && process.env.UMAMI_WEBSITE_ID);
+}
+
 app.get("/api/auth/config", (req, res) => {
-  res.json({ googleClientId: process.env.GOOGLE_CLIENT_ID || null });
+  res.json({
+    googleClientId: process.env.GOOGLE_CLIENT_ID || null,
+    umamiScriptUrl: isUmamiConfigured() ? process.env.UMAMI_SCRIPT_URL : null,
+    umamiWebsiteId: isUmamiConfigured() ? process.env.UMAMI_WEBSITE_ID : null,
+  });
 });
 
 app.post("/api/auth/google", async (req, res) => {
@@ -2889,6 +2903,7 @@ app.get("/health", (req, res) => {
     geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
     googleLoginConfigured: Boolean(googleClient),
     minioConfigured: Boolean(minioClient),
+    umamiConfigured: isUmamiConfigured(),
     uptimeSeconds: Math.round(process.uptime()),
   });
 });

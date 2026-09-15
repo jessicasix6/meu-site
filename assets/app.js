@@ -2066,6 +2066,20 @@ function initGoogleSignIn(clientId, attemptsLeft) {
 fetch("/api/auth/config")
   .then((res) => res.json())
   .then(async (config) => {
+    // Estatísticas do site (task-008) — Umami self-hosted, sem mandar dado
+    // de visita pra terceiro. Só injeta o script se as duas variáveis
+    // estiverem configuradas no servidor; sem elas, o site funciona
+    // normalmente, só sem rastreamento nenhum. Roda antes de qualquer
+    // "return" abaixo, pra não perder a página vista por causa do fluxo de
+    // login.
+    if (config.umamiScriptUrl && config.umamiWebsiteId) {
+      const script = document.createElement("script");
+      script.defer = true;
+      script.src = config.umamiScriptUrl;
+      script.dataset.websiteId = config.umamiWebsiteId;
+      document.head.appendChild(script);
+    }
+
     // Confere se já tinha sessão de uma visita anterior ANTES de montar
     // qualquer botão de login — sem isso, o botão podia aparecer do lado do
     // nome de quem já está logado (o GIS não limpa o próprio slot ao
