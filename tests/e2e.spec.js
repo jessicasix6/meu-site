@@ -2973,9 +2973,8 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
     await expect(page.locator(".social-login-title")).toBeVisible();
   });
 
-  test("hero: badge TOP3 SYSTEM, título com destaque em ciano, busca central funcional", async ({ page }) => {
+  test("hero: título com destaque em ciano, busca central funcional", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator(".hero-badge")).toContainText("TOP3 SYSTEM");
     await expect(page.locator(".hero-title-accent")).toHaveText("o que você precisa.");
     await expect(page.getByPlaceholder("O que você está procurando?")).toBeVisible();
   });

@@ -2456,8 +2456,9 @@ button.cta-secondary:hover {
   /* borda ciano suave + fundo translúcido (nota de visual da task-012) */
   background: var(--glass-bg);
   backdrop-filter: blur(14px);
-  border: 1px solid var(--accent-dim);
+  border: 1px solid rgba(22, 230, 255, 0.25);
   border-radius: 14px;
+  box-shadow: 0 0 0 1px rgba(22, 230, 255, 0.20), 0 0 32px rgba(22, 230, 255, 0.10), 0 8px 24px rgba(0, 0, 0, 0.50);
 }
 
 .highlight-badge {
@@ -2571,9 +2572,15 @@ button.cta-secondary:hover {
   text-align: center;
   background: var(--glass-bg);
   backdrop-filter: blur(16px);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(22, 230, 255, 0.22);
   border-radius: 16px;
-  box-shadow: 0 0 60px rgba(53, 230, 255, 0.08);
+  box-shadow: 0 0 0 1px rgba(22, 230, 255, 0.15), 0 0 40px rgba(22, 230, 255, 0.15);
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.stat-card:hover {
+  border-color: rgba(22, 230, 255, 0.40);
+  box-shadow: 0 0 0 1px rgba(22, 230, 255, 0.30), 0 0 50px rgba(22, 230, 255, 0.25);
 }
 
 .stat-value {
@@ -2606,18 +2613,20 @@ button.cta-secondary:hover {
   padding: 1.1rem 1.3rem;
   background: var(--glass-bg);
   backdrop-filter: blur(14px);
-  border: 1px solid var(--border-strong);
+  border: 1px solid rgba(22, 230, 255, 0.28);
   border-radius: 12px;
   color: var(--text);
   text-decoration: none;
   font-size: 0.92rem;
   font-weight: 600;
-  transition: border-color 0.15s ease, color 0.15s ease;
+  box-shadow: 0 0 0 1px rgba(22, 230, 255, 0.12), 0 0 20px rgba(22, 230, 255, 0.08);
+  transition: border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .category-card:hover {
   border-color: var(--accent);
   color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(22, 230, 255, 0.35), 0 0 30px rgba(22, 230, 255, 0.20);
 }
 
 /* task-012: chamada final */
@@ -2814,13 +2823,14 @@ button.cta-secondary:hover {
 body {
   background:
     radial-gradient(
-      ellipse 900px 440px at 50% 0px,
+      ellipse 1400px 700px at 50% 0px,
       rgba(22, 230, 255, 0.18) 0%,
-      rgba(22, 230, 255, 0.05) 45%,
+      rgba(22, 230, 255, 0.04) 50%,
       transparent 70%
     ),
+    url('../assets/bg.png') center center / cover no-repeat fixed,
     var(--bg);
-  background-attachment: fixed, fixed;
+  background-attachment: fixed, fixed, fixed;
 }
 
 /* --- Header premium --- */
@@ -2862,13 +2872,13 @@ body {
 .hero-search-form {
   max-width: 680px;
   padding: 0.7rem 0.7rem 0.7rem 1.4rem;
-  border-color: rgba(22, 230, 255, 0.22);
-  box-shadow: 0 0 0 1px rgba(22, 230, 255, 0.06), 0 4px 32px rgba(22, 230, 255, 0.06);
+  border-color: rgba(22, 230, 255, 0.55);
+  box-shadow: 0 0 0 1px rgba(22, 230, 255, 0.40), 0 0 50px rgba(22, 230, 255, 0.28), 0 20px 60px rgba(0, 0, 0, 0.60);
 }
 
 .hero-search-form:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 4px rgba(22, 230, 255, 0.16), 0 0 40px rgba(22, 230, 255, 0.18);
+  box-shadow: 0 0 0 2px rgba(22, 230, 255, 0.55), 0 0 70px rgba(22, 230, 255, 0.38), 0 24px 70px rgba(0, 0, 0, 0.65);
 }
 
 #hero-search-input {
@@ -3020,7 +3030,8 @@ body {
 }
 
 .rank-card:hover {
-  border-color: rgba(22, 230, 255, 0.25);
+  border-color: rgba(22, 230, 255, 0.45);
+  box-shadow: 0 0 0 1px rgba(22, 230, 255, 0.20), 0 0 28px rgba(22, 230, 255, 0.15);
 }
 
 /* --- Responsive: mobile — painéis empilhados --- */
