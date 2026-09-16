@@ -916,6 +916,8 @@ app.get("/api/auth/config", (req, res) => {
     altchaConfigured: isAltchaConfigured(),
     umamiScriptUrl: isUmamiConfigured() ? process.env.UMAMI_SCRIPT_URL : null,
     umamiWebsiteId: isUmamiConfigured() ? process.env.UMAMI_WEBSITE_ID : null,
+    supabaseUrl: process.env.SUPABASE_URL || null,
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || null,
   });
 });
 
@@ -946,6 +948,54 @@ app.post("/api/auth/google", async (req, res) => {
   } catch (err) {
     res.status(401).json({ error: "credencial do Google inválida" });
   }
+});
+
+// Login social via Supabase (Facebook / Instagram) — o frontend usa o SDK
+// do Supabase pra fazer o OAuth e nos manda o access_token de volta. A gente
+// verifica com o endpoint /auth/v1/user do próprio Supabase e cria/acha o
+// usuário no nosso sistema, igual ao fluxo do Google.
+app.post("/api/auth/supabase-social", async (req, res) => {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+    return res.status(503).json({ error: "login social não configurado neste servidor" });
+  }
+  const { access_token } = req.body || {};
+  if (!access_token || typeof access_token !== "string") {
+    return res.status(400).json({ error: "token ausente" });
+  }
+  let supabaseUser;
+  try {
+    const r = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        Authorization: `Bearer ${access_token}`,
+        apikey: process.env.SUPABASE_ANON_KEY,
+      },
+    });
+    if (!r.ok) return res.status(401).json({ error: "token social inválido" });
+    supabaseUser = await r.json();
+  } catch (err) {
+    return res.status(502).json({ error: "falha ao verificar token com Supabase" });
+  }
+  const email = (supabaseUser.email || "").toLowerCase().trim();
+  const provider = supabaseUser.app_metadata?.provider || "social";
+  const meta = supabaseUser.user_metadata || {};
+  const name = meta.full_name || meta.name || email.split("@")[0] || "Usuário";
+  const picture = meta.avatar_url || meta.picture || null;
+
+  let user = USERS.find((u) => u.supabaseId === supabaseUser.id);
+  if (!user && email) {
+    const byEmail = USERS.find((u) => u.email && u.email.toLowerCase() === email);
+    if (byEmail) {
+      byEmail.supabaseId = supabaseUser.id;
+      byEmail.picture = byEmail.picture || picture;
+      user = byEmail;
+    }
+  }
+  if (!user) {
+    user = createUser({ email: email || null, name, picture });
+    user.supabaseId = supabaseUser.id;
+  }
+  startSession(req, res, user);
+  res.json({ user: publicUserFields(user) });
 });
 
 // Login simples por email/senha (task-003) — alternativa que não depende de

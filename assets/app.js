@@ -2449,6 +2449,54 @@ fetch("/api/auth/config")
         return;
       }
     }
+
+    // Supabase social login (Facebook / Instagram) — só ativa se o servidor
+    // tiver SUPABASE_URL e SUPABASE_ANON_KEY configurados.
+    if (config.supabaseUrl && config.supabaseAnonKey) {
+      const supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+
+      // Detecta retorno de OAuth (hash #access_token=... na URL)
+      const { data: { session: oauthSession } } = await supabase.auth.getSession();
+      if (oauthSession?.access_token) {
+        const r = await fetch("/api/auth/supabase-social", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ access_token: oauthSession.access_token }),
+        });
+        if (r.ok) {
+          const { user } = await r.json();
+          if (user) {
+            // Limpa o hash da URL para não re-processar no próximo F5
+            history.replaceState(null, "", window.location.pathname + window.location.search);
+            renderLoggedInUser(user, [], [], []);
+            return;
+          }
+        }
+      }
+
+      // Mostra botões de Facebook e Instagram
+      const fbBtn = document.getElementById("facebook-login-btn");
+      const igBtn = document.getElementById("instagram-login-btn");
+      if (fbBtn) {
+        fbBtn.hidden = false;
+        fbBtn.addEventListener("click", () => {
+          supabase.auth.signInWithOAuth({
+            provider: "facebook",
+            options: { redirectTo: window.location.origin },
+          });
+        });
+      }
+      if (igBtn) {
+        igBtn.hidden = false;
+        igBtn.addEventListener("click", () => {
+          supabase.auth.signInWithOAuth({
+            provider: "instagram",
+            options: { redirectTo: window.location.origin },
+          });
+        });
+      }
+    }
+
     if (!config.googleClientId) return;
     await loadGisScript();
     initGoogleSignIn(config.googleClientId, 20);
