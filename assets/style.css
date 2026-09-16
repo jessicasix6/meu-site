@@ -15,22 +15,20 @@
 }
 
 :root {
-  /* task-013 (print 15/09/2026): paleta realinhada aos tokens do mockup.
-     Fundo mais escuro (#06080B), ciano mais vivo (#35E6FF), texto mais
-     nítido (#EAFBFF). Nada inventado fora dessa lista. */
-  --bg: #06080b;
-  --bg-raised: #0b1117;
-  --bg-card: #0f1419;
-  /* Vidro fosco — mesmo conceito da task-011, agora base mais escura. */
-  --glass-bg: rgba(8, 14, 20, 0.72);
-  --border: rgba(53, 230, 255, 0.12);
-  --border-strong: rgba(53, 230, 255, 0.22);
-  --accent: #35e6ff;
-  --accent-dim: rgba(53, 230, 255, 0.10);
-  --accent-ink: #06080b;
+  /* redesign-visual: tokens premium dark marketplace (Thumbtack+Doctoralia).
+     Fundo mais profundo, ciano mais vivo, superfícies com hierarquia clara. */
+  --bg: #02080d;
+  --bg-raised: #06141d;
+  --bg-card: #091a24;
+  --glass-bg: rgba(6, 16, 24, 0.78);
+  --border: rgba(22, 230, 255, 0.11);
+  --border-strong: rgba(22, 230, 255, 0.20);
+  --accent: #16e6ff;
+  --accent-dim: rgba(22, 230, 255, 0.10);
+  --accent-ink: #02080d;
   --text: #eafbff;
-  --text-dim: #9db7c2;
-  --text-faint: #4a6470;
+  --text-dim: #8fb3c0;
+  --text-faint: #3d5f6d;
   --gold: #e8b64c;
   --silver: #c3ccd1;
   --bronze: #cd8c5c;
@@ -2656,5 +2654,272 @@ button.cta-secondary:hover {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+  }
+}
+
+/* ============================================================
+   redesign-visual: premium dark marketplace UI
+   Todos os seletores abaixo só sobreescrevem apresentação —
+   IDs, classes e comportamentos JS não são alterados.
+   ============================================================ */
+
+/* Background com glow ciano suave via multi-layer no body — sem pseudo-elemento
+   pra não criar novo stacking context que interfira com z-index do header sticky. */
+body {
+  background:
+    radial-gradient(
+      ellipse 1000px 520px at 50% -60px,
+      rgba(22, 230, 255, 0.06) 0%,
+      transparent 70%
+    ),
+    var(--bg);
+  background-attachment: fixed, fixed;
+}
+
+/* --- Header premium --- */
+.site-header {
+  background: rgba(2, 8, 13, 0.94);
+  border-bottom: 1px solid rgba(22, 230, 255, 0.10);
+}
+
+/* Botão "Criar conta" menor para o header */
+.cta-button--sm {
+  padding: 0.55rem 1.1rem;
+  font-size: 0.82rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+/* --- Hero maior e mais impactante --- */
+.hero--centered {
+  padding: 6.5rem 0 5.5rem;
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+  background: transparent;
+}
+
+.hero-title {
+  font-size: clamp(2.4rem, 5vw, 3.6rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin-bottom: 1.2rem;
+}
+
+.hero .subtitle {
+  font-size: 1.08rem;
+  max-width: 46ch;
+  color: var(--text-dim);
+  margin: 0 auto 2.5rem;
+}
+
+.hero-search-form {
+  max-width: 680px;
+  padding: 0.7rem 0.7rem 0.7rem 1.4rem;
+  border-color: rgba(22, 230, 255, 0.22);
+  box-shadow: 0 0 0 1px rgba(22, 230, 255, 0.06), 0 4px 32px rgba(22, 230, 255, 0.06);
+}
+
+.hero-search-form:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(22, 230, 255, 0.16), 0 0 40px rgba(22, 230, 255, 0.18);
+}
+
+#hero-search-input {
+  font-size: 1rem;
+}
+
+.hero-search-submit {
+  padding: 0.7rem 1.8rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+}
+
+/* Chips de categoria ligeiramente maiores */
+.example-chip {
+  padding: 0.45rem 1rem;
+  font-size: 0.84rem;
+  color: var(--text-dim);
+  border-color: rgba(22, 230, 255, 0.18);
+}
+
+.example-chip:hover,
+.example-chip.is-active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(22, 230, 255, 0.07);
+}
+
+/* --- Três painéis lado a lado (desktop) --- */
+.three-panels-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Remove padding/border das seções dentro do three-panels-row */
+.three-panels-row .activity-section,
+.three-panels-row .how-section,
+.three-panels-row .stats-section {
+  padding: 0;
+  border-bottom: none;
+  border-right: 1px solid var(--border);
+}
+
+.three-panels-row .stats-section {
+  border-right: none;
+}
+
+/* Container dentro dos três painéis ocupa a largura toda */
+.three-panels-row .container {
+  max-width: 100%;
+  padding: 2.5rem 1.75rem;
+}
+
+/* Passos "como funciona" empilhados dentro do painel */
+.three-panels-row .steps {
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+/* Numeração dos passos mais proeminente */
+.step-number {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--accent);
+  opacity: 0.28;
+  margin-bottom: 0.5rem;
+}
+
+/* Stats grid 2x2 dentro do painel */
+.three-panels-row .stats-grid {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+/* --- Section titles maiores --- */
+.section-title {
+  font-size: clamp(1.35rem, 2.4vw, 1.75rem);
+}
+
+/* --- Categorias mais prominentes --- */
+.categories-section {
+  padding: 4rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.categories-grid {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.85rem;
+  margin-top: 1.5rem;
+}
+
+.category-card {
+  padding: 1.1rem 1.3rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-dim);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.category-card:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(22, 230, 255, 0.05);
+}
+
+/* --- Final CTA mais impactante --- */
+.final-cta-section {
+  padding: 5rem 0;
+  background: linear-gradient(180deg, transparent 0%, rgba(22, 230, 255, 0.04) 100%);
+  border-top: 1px solid var(--border);
+}
+
+.final-cta-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  text-align: center;
+}
+
+.final-cta-text {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 600;
+  color: var(--text);
+  max-width: 36ch;
+  line-height: 1.3;
+}
+
+/* --- Highlights cards ligeiramente maiores --- */
+.highlight-card {
+  flex: 0 0 240px;
+  padding: 1.4rem;
+  border-radius: 16px;
+}
+
+/* --- Ranking cards ajustados à nova paleta --- */
+.rank-card {
+  background: var(--bg-raised);
+  border-color: var(--border);
+}
+
+.rank-card:hover {
+  border-color: rgba(22, 230, 255, 0.25);
+}
+
+/* --- Responsive: mobile — painéis empilhados --- */
+@media (max-width: 860px) {
+  .three-panels-row {
+    grid-template-columns: 1fr;
+  }
+
+  .three-panels-row .activity-section,
+  .three-panels-row .how-section {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .three-panels-row .steps {
+    grid-template-columns: 1fr;
+  }
+
+  .three-panels-row .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .hero--centered {
+    padding: 4rem 0 3.5rem;
+  }
+
+  .categories-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .categories-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-title {
+    font-size: clamp(1.9rem, 7vw, 2.5rem);
+  }
+
+  .three-panels-row .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Esconde botão "Criar conta" em telas muito pequenas para não amontoar */
+  #criar-conta-header-btn {
+    display: none;
   }
 }

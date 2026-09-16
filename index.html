@@ -64,6 +64,7 @@
         </span>
         <div class="google-signin-wrap">
           <div id="google-signin-slot" class="google-signin-slot"></div>
+          <button type="button" id="criar-conta-header-btn" class="cta-button cta-button--sm">Criar conta</button>
           <button type="button" id="email-auth-toggle" class="cta-secondary email-auth-toggle">Entrar</button>
           <div id="email-auth-panel" class="user-panel social-login-panel" hidden>
             <p class="social-login-title">Entre na sua conta</p>
@@ -269,63 +270,65 @@
       </div>
     </section>
 
-    <section id="atividade" class="activity-section">
-      <div class="container">
-        <p class="eyebrow">TOP3 SYSTEM — Em tempo real</p>
-        <h2 class="section-title">Atividade recente</h2>
-        <ul id="activity-list" class="activity-list" aria-live="polite"></ul>
-        <p id="activity-empty" class="activity-empty" hidden>Nenhuma atividade recente ainda.</p>
-      </div>
-    </section>
-
-    <section id="como-funciona" class="how-section">
-      <div class="container">
-        <p class="eyebrow">Simples. Rápido. Eficiente.</p>
-        <h2 class="section-title">Como funciona</h2>
-        <div class="steps">
-          <article class="step">
-            <span class="step-number">1</span>
-            <h3>Escreva naturalmente</h3>
-            <p>"Quero um pedreiro amanhã cedo"</p>
-          </article>
-          <article class="step">
-            <span class="step-number">2</span>
-            <h3>O TOP3 entende e organiza</h3>
-            <p>Busca, filtra e junta as melhores possibilidades.</p>
-          </article>
-          <article class="step">
-            <span class="step-number">3</span>
-            <h3>Você escolhe e age</h3>
-            <p>Entrar, participar, publicar interesse ou oferecer um serviço.</p>
-          </article>
+    <div class="three-panels-row">
+      <section id="atividade" class="activity-section">
+        <div class="container">
+          <p class="eyebrow">TOP3 SYSTEM — Em tempo real</p>
+          <h2 class="section-title">Atividade recente</h2>
+          <ul id="activity-list" class="activity-list" aria-live="polite"></ul>
+          <p id="activity-empty" class="activity-empty" hidden>Nenhuma atividade recente ainda.</p>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section id="numeros" class="stats-section">
-      <div class="container">
-        <p class="eyebrow">Pessoas reais. Oportunidades reais.</p>
-        <h2 class="section-title">Números que conectam</h2>
-        <div class="stats-grid">
-          <div class="stat-card">
-            <span class="stat-value" id="stat-searches">—</span>
-            <span class="stat-label">buscas nos últimos 7 dias</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-value" id="stat-open">—</span>
-            <span class="stat-label">oportunidades abertas</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-value" id="stat-groups">—</span>
-            <span class="stat-label">grupos em formação</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-value" id="stat-providers">—</span>
-            <span class="stat-label">profissionais listados</span>
+      <section id="como-funciona" class="how-section">
+        <div class="container">
+          <p class="eyebrow">Simples. Rápido. Eficiente.</p>
+          <h2 class="section-title">Como funciona</h2>
+          <div class="steps">
+            <article class="step">
+              <span class="step-number">01</span>
+              <h3>Escreva naturalmente</h3>
+              <p>"Quero um pedreiro amanhã cedo"</p>
+            </article>
+            <article class="step">
+              <span class="step-number">02</span>
+              <h3>O TOP3 entende e organiza</h3>
+              <p>Busca, filtra e junta as melhores possibilidades.</p>
+            </article>
+            <article class="step">
+              <span class="step-number">03</span>
+              <h3>Você escolhe e age</h3>
+              <p>Entrar, participar, publicar interesse ou oferecer um serviço.</p>
+            </article>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      <section id="numeros" class="stats-section">
+        <div class="container">
+          <p class="eyebrow">Pessoas reais. Oportunidades reais.</p>
+          <h2 class="section-title">Números que conectam</h2>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <span class="stat-value" id="stat-searches">—</span>
+              <span class="stat-label">buscas nos últimos 7 dias</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-value" id="stat-open">—</span>
+              <span class="stat-label">oportunidades abertas</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-value" id="stat-groups">—</span>
+              <span class="stat-label">grupos em formação</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-value" id="stat-providers">—</span>
+              <span class="stat-label">profissionais listados</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
 
     <section id="categorias" class="categories-section">
       <div class="container">
@@ -854,6 +857,9 @@
         navigator.serviceWorker.register("/sw.js").catch(() => {});
       });
     }
+    document.getElementById("criar-conta-header-btn")?.addEventListener("click", () => {
+      document.getElementById("email-auth-toggle")?.click();
+    });
   </script>
 </body>
 </html>
