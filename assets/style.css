@@ -850,13 +850,28 @@ a {
 .rate-form select,
 .rate-form input[type="text"],
 .rate-form input[type="tel"] {
-  background: var(--bg-raised);
-  color: var(--text);
-  border: 1px solid var(--border-strong);
+  background-color: #06141d;
+  color: #f4fbff;
+  border: 1px solid rgba(30, 210, 238, 0.28);
   border-radius: 6px;
   padding: 0.35rem 0.5rem;
   font-size: 0.8rem;
   font-family: var(--font-body);
+}
+
+.rate-form select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%2316e6ff' d='M8 11L2 5h12z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 8px;
+  padding-right: 1.6rem;
+  cursor: pointer;
+}
+.rate-form select option {
+  background: #06141d;
+  color: #f4fbff;
 }
 
 .rate-form input[type="text"] {
@@ -1232,18 +1247,33 @@ button.cta-secondary:hover {
 }
 
 #ranking-sort {
-  background: var(--bg-raised);
-  color: var(--text);
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  padding: 0.4rem 0.6rem;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: #06141d;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%2316e6ff' d='M8 11L2 5h12z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px;
+  color: #f4fbff;
+  border: 1px solid rgba(30, 210, 238, 0.28);
+  border-radius: 10px;
+  padding: 0 2rem 0 0.75rem;
   font-size: 0.82rem;
   font-family: var(--font-body);
+  min-height: 40px;
+  cursor: pointer;
 }
-
+#ranking-sort:hover {
+  border-color: rgba(22, 230, 255, 0.55);
+}
 #ranking-sort:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline: none;
+  border-color: #16e6ff;
+  box-shadow: 0 0 0 2px rgba(22, 230, 255, 0.12);
+}
+#ranking-sort option {
+  background: #06141d;
+  color: #f4fbff;
 }
 
 .ranking-list {
@@ -1729,21 +1759,37 @@ button.cta-secondary:hover {
 .post-field select,
 .post-field textarea {
   padding: 0.6rem 0.75rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border-strong);
+  background-color: #06141d;
+  border: 1px solid rgba(30, 210, 238, 0.28);
   border-radius: 7px;
-  color: var(--text);
+  color: #f4fbff;
   font-family: var(--font-body);
   font-size: 0.9rem;
   resize: vertical;
+}
+
+.post-field select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%2316e6ff' d='M8 11L2 5h12z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px;
+  padding-right: 2rem;
+  cursor: pointer;
+}
+
+.post-field select option {
+  background: #06141d;
+  color: #f4fbff;
 }
 
 .post-field input:focus,
 .post-field select:focus,
 .post-field textarea:focus {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-dim);
+  border-color: #16e6ff;
+  box-shadow: 0 0 0 2px rgba(22, 230, 255, 0.12);
 }
 
 .post-field input[type="file"] {
@@ -2136,13 +2182,30 @@ button.cta-secondary:hover {
 
 .requests-filter select,
 .requests-filter input {
-  background: var(--bg-raised);
-  color: var(--text);
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  padding: 0.7rem 1rem;
+  background-color: #06141d;
+  color: #f4fbff;
+  border: 1px solid rgba(30, 210, 238, 0.28);
+  border-radius: 10px;
+  padding: 0 1rem;
   font-size: 0.92rem;
   font-family: var(--font-body);
+  min-height: 40px;
+}
+
+.requests-filter select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%2316e6ff' d='M8 11L2 5h12z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px;
+  padding-right: 2rem;
+  cursor: pointer;
+}
+
+.requests-filter select option {
+  background: #06141d;
+  color: #f4fbff;
 }
 
 .requests-filter input {
@@ -2150,10 +2213,15 @@ button.cta-secondary:hover {
   min-width: 200px;
 }
 
+.requests-filter select:hover {
+  border-color: rgba(22, 230, 255, 0.55);
+}
+
 .requests-filter select:focus,
 .requests-filter input:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline: none;
+  border-color: #16e6ff;
+  box-shadow: 0 0 0 2px rgba(22, 230, 255, 0.12);
 }
 
 .requests-empty {
@@ -2612,18 +2680,34 @@ button.cta-secondary:hover {
 }
 
 .filter-select {
-  padding: 0.3rem 0.55rem;
-  border: 1.5px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-card);
-  color: var(--text);
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0 2rem 0 0.75rem;
+  border: 1px solid rgba(30, 210, 238, 0.28);
+  border-radius: 10px;
+  background-color: #06141d;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%2316e6ff' d='M8 11L2 5h12z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px;
+  color: #f4fbff;
   font-size: 0.82rem;
+  font-family: var(--font-body);
   cursor: pointer;
-  max-width: 150px;
+  min-height: 40px;
+  max-width: 160px;
+}
+.filter-select:hover {
+  border-color: rgba(22, 230, 255, 0.55);
 }
 .filter-select:focus {
-  outline: 2px solid var(--accent);
-  border-color: var(--accent);
+  outline: none;
+  border-color: #16e6ff;
+  box-shadow: 0 0 0 2px rgba(22, 230, 255, 0.12);
+}
+.filter-select option {
+  background: #06141d;
+  color: #f4fbff;
 }
 
 .price-sort-group {
