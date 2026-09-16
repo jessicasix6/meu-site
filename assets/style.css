@@ -1413,6 +1413,89 @@ button.cta-secondary:hover {
   background: #5aeeff;
 }
 
+.rank-cta--secondary {
+  background: transparent;
+  color: var(--accent);
+  border: 1.5px solid var(--accent);
+}
+.rank-cta--secondary:hover {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.rank-cta-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: auto;
+  flex-wrap: wrap;
+}
+.rank-cta-row .rank-cta {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Disponibilidade no card do ranking */
+.avail-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-top: 0.4rem;
+}
+.avail-badge--on {
+  color: #2ecc71;
+}
+.avail-badge--off {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.rank-next-slot {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0.15rem 0 0.4rem;
+}
+
+/* Disponibilidade no form de cadastro de profissional */
+.provider-availability-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+.provider-avail-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.provider-avail-day {
+  width: 2.8rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.provider-avail-inicio,
+.provider-avail-fim {
+  padding: 0.25rem 0.4rem;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 0.82rem;
+  width: 7rem;
+}
+.provider-avail-sep {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+.post-field-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.35rem;
+}
+
 /* resultado de busca (a busca em si mora só na barra fixa embaixo) */
 
 .search-icon {
