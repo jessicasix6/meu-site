@@ -336,9 +336,12 @@ async function loadRanking(sortBy, service) {
       const ctaContact = p.slug
         ? `<a href="/prestador/${encodeURIComponent(p.slug)}" class="rank-cta" target="_blank" rel="noopener">Chamar / Agendar</a>`
         : `<button type="button" class="rank-cta" data-name="${escapeHtml(p.name)}">Chamar / Agendar</button>`;
+      const avatarInner = p.photoUrl
+        ? `<div class="rank-avatar rank-avatar--photo"><img src="${escapeHtml(p.photoUrl)}" alt="Foto de ${escapeHtml(p.name)}" loading="lazy"></div>`
+        : `<div class="rank-avatar">${escapeHtml(initials(p.name))}</div>`;
       item.innerHTML = `
         <div class="rank-card-header">
-          <div class="rank-avatar">${escapeHtml(initials(p.name))}</div>
+          ${avatarInner}
           <div class="rank-header-info">
             <div class="rank-header-row">
               <h3 class="rank-name">${escapeHtml(p.name)}</h3>
@@ -362,6 +365,19 @@ async function loadRanking(sortBy, service) {
           ${ctaContact}
         </div>
       `;
+      // Fallback para iniciais se a imagem falhar ao carregar — sem inline JS.
+      if (p.photoUrl) {
+        const img = item.querySelector(".rank-avatar--photo img");
+        if (img) {
+          img.addEventListener("error", () => {
+            const avatar = item.querySelector(".rank-avatar--photo");
+            if (avatar) {
+              avatar.className = "rank-avatar";
+              avatar.textContent = initials(p.name);
+            }
+          });
+        }
+      }
       rankingList.appendChild(item);
     });
   } catch (err) {

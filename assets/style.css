@@ -1326,6 +1326,7 @@ button.cta-secondary:hover {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
+  overflow: hidden;
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 0.95rem;
@@ -1333,18 +1334,35 @@ button.cta-secondary:hover {
   color: var(--accent);
 }
 
+/* Quando há foto real: sem padding, imagem cobre o círculo todo */
+.rank-avatar--photo {
+  background: var(--bg-raised);
+  padding: 0;
+}
+.rank-avatar--photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .rank-card--1 .rank-avatar {
   background: rgba(232, 182, 76, 0.16);
   color: var(--gold);
 }
+.rank-card--1 .rank-avatar--photo { background: var(--bg-raised); }
+
 .rank-card--2 .rank-avatar {
   background: rgba(195, 204, 209, 0.14);
   color: var(--silver);
 }
+.rank-card--2 .rank-avatar--photo { background: var(--bg-raised); }
+
 .rank-card--3 .rank-avatar {
   background: rgba(205, 140, 92, 0.16);
   color: var(--bronze);
 }
+.rank-card--3 .rank-avatar--photo { background: var(--bg-raised); }
 
 .rank-header-info {
   flex: 1;

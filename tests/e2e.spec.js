@@ -767,6 +767,76 @@ test.describe("Top3Profissional - perfil profissional (pilar 4.12)", () => {
     await expect(cards.first().locator(".chip--new")).toHaveText("novo");
     await expect(cards.first().locator(".rank-cta")).toHaveAttribute("href", `/prestador/${provider.slug}`);
   });
+
+  test("foto do perfil aparece no card do ranking: photoUrl no JSON, <img> no card, HTTP 200", async ({
+    page,
+    request,
+  }) => {
+    // Serviço único para este perfil aparecer sozinho no top 3.
+    const uniqueService = `fotografia-teste-${Math.random().toString(36).slice(2, 8)}`;
+    const res = await request.post("/api/providers", {
+      multipart: {
+        name: "Foto Ranking Teste",
+        service: uniqueService,
+        description: "fotógrafo profissional com fotos reais",
+        location: "São Paulo",
+        whatsapp: "31999990099",
+        photos: {
+          name: "foto.png",
+          mimeType: "image/png",
+          buffer: require("fs").readFileSync("assets/icons/icon-192.png"),
+        },
+      },
+    });
+    expect(res.status()).toBe(201);
+    const { provider } = await res.json();
+    expect(provider.photos.length).toBeGreaterThan(0);
+
+    // API devolve photoUrl para perfil com foto.
+    const rankingJson = await (await request.get(`/api/ranking?service=${uniqueService}`)).json();
+    expect(rankingJson.top3.length).toBeGreaterThan(0);
+    const rankItem = rankingJson.top3[0];
+    expect(typeof rankItem.photoUrl).toBe("string");
+    expect(rankItem.photoUrl.length).toBeGreaterThan(0);
+
+    // Prioridade: newBackgroundUrl > enhancedUrl > url (usa a primeira foto).
+    const firstPhoto = provider.photos[0];
+    const expectedUrl = firstPhoto.newBackgroundUrl || firstPhoto.enhancedUrl || firstPhoto.url;
+    expect(rankItem.photoUrl).toBe(expectedUrl);
+
+    // A URL da foto responde HTTP 200 com Content-Type de imagem.
+    const imgRes = await request.get(rankItem.photoUrl);
+    expect(imgRes.status()).toBe(200);
+    expect(imgRes.headers()["content-type"]).toMatch(/^image\//);
+
+    // Card no DOM mostra <img> com o src correto.
+    const servicesResponse = page.waitForResponse((r) => r.url().includes("/api/services"));
+    await page.goto("/");
+    await servicesResponse;
+    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
+    await searchInput.fill(`preciso de ${uniqueService} hoje`);
+    await searchInput.press("Enter");
+
+    const card = page.locator(".rank-card").first();
+    await expect(card).toContainText("Foto Ranking Teste");
+    const img = card.locator(".rank-avatar--photo img");
+    await expect(img).toBeVisible();
+    await expect(img).toHaveAttribute("src", expectedUrl);
+  });
+
+  test("card sem foto continua mostrando iniciais", async ({ page, request }) => {
+    // Serviço único sem foto — usa PROVIDERS mock que não têm photoUrl.
+    await page.goto("/");
+    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
+    await searchInput.fill("preciso de manicure");
+    await searchInput.press("Enter");
+
+    const cards = page.locator(".rank-card");
+    await expect(cards.first()).toBeVisible();
+    // Cards mock não têm foto — devem mostrar iniciais, nunca .rank-avatar--photo.
+    await expect(cards.first().locator(".rank-avatar--photo")).toHaveCount(0);
+    await expect(cards.first().locator(".rank-avatar")).not.toBeEmpty();
+  });
 });
 
 test.describe("Top3Profissional - sinal de demanda não publicada (pilar 4.2)", () => {
