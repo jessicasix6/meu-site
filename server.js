@@ -1524,20 +1524,28 @@ function isOwnerSuspended(ownerUserId) {
   return owner ? owner.status === "suspenso" : false;
 }
 
+// Escolhe a melhor URL de uma foto: versão com fundo novo > versão aprimorada > original.
+function bestPhotoUrlFromPhoto(photo) {
+  return photo.newBackgroundUrl || photo.enhancedUrl || photo.url || null;
+}
+
 function providerProfilesForRanking() {
   return PROVIDER_PROFILES.filter((p) => !isOwnerSuspended(p.ownerUserId)).map((p) => {
     const nextSlot = computeNextSlot(p.availability);
+    const firstPhoto = p.photos && p.photos.length > 0 ? p.photos[0] : null;
     return {
       name: p.name,
       service: p.service,
       city: p.location,
       rating: null,
+      reviewCount: null,
       distanceKm: null,
       price: null,
       fastReply: false,
       lat: null,
       lng: null,
       slug: p.slug,
+      photoUrl: firstPhoto ? bestPhotoUrlFromPhoto(firstPhoto) : null,
       availability: p.availability || [],
       nextSlot: nextSlot ? nextSlot.label : null,
       isAvailable: Boolean(nextSlot),
@@ -1578,10 +1586,11 @@ app.get("/api/ranking", (req, res) => {
 
   const top3 = sorted
     .slice(0, 3)
-    .map(({ name, service, city, rating, reviewCount, distanceKm, price, slug, nextSlot, isAvailable, time }) => ({
+    .map(({ name, service, city, rating, reviewCount, distanceKm, price, slug, nextSlot, isAvailable, time, photoUrl }) => ({
       name, service, city, rating,
       reviewCount: typeof reviewCount === "number" ? reviewCount : null,
       distanceKm, price, slug: slug || null,
+      photoUrl: typeof photoUrl === "string" && photoUrl ? photoUrl : null,
       nextSlot: nextSlot || (time ? `Disponível ${time}` : null),
       isAvailable: isAvailable != null ? isAvailable : Boolean(nextSlot || time),
     }));
