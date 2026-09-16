@@ -3051,8 +3051,8 @@ async function loadHighlights() {
         <div class="highlight-card-body">
           <strong class="highlight-card-title">${escapeHtml(item.title)}</strong>
           <span class="highlight-card-where">${escapeHtml(item.where)}</span>
-          <span class="highlight-card-price">${escapeHtml(item.price)}</span>
-          <button type="button" class="highlight-card-action" data-highlight-index="${index}">${escapeHtml(item.actionText)} →</button>
+          <span class="highlight-card-price highlight-price">${escapeHtml(item.price)}</span>
+          <button type="button" class="highlight-card-action highlight-action" data-highlight-index="${index}">${escapeHtml(item.actionText)} →</button>
         </div>
       </li>`;
         }
