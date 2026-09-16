@@ -3258,3 +3258,274 @@ body {
     max-width: 36ch;
   }
 }
+
+/* ======================================================
+   VISUAL MATCH — feat-redesign-minimal
+   Objetivo: igualar o visual da imagem de referência
+   ====================================================== */
+
+/* ---- Glow do corpo: mais forte e amplo, emanando do topo ---- */
+body {
+  background:
+    radial-gradient(
+      ellipse 1100px 520px at 50% 0px,
+      rgba(22, 230, 255, 0.22) 0%,
+      rgba(22, 230, 255, 0.07) 40%,
+      transparent 68%
+    ),
+    var(--bg);
+  background-attachment: fixed, fixed;
+}
+
+/* ---- Hero: padding e título ---- */
+.hero--centered {
+  padding: 3.5rem 0 3rem;
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+}
+
+.hero-title {
+  font-size: clamp(2.4rem, 5vw, 3.6rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin-bottom: 1.2rem;
+}
+
+/* ---- Busca: glow permanente forte (não só no focus) ---- */
+.hero-search-form {
+  max-width: 680px;
+  padding: 0.7rem 0.7rem 0.7rem 1.4rem;
+  border-radius: 999px;
+  border-color: rgba(22, 230, 255, 0.28);
+  box-shadow:
+    0 0 0 1px rgba(22, 230, 255, 0.16),
+    0 0 40px rgba(22, 230, 255, 0.18),
+    0 24px 70px rgba(0, 0, 0, 0.55);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.hero-search-form:focus-within {
+  border-color: rgba(22, 230, 255, 0.60);
+  box-shadow:
+    0 0 0 2px rgba(22, 230, 255, 0.22),
+    0 0 60px rgba(22, 230, 255, 0.28),
+    0 28px 80px rgba(0, 0, 0, 0.60);
+}
+
+#hero-search-input {
+  font-size: 1rem;
+}
+
+.hero-search-submit {
+  padding: 0.7rem 1.8rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+}
+
+/* ---- Chips: pílulas com borda ciano sutil ---- */
+.example-chip {
+  padding: 0.45rem 1rem;
+  font-size: 0.84rem;
+  background: rgba(6, 20, 29, 0.8);
+  border: 1px solid rgba(22, 230, 255, 0.22);
+  border-radius: 999px;
+  color: var(--text-dim);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.example-chip:hover,
+.example-chip.is-active {
+  background: rgba(22, 230, 255, 0.08);
+  border-color: rgba(22, 230, 255, 0.55);
+  color: var(--accent);
+}
+
+/* ---- Three panels: grid side-by-side com bordas e glow sutil ---- */
+.three-panels-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.three-panels-row .activity-section,
+.three-panels-row .how-section,
+.three-panels-row .stats-section {
+  padding: 0;
+  border-bottom: none;
+  border-right: 1px solid var(--border);
+}
+
+.three-panels-row .stats-section {
+  border-right: none;
+}
+
+.three-panels-row .container {
+  max-width: 100%;
+  padding: 2.5rem 1.75rem;
+}
+
+.three-panels-row .steps {
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.three-panels-row .stats-grid {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+/* ---- Activity list: estilo de card com glow ciano ---- */
+.activity-list {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 0 40px rgba(22, 230, 255, 0.07);
+}
+
+/* ---- Stat cards: números ciano grandes, fundo glass ---- */
+.stat-card {
+  padding: 1.5rem;
+  text-align: center;
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 0 30px rgba(22, 230, 255, 0.06);
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.stat-card:hover {
+  border-color: rgba(22, 230, 255, 0.25);
+  box-shadow: 0 0 40px rgba(22, 230, 255, 0.12);
+}
+
+.stat-value {
+  font-size: 2.2rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* ---- Categorias populares: grid com cards glass ---- */
+.categories-section {
+  padding: 4rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.categories-grid {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.category-card {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 1.1rem 1.3rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.92rem;
+  font-weight: 600;
+  transition: border-color 0.15s, box-shadow 0.15s, color 0.15s;
+}
+
+.category-card:hover {
+  border-color: rgba(22, 230, 255, 0.45);
+  box-shadow: 0 0 20px rgba(22, 230, 255, 0.08);
+  color: var(--accent);
+}
+
+/* ---- Highlights (Destaques): sombra mais pronunciada nos cards ---- */
+.highlight-card {
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(22, 230, 255, 0.06);
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.highlight-card:hover {
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(22, 230, 255, 0.18);
+  transform: translateY(-2px);
+}
+
+/* ---- Seção de ranking ---- */
+.ranking-section {
+  padding: 3.5rem 0 calc(3.5rem + 120px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ---- Header: mais premium ---- */
+.site-header {
+  background: rgba(2, 8, 13, 0.96);
+  border-bottom: 1px solid rgba(22, 230, 255, 0.10);
+  backdrop-filter: blur(16px);
+}
+
+/* ---- Botão Criar conta: glow ciano no header ---- */
+#criar-conta-header-btn.cta-button {
+  box-shadow: 0 0 18px rgba(22, 230, 255, 0.35);
+}
+
+/* ---- Responsividade ---- */
+@media (max-width: 900px) {
+  .three-panels-row {
+    grid-template-columns: 1fr;
+  }
+
+  .three-panels-row .activity-section,
+  .three-panels-row .how-section {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .three-panels-row .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .categories-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .hero--centered {
+    padding: 2.5rem 0 2rem;
+  }
+
+  .hero-title {
+    font-size: clamp(1.9rem, 7vw, 2.5rem);
+  }
+
+  .hero-search-form {
+    border-radius: 12px;
+    padding: 0.6rem 0.6rem 0.6rem 1rem;
+  }
+
+  .hero-search-submit {
+    padding: 0.6rem 1.1rem;
+    font-size: 0.84rem;
+  }
+
+  .categories-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-category-chips {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    padding-bottom: 0.25rem;
+  }
+
+  .example-chip {
+    flex-shrink: 0;
+  }
+}
