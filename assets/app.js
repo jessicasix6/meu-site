@@ -3041,17 +3041,24 @@ async function loadHighlights() {
     empty.hidden = true;
     list.innerHTML = items
       .map(
-        (item, index) => `
+        (item, index) => {
+          const typeKey = (item.label || "").toLowerCase().replace(/\s+/g, "").normalize("NFD").replace(/[̀-ͯ]/g, "");
+          return `
       <li class="highlight-card">
-        <span class="highlight-badge">${escapeHtml(item.label)}</span>
-        <strong class="highlight-title">${escapeHtml(item.title)}</strong>
-        <span class="highlight-meta">${escapeHtml(item.where)}</span>
-        <span class="highlight-price">${escapeHtml(item.price)}</span>
-        <button type="button" class="highlight-action" data-highlight-index="${index}">${escapeHtml(item.actionText)}</button>
-      </li>`
+        <div class="highlight-card-header highlight-card-header--${typeKey}">
+          <span class="highlight-card-badge highlight-card-badge--${typeKey}">${escapeHtml(item.label)}</span>
+        </div>
+        <div class="highlight-card-body">
+          <strong class="highlight-card-title">${escapeHtml(item.title)}</strong>
+          <span class="highlight-card-where">${escapeHtml(item.where)}</span>
+          <span class="highlight-card-price">${escapeHtml(item.price)}</span>
+          <button type="button" class="highlight-card-action" data-highlight-index="${index}">${escapeHtml(item.actionText)} →</button>
+        </div>
+      </li>`;
+        }
       )
       .join("");
-    list.querySelectorAll(".highlight-action").forEach((btn) => {
+    list.querySelectorAll(".highlight-card-action").forEach((btn) => {
       btn.addEventListener("click", () => items[Number(btn.dataset.highlightIndex)].onAction());
     });
   } catch (err) {
@@ -3096,10 +3103,11 @@ async function loadHomeStats() {
     const res = await fetch("/api/home-stats");
     if (!res.ok) return;
     const stats = await res.json();
-    document.getElementById("stat-searches").textContent = stats.searchesLast7Days;
-    document.getElementById("stat-open").textContent = stats.openOpportunities;
-    document.getElementById("stat-groups").textContent = stats.groupsForming;
-    document.getElementById("stat-providers").textContent = stats.providersListed;
+    const fmt = (n) => (n > 0 ? `+${n}` : String(n));
+    document.getElementById("stat-searches").textContent = fmt(stats.searchesLast7Days);
+    document.getElementById("stat-open").textContent = fmt(stats.openOpportunities);
+    document.getElementById("stat-groups").textContent = fmt(stats.groupsForming);
+    document.getElementById("stat-providers").textContent = fmt(stats.providersListed);
   } catch (err) {
     // Sem dado, os cards ficam com "—" (valor inicial do HTML) em vez de
     // travar ou mostrar zero enganoso.
