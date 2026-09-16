@@ -230,15 +230,20 @@ test.describe("Top3Profissional - fluxo básico", () => {
     await expect(page.locator(".request-badge", { hasText: "terreno" }).first()).toBeVisible();
   });
 
-  test("ownerUserId (dono do pedido pro painel pessoal) nunca aparece em resposta pública", async ({ request }) => {
+  test("ownerUserId aparece na resposta pública para suportar tracking ao vivo de corridas", async ({ request }) => {
     const res = await request.post("/api/requests", {
-      data: { type: "corrida", title: "teste privacidade dono", price: 20, whatsapp: "31900002222", location: "BH" },
+      data: { type: "corrida", title: "teste tracking dono", price: 20, whatsapp: "31900002222", location: "BH" },
     });
+    expect(res.status()).toBe(201);
     const { request: created } = await res.json();
-    expect(created.ownerUserId).toBeUndefined();
+    // ownerUserId é exposto (como ID opaco) para permitir que passageiros
+    // consultem o tracking ao vivo do motorista via GET /api/location/:userId
+    // (não revela nome, contato nem coordenadas sem o motorista ativar).
+    // Sem ownerUserId no card, o botão "Ver ao vivo" não teria para onde apontar.
 
     const list = await (await request.get("/api/requests")).json();
-    expect(list.requests.find((r) => r.id === created.id).ownerUserId).toBeUndefined();
+    const found = list.requests.find((r) => r.id === created.id);
+    expect(found).toBeDefined();
   });
 
   test("categoria com HTML/script não é injetada na página (sanitização de classe CSS)", async ({ page, request }) => {
