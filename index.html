@@ -245,11 +245,11 @@
             <button type="submit" class="cta-button hero-search-submit">Buscar agora</button>
           </form>
           <div class="hero-category-chips">
-            <button type="button" class="example-chip" data-hero-category="profissional">Profissional</button>
-            <button type="button" class="example-chip" data-hero-category="viagem">Viagem</button>
-            <button type="button" class="example-chip" data-hero-category="grupo">Grupo</button>
-            <button type="button" class="example-chip" data-hero-category="servico">Serviço</button>
-            <button type="button" class="example-chip" data-hero-category="produto">Produto</button>
+            <button type="button" class="example-chip" data-hero-category="profissional"><span aria-hidden="true">👤</span> Profissional</button>
+            <button type="button" class="example-chip" data-hero-category="viagem"><span aria-hidden="true">🚗</span> Viagem</button>
+            <button type="button" class="example-chip" data-hero-category="grupo"><span aria-hidden="true">👥</span> Grupo</button>
+            <button type="button" class="example-chip" data-hero-category="servico"><span aria-hidden="true">🔧</span> Serviço</button>
+            <button type="button" class="example-chip" data-hero-category="produto"><span aria-hidden="true">🛒</span> Produto</button>
           </div>
         </div>
         <p class="hero-side hero-side-right">
@@ -261,8 +261,13 @@
 
     <section id="destaques" class="highlights-section">
       <div class="container">
-        <p class="eyebrow">O que estão buscando agora</p>
-        <h2 class="section-title">Destaques da sua região</h2>
+        <div class="section-header-row">
+          <div>
+            <p class="eyebrow">O que estão buscando agora</p>
+            <h2 class="section-title">Destaques da sua região</h2>
+          </div>
+          <a href="#publicar" class="section-see-all">Ver todos →</a>
+        </div>
         <ul id="highlights-list" class="highlights-list" aria-live="polite"></ul>
         <p id="highlights-empty" class="highlights-empty" hidden>
           Ainda não tem nada publicado por aqui — <a href="#publicar">seja a primeira pessoa a publicar</a>.
@@ -274,7 +279,7 @@
       <section id="atividade" class="activity-section">
         <div class="container">
           <p class="eyebrow">TOP3 SYSTEM — Em tempo real</p>
-          <h2 class="section-title">Atividade recente</h2>
+          <h2 class="section-title"><span class="panel-icon" aria-hidden="true">⚡</span> Atividade recente</h2>
           <ul id="activity-list" class="activity-list" aria-live="polite"></ul>
           <p id="activity-empty" class="activity-empty" hidden>Nenhuma atividade recente ainda.</p>
         </div>
@@ -283,7 +288,7 @@
       <section id="como-funciona" class="how-section">
         <div class="container">
           <p class="eyebrow">Simples. Rápido. Eficiente.</p>
-          <h2 class="section-title">Como funciona</h2>
+          <h2 class="section-title"><span class="panel-icon" aria-hidden="true">⚙️</span> Como funciona</h2>
           <div class="steps">
             <article class="step">
               <span class="step-number">01</span>
@@ -307,7 +312,7 @@
       <section id="numeros" class="stats-section">
         <div class="container">
           <p class="eyebrow">Pessoas reais. Oportunidades reais.</p>
-          <h2 class="section-title">Números que conectam</h2>
+          <h2 class="section-title"><span class="panel-icon" aria-hidden="true">📊</span> Números que conectam</h2>
           <div class="stats-grid">
             <div class="stat-card">
               <span class="stat-value" id="stat-searches">—</span>

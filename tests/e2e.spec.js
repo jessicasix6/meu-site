@@ -2932,7 +2932,8 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
     expect(after.openOpportunities).toBe(before.openOpportunities + 1);
 
     await page.reload();
-    await expect(page.locator("#stat-open")).toHaveText(String(after.openOpportunities));
+    const expectedOpen = after.openOpportunities > 0 ? `+${after.openOpportunities}` : String(after.openOpportunities);
+    await expect(page.locator("#stat-open")).toHaveText(expectedOpen);
   });
 
   test("critério de pronto: 'Atividade recente' reflete um post real recém-criado, com tempo relativo", async ({ request, page }) => {

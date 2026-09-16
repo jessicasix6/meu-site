@@ -2663,13 +2663,14 @@ button.cta-secondary:hover {
    IDs, classes e comportamentos JS não são alterados.
    ============================================================ */
 
-/* Background com glow ciano suave via multi-layer no body — sem pseudo-elemento
-   pra não criar novo stacking context que interfira com z-index do header sticky. */
+/* Glow ciano visível saindo do topo — multi-layer no body para não criar
+   stacking context que interfira no z-index do header sticky. */
 body {
   background:
     radial-gradient(
-      ellipse 1000px 520px at 50% -60px,
-      rgba(22, 230, 255, 0.06) 0%,
+      ellipse 900px 440px at 50% 0px,
+      rgba(22, 230, 255, 0.18) 0%,
+      rgba(22, 230, 255, 0.05) 45%,
       transparent 70%
     ),
     var(--bg);
@@ -2690,9 +2691,9 @@ body {
   font-weight: 600;
 }
 
-/* --- Hero maior e mais impactante --- */
+/* --- Hero compacto para a busca sempre aparecer acima da dobra --- */
 .hero--centered {
-  padding: 6.5rem 0 5.5rem;
+  padding: 3.5rem 0 3rem;
   border-bottom: 1px solid var(--border);
   text-align: center;
   background: transparent;
@@ -2897,7 +2898,7 @@ body {
   }
 
   .hero--centered {
-    padding: 4rem 0 3.5rem;
+    padding: 2.5rem 0 2.5rem;
   }
 
   .categories-grid {
@@ -2921,5 +2922,193 @@ body {
   /* Esconde botão "Criar conta" em telas muito pequenas para não amontoar */
   #criar-conta-header-btn {
     display: none;
+  }
+}
+
+/* ---- Melhorias visuais v2 ---- */
+
+/* Glow extra na seção hero para aparecer sobre o fundo */
+.hero--centered {
+  position: relative;
+}
+
+/* Linha cabeçalho de seção com "Ver todos →" */
+.section-header-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0;
+}
+
+.section-see-all {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  white-space: nowrap;
+  padding-bottom: 0.2rem;
+}
+
+.section-see-all:hover {
+  text-decoration: underline;
+}
+
+/* Ícone antes do título dos painéis */
+.panel-icon {
+  font-size: 1.1em;
+  vertical-align: -0.05em;
+}
+
+/* Cards de destaque com header colorido por categoria */
+.highlight-card {
+  flex: 0 0 240px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.highlight-card-header {
+  height: 100px;
+  display: flex;
+  align-items: flex-end;
+  padding: 0.7rem 1rem;
+  position: relative;
+  background: var(--bg-raised);
+}
+
+/* Cores de header por tipo de item */
+.highlight-card-header--corrida,
+.highlight-card-header--viagem {
+  background: linear-gradient(135deg, #0a2a38 0%, #04303a 100%);
+}
+
+.highlight-card-header--entrega,
+.highlight-card-header--frete {
+  background: linear-gradient(135deg, #2a1f08 0%, #3a2a05 100%);
+}
+
+.highlight-card-header--profissional,
+.highlight-card-header--servico {
+  background: linear-gradient(135deg, #12103a 0%, #0e1240 100%);
+}
+
+.highlight-card-header--grupo,
+.highlight-card-header--compra,
+.highlight-card-header--curso {
+  background: linear-gradient(135deg, #1a1a0a 0%, #252508 100%);
+}
+
+.highlight-card-header--produto {
+  background: linear-gradient(135deg, #1a0820 0%, #250a30 100%);
+}
+
+.highlight-card-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+
+.highlight-card-badge--corrida,
+.highlight-card-badge--viagem {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(22, 230, 255, 0.12);
+}
+
+.highlight-card-badge--entrega,
+.highlight-card-badge--frete {
+  color: var(--gold);
+  border-color: var(--gold);
+  background: rgba(232, 182, 76, 0.12);
+}
+
+.highlight-card-badge--profissional,
+.highlight-card-badge--servico {
+  color: var(--violet);
+  border-color: var(--violet);
+  background: var(--violet-dim);
+}
+
+.highlight-card-badge--grupo,
+.highlight-card-badge--compra,
+.highlight-card-badge--curso {
+  color: #7de87e;
+  border-color: #7de87e;
+  background: rgba(125, 232, 126, 0.12);
+}
+
+.highlight-card-badge--produto {
+  color: #e87df0;
+  border-color: #e87df0;
+  background: rgba(232, 125, 240, 0.12);
+}
+
+.highlight-card-body {
+  padding: 1rem 1.1rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+  background: var(--bg-card);
+}
+
+.highlight-card-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.highlight-card-where {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.highlight-card-price {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-top: 0.2rem;
+}
+
+.highlight-card-action {
+  margin-top: 0.5rem;
+  padding: 0.45rem 0.9rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text-dim);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.highlight-card-action:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Stats com "+" prefix (aplicado via JS) — visual mais impactante */
+.stat-value {
+  font-size: 2.2rem;
+}
+
+/* Ajusta o hero subtitle no mobile */
+@media (max-width: 600px) {
+  .hero .subtitle {
+    font-size: 0.95rem;
+    max-width: 36ch;
   }
 }
