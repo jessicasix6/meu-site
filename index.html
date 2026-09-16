@@ -358,6 +358,19 @@
             </select>
           </label>
         </div>
+        <div class="location-filter-bar" id="ranking-filter-bar">
+          <button type="button" id="ranking-use-location-btn" class="filter-chip" title="Usar minha localização">📍 Minha localização</button>
+          <select id="ranking-filter-state" class="filter-select" aria-label="Estado">
+            <option value="">Todos os estados</option>
+          </select>
+          <select id="ranking-filter-city" class="filter-select" aria-label="Cidade">
+            <option value="">Todas as cidades</option>
+          </select>
+          <div class="price-sort-group" aria-label="Ordenar por preço">
+            <button type="button" class="filter-chip price-sort-btn" data-sort="asc" title="Menor preço primeiro">R$ ↑</button>
+            <button type="button" class="filter-chip price-sort-btn" data-sort="desc" title="Maior preço primeiro">R$ ↓</button>
+          </div>
+        </div>
         <p id="ranking-filter-hint" class="location-hint" hidden></p>
         <p id="location-hint" class="location-hint" hidden></p>
         <ol id="ranking-list" class="ranking-list"></ol>
@@ -724,6 +737,19 @@
               <option value="outro">outro</option>
             </select>
             <input id="requests-filter-keyword" type="text" placeholder="Buscar palavra-chave (ex: TV, carro sedan)" aria-label="Buscar por palavra-chave" />
+          </div>
+          <div class="location-filter-bar" id="requests-filter-bar">
+            <button type="button" id="requests-use-location-btn" class="filter-chip" title="Usar minha localização">📍 Minha localização</button>
+            <select id="requests-filter-state" class="filter-select" aria-label="Estado">
+              <option value="">Todos os estados</option>
+            </select>
+            <select id="requests-filter-city" class="filter-select" aria-label="Cidade">
+              <option value="">Todas as cidades</option>
+            </select>
+            <div class="price-sort-group" aria-label="Ordenar por preço">
+              <button type="button" class="filter-chip price-sort-btn" data-sort="asc" title="Menor preço primeiro">R$ ↑</button>
+              <button type="button" class="filter-chip price-sort-btn" data-sort="desc" title="Maior preço primeiro">R$ ↓</button>
+            </div>
           </div>
           <ol id="requests-list" class="requests-list"></ol>
         </div>

@@ -2496,6 +2496,78 @@ button.cta-secondary:hover {
   }
 }
 
+/* ── Barra de filtros de localização + preço ────────────────────────────── */
+.location-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.75rem 0;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.75rem;
+  border: 1.5px solid var(--accent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.filter-chip:hover,
+.filter-chip.active {
+  background: var(--accent);
+  color: #fff;
+}
+.filter-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.filter-select {
+  padding: 0.3rem 0.55rem;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 0.82rem;
+  cursor: pointer;
+  max-width: 150px;
+}
+.filter-select:focus {
+  outline: 2px solid var(--accent);
+  border-color: var(--accent);
+}
+
+.price-sort-group {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+.price-sort-btn {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 500px) {
+  .location-filter-bar {
+    gap: 0.35rem;
+  }
+  .filter-select {
+    max-width: 120px;
+    font-size: 0.78rem;
+  }
+  .filter-chip {
+    font-size: 0.78rem;
+    padding: 0.25rem 0.55rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.001ms !important;

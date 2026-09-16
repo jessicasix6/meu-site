@@ -1506,43 +1506,42 @@ function providerProfilesForRanking() {
 }
 
 app.get("/api/ranking", (req, res) => {
-  const sortBy = SORTERS[req.query.sortBy] ? req.query.sortBy : "rating";
+  const rawSortBy = req.query.sortBy;
+  const sortPrice = req.query.sortPrice; // "asc" | "desc"
+  const sortBy = SORTERS[rawSortBy] ? rawSortBy : "rating";
 
-  // Se o navegador mandou a localização real (com permissão explícita da
-  // pessoa), usa distância de verdade (Haversine) em vez do mock — só faz
-  // sentido quando ordenando por distância.
   const lat = Number(req.query.lat);
   const lng = Number(req.query.lng);
-  const hasRealLocation = sortBy === "distance" && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+  const hasRealLocation = Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+
+  const stateFilter = typeof req.query.state === "string" ? req.query.state.trim().toLowerCase() : "";
+  const cityFilter = typeof req.query.city === "string" ? req.query.city.trim().toLowerCase() : "";
 
   const allProviders = [...PROVIDERS, ...providerProfilesForRanking()];
 
-  // ?service= filtra pra uma categoria (ex: "eletricista") — usado quando a
-  // busca da pessoa já identificou um serviço cadastrado, pra mostrar o
-  // ranking de quem realmente atende aquilo, não o top 3 geral do site.
   const serviceFilter = typeof req.query.service === "string" ? req.query.service.trim().toLowerCase() : "";
   const matchesService = serviceFilter && allProviders.some((p) => p.service.toLowerCase() === serviceFilter);
-  const pool = matchesService ? allProviders.filter((p) => p.service.toLowerCase() === serviceFilter) : allProviders;
+  let pool = matchesService ? allProviders.filter((p) => p.service.toLowerCase() === serviceFilter) : allProviders;
+
+  if (stateFilter) pool = pool.filter((p) => (p.city || "").toLowerCase().includes(stateFilter) || (p.state || "").toLowerCase().includes(stateFilter));
+  if (cityFilter) pool = pool.filter((p) => (p.city || "").toLowerCase().includes(cityFilter));
 
   const withDistance = pool.map((p) => ({
     ...p,
     distanceKm: hasRealLocation && p.lat != null && p.lng != null ? haversineKm(lat, lng, p.lat, p.lng) : p.distanceKm,
   }));
 
-  const top3 = withDistance
-    .sort(SORTERS[sortBy])
+  let sorted;
+  if (sortPrice === "asc") sorted = withDistance.slice().sort((a, b) => (a.price || 0) - (b.price || 0));
+  else if (sortPrice === "desc") sorted = withDistance.slice().sort((a, b) => (b.price || 0) - (a.price || 0));
+  else sorted = withDistance.sort(SORTERS[sortBy]);
+
+  const top3 = sorted
     .slice(0, 3)
     .map(({ name, service, city, rating, distanceKm, price, fastReply, slug }) => ({
-      name,
-      service,
-      city,
-      rating,
-      distanceKm,
-      price,
-      fastReply,
-      slug: slug || null,
+      name, service, city, rating, distanceKm, price, fastReply, slug: slug || null,
     }));
-  res.json({ top3, sortBy, usedRealLocation: hasRealLocation });
+  res.json({ top3, sortBy, usedRealLocation: hasRealLocation && sortBy === "distance" });
 });
 
 // Lista de serviços "cadastrados" pra o front-end saber quando uma busca
@@ -1820,7 +1819,39 @@ app.get("/api/location/:userId", (req, res) => {
 });
 
 app.get("/api/requests", (req, res) => {
-  res.json({ requests: REQUESTS.map(requestSummary) });
+  const { state, city, sortPrice, type: typeFilter, lat, lng } = req.query;
+  const userLat = Number(lat);
+  const userLng = Number(lng);
+  const hasUserLocation = Number.isFinite(userLat) && Number.isFinite(userLng) && Math.abs(userLat) <= 90 && Math.abs(userLng) <= 180;
+
+  let list = REQUESTS.map(requestSummary);
+
+  if (typeFilter) list = list.filter((r) => r.type === typeFilter);
+
+  if (state) {
+    const s = state.toLowerCase().trim();
+    list = list.filter((r) => (r.location || "").toLowerCase().includes(s));
+  }
+  if (city) {
+    const c = city.toLowerCase().trim();
+    list = list.filter((r) => (r.location || "").toLowerCase().includes(c));
+  }
+
+  // Distância aproximada: só para pedidos que têm lat/lng guardados
+  if (hasUserLocation) {
+    list = list.map((r) => {
+      const summary = REQUESTS.find((x) => x.id === r.id);
+      if (summary && summary.lat != null && summary.lng != null) {
+        return { ...r, distanceKm: haversineKm(userLat, userLng, summary.lat, summary.lng) };
+      }
+      return r;
+    });
+  }
+
+  if (sortPrice === "asc") list = list.slice().sort((a, b) => a.price - b.price);
+  else if (sortPrice === "desc") list = list.slice().sort((a, b) => b.price - a.price);
+
+  res.json({ requests: list });
 });
 
 // ownerUserId só é gravado quando quem publica está logada (POST

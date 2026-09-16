@@ -68,6 +68,172 @@ function getUserLocation() {
   });
 }
 
+// ── Filtros de localização e preço ──────────────────────────────────────────
+// Localização em cache: atualizada quando o usuário clica em "📍 Minha localização"
+// ou quando a geolocalização já foi concedida pelo banner inicial.
+let cachedUserLocation = null;
+
+const BR_STATES = {
+  AC: "Acre", AL: "Alagoas", AP: "Amapá", AM: "Amazonas", BA: "Bahia",
+  CE: "Ceará", DF: "Distrito Federal", ES: "Espírito Santo", GO: "Goiás",
+  MA: "Maranhão", MT: "Mato Grosso", MS: "Mato Grosso do Sul",
+  MG: "Minas Gerais", PA: "Pará", PB: "Paraíba", PR: "Paraná",
+  PE: "Pernambuco", PI: "Piauí", RJ: "Rio de Janeiro",
+  RN: "Rio Grande do Norte", RS: "Rio Grande do Sul", RO: "Rondônia",
+  RR: "Roraima", SC: "Santa Catarina", SP: "São Paulo",
+  SE: "Sergipe", TO: "Tocantins",
+};
+
+const BR_CITIES = {
+  AC: ["Rio Branco", "Cruzeiro do Sul", "Sena Madureira"],
+  AL: ["Maceió", "Arapiraca", "Palmeira dos Índios"],
+  AP: ["Macapá", "Santana", "Laranjal do Jari"],
+  AM: ["Manaus", "Parintins", "Itacoatiara", "Manacapuru"],
+  BA: ["Salvador", "Feira de Santana", "Vitória da Conquista", "Camaçari", "Juazeiro", "Ilhéus", "Lauro de Freitas"],
+  CE: ["Fortaleza", "Caucaia", "Juazeiro do Norte", "Maracanaú", "Sobral", "Crato"],
+  DF: ["Brasília", "Taguatinga", "Ceilândia", "Samambaia", "Planaltina"],
+  ES: ["Vitória", "Vila Velha", "Serra", "Cariacica", "Cachoeiro de Itapemirim"],
+  GO: ["Goiânia", "Aparecida de Goiânia", "Anápolis", "Rio Verde", "Luziânia"],
+  MA: ["São Luís", "Imperatriz", "São José de Ribamar", "Timon", "Caxias"],
+  MT: ["Cuiabá", "Várzea Grande", "Rondonópolis", "Sinop", "Tangará da Serra"],
+  MS: ["Campo Grande", "Dourados", "Três Lagoas", "Corumbá", "Grande Dourados"],
+  MG: ["Belo Horizonte", "Uberlândia", "Contagem", "Juiz de Fora", "Betim", "Montes Claros", "Ribeirão das Neves", "Uberaba", "Governador Valadares", "Ipatinga"],
+  PA: ["Belém", "Ananindeua", "Santarém", "Marabá", "Castanhal"],
+  PB: ["João Pessoa", "Campina Grande", "Santa Rita", "Patos", "Bayeux"],
+  PR: ["Curitiba", "Londrina", "Maringá", "Ponta Grossa", "Cascavel", "São José dos Pinhais", "Foz do Iguaçu"],
+  PE: ["Recife", "Caruaru", "Olinda", "Petrolina", "Paulista", "Jaboatão dos Guararapes"],
+  PI: ["Teresina", "Imperatriz do Piauí", "Parnaíba", "Picos", "Floriano"],
+  RJ: ["Rio de Janeiro", "São Gonçalo", "Duque de Caxias", "Nova Iguaçu", "Niterói", "Belford Roxo", "Campos dos Goytacazes", "Petrópolis"],
+  RN: ["Natal", "Mossoró", "Parnamirim", "São Gonçalo do Amarante", "Macaíba"],
+  RS: ["Porto Alegre", "Caxias do Sul", "Pelotas", "Canoas", "Santa Maria", "Gravataí", "Viamão", "Novo Hamburgo"],
+  RO: ["Porto Velho", "Ji-Paraná", "Ariquemes", "Vilhena", "Cacoal"],
+  RR: ["Boa Vista", "Rorainópolis", "Caracaraí"],
+  SC: ["Florianópolis", "Joinville", "Blumenau", "São José", "Chapecó", "Itajaí", "Criciúma", "Jaraguá do Sul"],
+  SP: ["São Paulo", "Guarulhos", "Campinas", "São Bernardo do Campo", "Santo André", "Osasco", "Ribeirão Preto", "Sorocaba", "Santos", "Mauá", "São José dos Campos", "Mogi das Cruzes", "Diadema", "Jundiaí", "Piracicaba", "Bauru", "Franca", "São Vicente", "Carapicuíba"],
+  SE: ["Aracaju", "Nossa Senhora do Socorro", "Lagarto", "Itabaiana", "São Cristóvão"],
+  TO: ["Palmas", "Araguaína", "Gurupi", "Porto Nacional", "Paraíso do Tocantins"],
+};
+
+function populateStateSelect(selectEl) {
+  Object.entries(BR_STATES)
+    .sort((a, b) => a[1].localeCompare(b[1]))
+    .forEach(([uf, name]) => {
+      const opt = document.createElement("option");
+      opt.value = uf;
+      opt.textContent = name;
+      selectEl.appendChild(opt);
+    });
+}
+
+function populateCitySelect(citySelect, uf) {
+  citySelect.innerHTML = '<option value="">Todas as cidades</option>';
+  if (!uf || !BR_CITIES[uf]) return;
+  BR_CITIES[uf].slice().sort((a, b) => a.localeCompare(b)).forEach((city) => {
+    const opt = document.createElement("option");
+    opt.value = city;
+    opt.textContent = city;
+    citySelect.appendChild(opt);
+  });
+}
+
+async function resolveUserLocation(btn) {
+  if (cachedUserLocation) return cachedUserLocation;
+  if (btn) btn.textContent = "📍 Buscando...";
+  const loc = await getUserLocation();
+  if (btn) btn.textContent = "📍 Minha localização";
+  if (loc) {
+    cachedUserLocation = loc;
+    btn && btn.classList.add("active");
+  }
+  return loc;
+}
+
+// ── Filtros da seção Ranking ────────────────────────────────────────────────
+const rankingFilterState = document.getElementById("ranking-filter-state");
+const rankingFilterCity = document.getElementById("ranking-filter-city");
+const rankingUseLocationBtn = document.getElementById("ranking-use-location-btn");
+let rankingUseGps = false;
+let rankingPriceSort = "";
+
+if (rankingFilterState) {
+  populateStateSelect(rankingFilterState);
+  rankingFilterState.addEventListener("change", () => {
+    populateCitySelect(rankingFilterCity, rankingFilterState.value);
+    rankingUseGps = false;
+    rankingUseLocationBtn && rankingUseLocationBtn.classList.remove("active");
+    loadRanking();
+  });
+}
+if (rankingFilterCity) {
+  rankingFilterCity.addEventListener("change", () => loadRanking());
+}
+if (rankingUseLocationBtn) {
+  rankingUseLocationBtn.addEventListener("click", async () => {
+    rankingUseGps = true;
+    rankingFilterState && (rankingFilterState.value = "");
+    rankingFilterCity && (rankingFilterCity.innerHTML = '<option value="">Todas as cidades</option>');
+    await resolveUserLocation(rankingUseLocationBtn);
+    loadRanking();
+  });
+}
+document.querySelectorAll("#ranking-filter-bar .price-sort-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const sort = btn.dataset.sort;
+    if (rankingPriceSort === sort) {
+      rankingPriceSort = "";
+      btn.classList.remove("active");
+    } else {
+      rankingPriceSort = sort;
+      document.querySelectorAll("#ranking-filter-bar .price-sort-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+    }
+    loadRanking();
+  });
+});
+
+// ── Filtros da seção Pedidos (prestar serviço) ──────────────────────────────
+const requestsFilterState = document.getElementById("requests-filter-state");
+const requestsFilterCity = document.getElementById("requests-filter-city");
+const requestsUseLocationBtn = document.getElementById("requests-use-location-btn");
+let requestsUseGps = false;
+let requestsPriceSort = "";
+
+if (requestsFilterState) {
+  populateStateSelect(requestsFilterState);
+  requestsFilterState.addEventListener("change", () => {
+    populateCitySelect(requestsFilterCity, requestsFilterState.value);
+    requestsUseGps = false;
+    requestsUseLocationBtn && requestsUseLocationBtn.classList.remove("active");
+    loadRequests();
+  });
+}
+if (requestsFilterCity) {
+  requestsFilterCity.addEventListener("change", () => loadRequests());
+}
+if (requestsUseLocationBtn) {
+  requestsUseLocationBtn.addEventListener("click", async () => {
+    requestsUseGps = true;
+    requestsFilterState && (requestsFilterState.value = "");
+    requestsFilterCity && (requestsFilterCity.innerHTML = '<option value="">Todas as cidades</option>');
+    await resolveUserLocation(requestsUseLocationBtn);
+    loadRequests();
+  });
+}
+document.querySelectorAll("#requests-filter-bar .price-sort-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const sort = btn.dataset.sort;
+    if (requestsPriceSort === sort) {
+      requestsPriceSort = "";
+      btn.classList.remove("active");
+    } else {
+      requestsPriceSort = sort;
+      document.querySelectorAll("#requests-filter-bar .price-sort-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+    }
+    loadRequests();
+  });
+});
+
 function initials(name) {
   return name
     .split(" ")
@@ -104,12 +270,22 @@ async function loadRanking(sortBy, service) {
     if (currentRankingService) {
       url += `&service=${encodeURIComponent(currentRankingService)}`;
     }
+    if (rankingFilterState && rankingFilterState.value) {
+      url += `&state=${encodeURIComponent(BR_STATES[rankingFilterState.value] || rankingFilterState.value)}`;
+    }
+    if (rankingFilterCity && rankingFilterCity.value) {
+      url += `&city=${encodeURIComponent(rankingFilterCity.value)}`;
+    }
+    if (rankingPriceSort) {
+      url += `&sortPrice=${encodeURIComponent(rankingPriceSort)}`;
+    }
 
     locationHint.hidden = true;
-    if (effectiveSortBy === "distance") {
-      const loc = await getUserLocation();
+    if (effectiveSortBy === "distance" || rankingUseGps) {
+      const loc = rankingUseGps ? (cachedUserLocation || await getUserLocation()) : await getUserLocation();
       if (callId !== loadRankingCallId) return;
       if (loc) {
+        cachedUserLocation = loc;
         url += `&lat=${loc.lat}&lng=${loc.lng}`;
       } else {
         locationHint.hidden = false;
@@ -263,7 +439,24 @@ requestsFilterKeyword.addEventListener("input", applyRequestsFilter);
 
 async function loadRequests() {
   try {
-    const res = await fetch("/api/requests");
+    let url = "/api/requests";
+    const params = new URLSearchParams();
+    if (requestsFilterState && requestsFilterState.value) {
+      params.set("state", BR_STATES[requestsFilterState.value] || requestsFilterState.value);
+    }
+    if (requestsFilterCity && requestsFilterCity.value) {
+      params.set("city", requestsFilterCity.value);
+    }
+    if (requestsPriceSort) {
+      params.set("sortPrice", requestsPriceSort);
+    }
+    if (requestsUseGps && cachedUserLocation) {
+      params.set("lat", cachedUserLocation.lat);
+      params.set("lng", cachedUserLocation.lng);
+    }
+    const qs = params.toString();
+    if (qs) url += "?" + qs;
+    const res = await fetch(url);
     if (!res.ok) return;
     const { requests } = await res.json();
     allRequests = requests;
@@ -2557,7 +2750,10 @@ fetch("/api/auth/config")
 
   activateBtn.addEventListener("click", () => {
     banner.hidden = true;
-    navigator.geolocation.getCurrentPosition(() => {}, () => {});
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { cachedUserLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude }; },
+      () => {}
+    );
   });
   dismissBtn.addEventListener("click", () => {
     banner.hidden = true;
