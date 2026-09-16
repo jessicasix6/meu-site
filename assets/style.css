@@ -918,15 +918,18 @@ a {
   text-align: center;
 }
 
+/* Era um grid de 3 colunas (lateral | centro | lateral). As laterais saíram
+   na limpeza da home, então sobrou só a coluna do meio. */
 .hero-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 720px) minmax(0, 1fr);
-  align-items: center;
-  gap: 1.5rem;
+  display: flex;
+  justify-content: center;
 }
 
 .hero-content {
-  max-width: 720px;
+  /* Largo o bastante pra navegar uma categoria no painel; a barra de busca
+     tem max-width própria e continua estreita, mantendo o foco no centro. */
+  max-width: 1100px;
+  width: 100%;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -3538,5 +3541,331 @@ body {
 
   .example-chip {
     flex-shrink: 0;
+  }
+}
+
+/* O .hero-content é flex column com align-items:center, então um filho
+   bloco encolhe/cresce pelo conteúdo em vez de acompanhar o pai — sem o
+   width:100% a barra de busca estoura a viewport no mobile. */
+#hero-requester-tools {
+  width: 100%;
+  min-width: 0;
+}
+
+/* hero-mode-tabs: Solicito / Presto acima da busca */
+.hero-mode-tabs {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+.hero-mode-btn {
+  padding: 0.5rem 1.4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(22,230,255,0.35);
+  background: rgba(22,230,255,0.06);
+  color: rgba(244,251,255,0.7);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.hero-mode-btn.is-active,
+.hero-mode-btn:hover {
+  border-color: rgba(22,230,255,0.7);
+  background: rgba(22,230,255,0.14);
+  color: #f4fbff;
+}
+
+/* painel inline de categoria */
+#category-quick-panel {
+  position: relative;
+  width: 100%;
+  margin-top: 1.5rem;
+  border: 1px solid rgba(22,230,255,0.25);
+  border-radius: 16px;
+  padding: 1rem 1rem 1.5rem;
+  background: rgba(10,15,20,0.7);
+  backdrop-filter: blur(12px);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.category-panel-close {
+  position: sticky;
+  top: 0;
+  float: right;
+  background: none;
+  border: none;
+  color: rgba(244,251,255,0.5);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  z-index: 1;
+}
+.category-panel-close:hover { color: #f4fbff; }
+
+/* ── Painel de categoria (chips do hero) ──────────────────────────────── */
+.category-panel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.category-panel-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #f4fbff;
+  text-align: left;
+}
+
+.panel-subtabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.panel-subtab {
+  padding: 0.45rem 1.1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(30, 210, 238, 0.28);
+  background: #06141d;
+  color: rgba(244, 251, 255, 0.72);
+  font-size: 0.86rem;
+  min-height: 40px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.panel-subtab:hover {
+  border-color: rgba(22, 230, 255, 0.55);
+  color: #f4fbff;
+}
+
+.panel-subtab:focus-visible {
+  outline: none;
+  border-color: #16e6ff;
+  box-shadow: 0 0 0 2px rgba(22, 230, 255, 0.12);
+}
+
+.panel-subtab.is-active {
+  border-color: #16e6ff;
+  background: rgba(22, 230, 255, 0.14);
+  color: #f4fbff;
+}
+
+.panel-filter-row,
+.panel-search-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.panel-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.panel-field--narrow {
+  flex: 0 1 120px;
+}
+
+.panel-field-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(244, 251, 255, 0.55);
+}
+
+.panel-input,
+.panel-select {
+  width: 100%;
+  min-height: 40px;
+  padding: 0.5rem 0.75rem;
+  background: #06141d;
+  color: #f4fbff;
+  border: 1px solid rgba(30, 210, 238, 0.28);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.panel-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2316e6ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 1rem;
+}
+
+.panel-select option {
+  background: #06141d;
+  color: #f4fbff;
+}
+
+.panel-input::placeholder {
+  color: rgba(244, 251, 255, 0.35);
+}
+
+.panel-input:hover,
+.panel-select:hover {
+  border-color: rgba(22, 230, 255, 0.55);
+}
+
+.panel-input:focus,
+.panel-select:focus {
+  outline: none;
+  border-color: #16e6ff;
+  box-shadow: 0 0 0 2px rgba(22, 230, 255, 0.12);
+}
+
+.panel-filter-btn {
+  min-height: 40px;
+  padding: 0.5rem 0.9rem;
+  background: #06141d;
+  color: rgba(244, 251, 255, 0.72);
+  border: 1px solid rgba(30, 210, 238, 0.28);
+  border-radius: 10px;
+  font-size: 0.84rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.panel-filter-btn:hover {
+  border-color: rgba(22, 230, 255, 0.55);
+  color: #f4fbff;
+}
+
+.panel-filter-btn:focus-visible {
+  outline: none;
+  border-color: #16e6ff;
+  box-shadow: 0 0 0 2px rgba(22, 230, 255, 0.12);
+}
+
+.panel-filter-btn.is-active,
+.panel-filter-btn.active {
+  border-color: #16e6ff;
+  background: rgba(22, 230, 255, 0.14);
+  color: #f4fbff;
+}
+
+.panel-submit {
+  min-height: 40px;
+  padding: 0.5rem 1.4rem;
+  border-radius: 10px;
+  border: 1px solid #16e6ff;
+  background: rgba(22, 230, 255, 0.16);
+  color: #f4fbff;
+  font-size: 0.9rem;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.panel-submit:hover {
+  background: rgba(22, 230, 255, 0.26);
+}
+
+.panel-submit:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(22, 230, 255, 0.28);
+}
+
+/* Lista de produtos/imóveis */
+.panel-produto-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.panel-produto-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.9rem;
+  background: rgba(6, 20, 29, 0.85);
+  border: 1px solid rgba(22, 230, 255, 0.22);
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px rgba(22, 230, 255, 0.10), 0 0 22px rgba(22, 230, 255, 0.08);
+  text-align: left;
+}
+
+.panel-produto-title {
+  color: #f4fbff;
+  font-size: 0.95rem;
+  line-height: 1.3;
+}
+
+.panel-produto-price {
+  color: #16e6ff;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.panel-produto-meta {
+  color: rgba(244, 251, 255, 0.55);
+  font-size: 0.8rem;
+}
+
+.panel-produto-cta {
+  margin-top: 0.35rem;
+  align-self: flex-start;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid rgba(30, 210, 238, 0.28);
+  background: #06141d;
+  color: #f4fbff;
+  font-size: 0.84rem;
+  text-decoration: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.panel-produto-cta:hover {
+  border-color: rgba(22, 230, 255, 0.55);
+  background: rgba(22, 230, 255, 0.12);
+}
+
+.panel-produto-cta:focus-visible {
+  outline: none;
+  border-color: #16e6ff;
+  box-shadow: 0 0 0 2px rgba(22, 230, 255, 0.12);
+}
+
+.panel-produto-empty {
+  grid-column: 1 / -1;
+  padding: 1.5rem;
+  text-align: center;
+  color: rgba(244, 251, 255, 0.5);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 600px) {
+  .panel-field,
+  .panel-field--narrow {
+    flex: 1 1 100%;
+  }
+
+  .panel-produto-list {
+    grid-template-columns: 1fr;
   }
 }

@@ -24,7 +24,7 @@ function highlightSection(section) {
 // IA. Palavras de corrida/carona também roteiam direto pro painel de
 // corridas, sem gastar uma chamada de IA à toa.
 let KNOWN_SERVICES = ["manicure", "eletricista", "cabeleireiro", "encanador"];
-// Quem for classificar uma busca (ver bottomSearchForm mais abaixo) espera
+// Quem for classificar uma busca (ver heroSearchForm mais abaixo) espera
 // essa promise primeiro — sem isso, uma busca feita rápido demais (antes do
 // fetch responder) classificaria um serviço novo como "other" por engano,
 // já que KNOWN_SERVICES ainda estaria só com os 4 mock de fallback.
@@ -405,6 +405,10 @@ rankingList.addEventListener("click", (event) => {
 
 const requesterView = document.getElementById("requester-view");
 const providerView = document.getElementById("provider-view");
+// Busca, chips e painel de categoria ficam fora do #requester-view (senão
+// sumiriam junto com ele no modo "presto serviço", levando as abas junto e
+// deixando a pessoa sem como voltar). Escondidos à parte aqui.
+const heroRequesterTools = document.getElementById("hero-requester-tools");
 const requestsList = document.getElementById("requests-list");
 // [data-mode] restringe aos botões "Solicito serviço"/"Presto serviço" —
 // .mode-btn sozinho pegaria também as tabs de categoria de grupo, tipo de
@@ -423,12 +427,13 @@ function setMode(mode) {
   const isProvider = mode === "provider";
   requesterView.hidden = isProvider;
   providerView.hidden = !isProvider;
+  if (heroRequesterTools) heroRequesterTools.hidden = isProvider;
   modeButtons.forEach((btn) => {
     const active = btn.dataset.mode === mode;
     btn.classList.toggle("is-active", active);
     btn.setAttribute("aria-selected", String(active));
   });
-  bottomSearchInput.placeholder = SEARCH_PLACEHOLDER_BY_MODE[mode] || SEARCH_PLACEHOLDER_BY_MODE.requester;
+  if (heroSearchInput) heroSearchInput.placeholder = SEARCH_PLACEHOLDER_BY_MODE[mode] || SEARCH_PLACEHOLDER_BY_MODE.requester;
   if (isProvider && !requestsLoaded) {
     requestsLoaded = true;
     loadRequests();
@@ -438,16 +443,7 @@ function setMode(mode) {
 
 modeButtons.forEach((btn) => {
   btn.addEventListener("click", () => {
-    const prevMode = requesterView.hidden ? "provider" : "requester";
     setMode(btn.dataset.mode);
-    if (btn.dataset.mode === "requester") {
-      const publishSection = document.getElementById("publicar");
-      if (publishSection) {
-        publishSection.scrollIntoView({ behavior: "smooth", block: "start" });
-        const postType = document.getElementById("post-type");
-        if (postType) postType.value = "outro";
-      }
-    }
   });
 });
 
@@ -2055,23 +2051,21 @@ providerForm.addEventListener("submit", async (event) => {
   }
 });
 
-// Busca única, sempre pela barra fixa embaixo (estilo app) — o topo do
-// site fica só pra mostrar rankings, corridas e outros resultados.
-const bottomSearchForm = document.getElementById("bottom-search-form");
-const bottomSearchInput = document.getElementById("bottom-search-input");
-const bottomSearchSubmit = bottomSearchForm.querySelector('button[type="submit"]');
+// Busca única, sempre pela barra central do hero — o resto da página fica
+// só pra mostrar rankings, corridas e outros resultados.
 let searchInFlight = false;
 
 async function runSearch(message) {
   // Guarda contra buscas simultâneas: a busca pode ser disparada por mais
-  // de um caminho (barra de baixo, "Chamar agora" no ranking) — sem essa
+  // de um caminho (barra do hero, "Chamar agora" no ranking) — sem essa
   // guarda, uma busca mais antiga em voo poderia terminar depois e
   // sobrescrever o resultado de uma busca mais nova.
   if (searchInFlight) return;
   searchInFlight = true;
   lastSearchQuery = message;
-  bottomSearchInput.disabled = true;
-  bottomSearchSubmit.disabled = true;
+  if (heroSearchInput) heroSearchInput.disabled = true;
+  const heroSearchSubmitEl = heroSearchForm?.querySelector('button[type="submit"]');
+  if (heroSearchSubmitEl) heroSearchSubmitEl.disabled = true;
   renderResult(message, "loading");
   results.scrollIntoView({ behavior: "smooth", block: "center" });
 
@@ -2091,8 +2085,8 @@ async function runSearch(message) {
   } catch (err) {
     renderResult(message, "error", "Não consegui falar com o servidor.");
   } finally {
-    bottomSearchInput.disabled = false;
-    bottomSearchSubmit.disabled = false;
+    if (heroSearchInput) heroSearchInput.disabled = false;
+    if (heroSearchSubmitEl) heroSearchSubmitEl.disabled = false;
     searchInFlight = false;
   }
 }
@@ -2178,15 +2172,8 @@ async function performSearch(message) {
   runSearch(message);
 }
 
-bottomSearchForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const message = bottomSearchInput.value.trim();
-  bottomSearchInput.value = "";
-  performSearch(message);
-});
-
 // Barra de busca central do hero (task-012) — mesmo motor de busca de
-// sempre (task-005), só um segundo formulário/ponto de entrada.
+// sempre (task-005).
 const heroSearchForm = document.getElementById("hero-search-form");
 const heroSearchInput = document.getElementById("hero-search-input");
 heroSearchForm.addEventListener("submit", (event) => {
@@ -2196,23 +2183,296 @@ heroSearchForm.addEventListener("submit", (event) => {
   performSearch(message);
 });
 
-// Chips de categoria do hero (task-012) — cada um leva pra experiência já
-// existente daquela categoria, em vez de tentar simular um filtro de busca
-// que essas categorias (viagem, grupo) já resolvem melhor com tela própria.
-document.querySelectorAll("[data-hero-category]").forEach((chip) => {
-  chip.addEventListener("click", () => {
-    const category = chip.dataset.heroCategory;
-    if (category === "profissional") {
-      highlightSection(rankingSection);
-    } else if (category === "viagem") {
-      highlightSection(ridesSection);
-    } else if (category === "grupo") {
-      highlightSection(document.getElementById("grupos"));
-    } else {
-      heroSearchInput.focus();
+// Chips de categoria do hero — cada chip abre uma experiência inline logo
+// abaixo dos chips, sem rolar a página.
+//
+// Seções que já existem na página (ranking, corridas, grupos) são MOVIDAS
+// pro painel em vez de reimplementadas: o DOM move preserva os listeners, e
+// como a delegação de clique dessas seções mora nos próprios elementos que
+// se movem (#ranking-list, #ride-results, #groups-list), todos os botões
+// continuam funcionando dentro do painel. Reimplementar os cards num
+// container novo mataria essa delegação e deixaria botão morto na tela.
+const categoryPanel = document.getElementById("category-quick-panel");
+const categoryPanelTitle = document.getElementById("category-panel-title");
+const categoryPanelHead = document.getElementById("category-panel-head");
+const categoryPanelBody = document.getElementById("category-panel-body");
+const gruposSection = document.getElementById("grupos");
+
+// Guarda a posição exata de origem (parent + irmão seguinte) pra devolver a
+// seção no lugar certo — appendChild sozinho jogaria ela pro fim do parent.
+const panelMovedSections = [];
+
+function restorePanelSections() {
+  while (panelMovedSections.length) {
+    const { el, parent, nextSibling } = panelMovedSections.pop();
+    parent.insertBefore(el, nextSibling);
+  }
+}
+
+function movePanelSection(el) {
+  if (!el) return;
+  panelMovedSections.push({ el, parent: el.parentElement, nextSibling: el.nextSibling });
+  categoryPanelBody.appendChild(el);
+}
+
+function openServicosPanel() {
+  categoryPanelHead.innerHTML = `
+    <div class="panel-filter-row">
+      <label class="panel-field">
+        <span class="panel-field-label">Categoria de serviço</span>
+        <select id="panel-servico-select" class="panel-select">
+          <option value="">Todos os serviços</option>
+        </select>
+      </label>
+    </div>
+  `;
+  movePanelSection(rankingSection);
+
+  const select = document.getElementById("panel-servico-select");
+  select.addEventListener("change", () => loadRanking(undefined, select.value));
+  fetch("/api/services")
+    .then((res) => (res.ok ? res.json() : { services: [] }))
+    .then(({ services }) => {
+      (services || []).forEach((name) => {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        select.appendChild(opt);
+      });
+      if (currentRankingService) select.value = currentRankingService;
+    })
+    .catch(() => {});
+}
+
+function openViagemPanel() {
+  categoryPanelHead.innerHTML = `
+    <form id="panel-viagem-form" class="panel-search-form" autocomplete="off">
+      <label class="panel-field">
+        <span class="panel-field-label">De onde</span>
+        <input id="panel-viagem-de" class="panel-input" type="text" placeholder="ex: Centro" />
+      </label>
+      <label class="panel-field">
+        <span class="panel-field-label">Pra onde</span>
+        <input id="panel-viagem-para" class="panel-input" type="text" placeholder="ex: Aeroporto" />
+      </label>
+      <label class="panel-field">
+        <span class="panel-field-label">Data</span>
+        <input id="panel-viagem-data" class="panel-input" type="date" />
+      </label>
+      <button type="submit" class="panel-submit">Buscar viagens</button>
+    </form>
+  `;
+  // Corridas/entregas e caronas são dois mecanismos diferentes (pedidos vs
+  // grupos) — a busca de cima alimenta os dois de uma vez só, em vez de
+  // obrigar a pessoa a preencher dois formulários pra mesma viagem.
+  movePanelSection(ridesSection);
+  movePanelSection(gruposSection);
+
+  document.getElementById("panel-viagem-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const de = document.getElementById("panel-viagem-de").value.trim();
+    const para = document.getElementById("panel-viagem-para").value.trim();
+    const data = document.getElementById("panel-viagem-data").value;
+
+    if (rideFrom) rideFrom.value = de;
+    if (rideTo) rideTo.value = para;
+    rideForm?.requestSubmit();
+
+    if (caronaSearchOrigem) caronaSearchOrigem.value = de;
+    if (caronaSearchDestino) caronaSearchDestino.value = para;
+    if (caronaSearchData && data) {
+      caronaSearchData.value = data;
+      caronaSearchData.dataset.touched = "1";
     }
+    document.querySelector('.group-category-btn[data-category="carona"]')?.click();
   });
+}
+
+function openGrupoPanel() {
+  categoryPanelHead.innerHTML = "";
+  movePanelSection(gruposSection);
+}
+
+// ── Painel de produtos e imóveis ────────────────────────────────────────────
+// Diferente dos outros três: não existe seção equivalente na página pra
+// mover, então os cards são renderizados aqui. A ação é um link direto de
+// WhatsApp (dado que /api/requests já devolve), não um botão delegado —
+// assim nenhum controle fica sem função de verdade.
+const PANEL_PRODUTO_TYPES = [
+  { type: "produto", label: "Produtos" },
+  { type: "imovel", label: "Imóveis" },
+];
+let panelProdutoType = "produto";
+let panelProdutoPriceSort = "";
+
+function panelProdutoQueryUrl() {
+  const params = new URLSearchParams({ type: panelProdutoType });
+  const state = document.getElementById("panel-produto-state");
+  const city = document.getElementById("panel-produto-city");
+  const min = document.getElementById("panel-produto-min");
+  const max = document.getElementById("panel-produto-max");
+  if (state && state.value) params.set("state", BR_STATES[state.value] || state.value);
+  if (city && city.value) params.set("city", city.value);
+  if (min && min.value) params.set("minPrice", min.value);
+  if (max && max.value) params.set("maxPrice", max.value);
+  if (panelProdutoPriceSort) params.set("sortPrice", panelProdutoPriceSort);
+  return `/api/requests?${params.toString()}`;
+}
+
+function formatBRL(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n.toLocaleString("pt-BR") : String(value);
+}
+
+function renderPanelProdutoCard(r) {
+  const whatsapp = String(r.whatsapp || "").replace(/\D/g, "");
+  const action = whatsapp
+    ? `<a class="panel-produto-cta" href="https://wa.me/55${escapeHtml(whatsapp)}" target="_blank" rel="noopener noreferrer">Falar no WhatsApp</a>`
+    : '<span class="request-provider">contato não informado</span>';
+  return `
+    <li class="panel-produto-card">
+      <strong class="panel-produto-title">${escapeHtml(r.title)}</strong>
+      <span class="panel-produto-price">R$ ${escapeHtml(formatBRL(r.price))}</span>
+      <span class="panel-produto-meta">${escapeHtml(r.location || "local não informado")} · ${escapeHtml(r.requester || "anunciante")}</span>
+      ${action}
+    </li>
+  `;
+}
+
+async function loadPanelProdutos() {
+  const list = document.getElementById("panel-produto-list");
+  if (!list) return;
+  list.innerHTML = '<li class="panel-produto-empty">Carregando…</li>';
+  try {
+    const res = await fetch(panelProdutoQueryUrl());
+    if (!res.ok) throw new Error("falha");
+    const { requests } = await res.json();
+    const abertos = (requests || []).filter((r) => r.status === "aberto");
+    list.innerHTML = abertos.length
+      ? abertos.map(renderPanelProdutoCard).join("")
+      : '<li class="panel-produto-empty">Nenhum anúncio encontrado com esses filtros.</li>';
+  } catch (err) {
+    list.innerHTML = '<li class="panel-produto-empty">Não consegui carregar os anúncios agora.</li>';
+  }
+}
+
+function openProdutoPanel() {
+  panelProdutoType = "produto";
+  panelProdutoPriceSort = "";
+  categoryPanelHead.innerHTML = `
+    <div class="panel-subtabs" role="tablist" aria-label="Tipo de anúncio">
+      ${PANEL_PRODUTO_TYPES.map(
+        (t, i) =>
+          `<button type="button" class="panel-subtab${i === 0 ? " is-active" : ""}" data-produto-type="${t.type}" role="tab" aria-selected="${i === 0}">${t.label}</button>`
+      ).join("")}
+    </div>
+    <div class="panel-filter-row">
+      <button type="button" id="panel-produto-location" class="panel-filter-btn">📍 Minha localização</button>
+      <label class="panel-field">
+        <span class="panel-field-label">Estado</span>
+        <select id="panel-produto-state" class="panel-select">
+          <option value="">Todos os estados</option>
+        </select>
+      </label>
+      <label class="panel-field">
+        <span class="panel-field-label">Cidade</span>
+        <select id="panel-produto-city" class="panel-select">
+          <option value="">Todas as cidades</option>
+        </select>
+      </label>
+      <label class="panel-field panel-field--narrow">
+        <span class="panel-field-label">Preço mín.</span>
+        <input id="panel-produto-min" class="panel-input" type="number" inputmode="numeric" placeholder="qualquer" />
+      </label>
+      <label class="panel-field panel-field--narrow">
+        <span class="panel-field-label">Preço máx.</span>
+        <input id="panel-produto-max" class="panel-input" type="number" inputmode="numeric" placeholder="qualquer" />
+      </label>
+      <button type="button" class="panel-filter-btn panel-price-sort" data-price-sort="asc">R$ ↑</button>
+      <button type="button" class="panel-filter-btn panel-price-sort" data-price-sort="desc">R$ ↓</button>
+    </div>
+  `;
+  categoryPanelBody.innerHTML = '<ul id="panel-produto-list" class="panel-produto-list" aria-live="polite"></ul>';
+
+  const stateSel = document.getElementById("panel-produto-state");
+  const citySel = document.getElementById("panel-produto-city");
+  populateStateSelect(stateSel);
+  stateSel.addEventListener("change", () => {
+    populateCitySelect(citySel, stateSel.value);
+    loadPanelProdutos();
+  });
+  citySel.addEventListener("change", loadPanelProdutos);
+
+  const debouncedProdutos = debounce(loadPanelProdutos, 350);
+  document.getElementById("panel-produto-min").addEventListener("input", debouncedProdutos);
+  document.getElementById("panel-produto-max").addEventListener("input", debouncedProdutos);
+
+  categoryPanelHead.querySelectorAll("[data-produto-type]").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      panelProdutoType = tab.dataset.produtoType;
+      categoryPanelHead.querySelectorAll("[data-produto-type]").forEach((t) => {
+        const active = t === tab;
+        t.classList.toggle("is-active", active);
+        t.setAttribute("aria-selected", String(active));
+      });
+      loadPanelProdutos();
+    });
+  });
+
+  categoryPanelHead.querySelectorAll(".panel-price-sort").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const next = btn.dataset.priceSort;
+      panelProdutoPriceSort = panelProdutoPriceSort === next ? "" : next;
+      categoryPanelHead.querySelectorAll(".panel-price-sort").forEach((b) => {
+        b.classList.toggle("is-active", b.dataset.priceSort === panelProdutoPriceSort);
+      });
+      loadPanelProdutos();
+    });
+  });
+
+  document.getElementById("panel-produto-location").addEventListener("click", async (event) => {
+    const loc = await resolveUserLocation(event.currentTarget);
+    if (loc) loadPanelProdutos();
+  });
+
+  loadPanelProdutos();
+}
+
+const CATEGORY_PANELS = {
+  servico: { title: "Serviços perto de você", open: openServicosPanel },
+  viagem: { title: "Viagens, corridas e caronas", open: openViagemPanel },
+  grupo: { title: "Grupos", open: openGrupoPanel },
+  produto: { title: "Produtos e imóveis", open: openProdutoPanel },
+};
+
+function closeCategoryPanel() {
+  restorePanelSections();
+  categoryPanelHead.innerHTML = "";
+  categoryPanelBody.innerHTML = "";
+  categoryPanel.hidden = true;
+}
+
+function openCategoryPanel(category) {
+  const config = CATEGORY_PANELS[category];
+  if (!config) {
+    heroSearchInput.focus();
+    return;
+  }
+  // Devolve o que estava aberto antes de limpar — sem isso, innerHTML = ""
+  // destruiria a seção emprestada em vez de devolvê-la à página.
+  restorePanelSections();
+  categoryPanelHead.innerHTML = "";
+  categoryPanelBody.innerHTML = "";
+  categoryPanelTitle.textContent = config.title;
+  config.open();
+  categoryPanel.hidden = false;
+}
+
+document.querySelectorAll("[data-hero-category]").forEach((chip) => {
+  chip.addEventListener("click", () => openCategoryPanel(chip.dataset.heroCategory));
 });
+
+document.querySelector(".category-panel-close")?.addEventListener("click", closeCategoryPanel);
 
 // Login com Google (opcional, pilar 4.13). Sem GOOGLE_CLIENT_ID configurada
 // no servidor, /api/auth/config devolve null e o botão nunca aparece — nada
@@ -2945,25 +3205,27 @@ function initLiveTracking(user) {
 })();
 
 // "Mais" (menu do topo) — dropdown simples, fecha ao clicar fora ou ao
-// escolher um item.
+// escolher um item. Guardado contra null pois o nav pode não existir.
 const navMoreToggle = document.getElementById("nav-more-toggle");
 const navMoreMenu = document.getElementById("nav-more-menu");
-navMoreToggle.addEventListener("click", (event) => {
-  event.stopPropagation();
-  const isOpen = !navMoreMenu.hidden;
-  navMoreMenu.hidden = isOpen;
-  navMoreToggle.setAttribute("aria-expanded", String(!isOpen));
-});
-document.addEventListener("click", (event) => {
-  if (navMoreMenu.hidden) return;
-  if (event.target.closest("#nav-more-menu, #nav-more-toggle")) return;
-  navMoreMenu.hidden = true;
-  navMoreToggle.setAttribute("aria-expanded", "false");
-});
-navMoreMenu.addEventListener("click", () => {
-  navMoreMenu.hidden = true;
-  navMoreToggle.setAttribute("aria-expanded", "false");
-});
+if (navMoreToggle && navMoreMenu) {
+  navMoreToggle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const isOpen = !navMoreMenu.hidden;
+    navMoreMenu.hidden = isOpen;
+    navMoreToggle.setAttribute("aria-expanded", String(!isOpen));
+  });
+  document.addEventListener("click", (event) => {
+    if (navMoreMenu.hidden) return;
+    if (event.target.closest("#nav-more-menu, #nav-more-toggle")) return;
+    navMoreMenu.hidden = true;
+    navMoreToggle.setAttribute("aria-expanded", "false");
+  });
+  navMoreMenu.addEventListener("click", () => {
+    navMoreMenu.hidden = true;
+    navMoreToggle.setAttribute("aria-expanded", "false");
+  });
+}
 
 // "Comece agora" (chamada final) → abre modal de login
 document.getElementById("final-cta-btn")?.addEventListener("click", () => {

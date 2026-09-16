@@ -21,9 +21,9 @@ test.describe("Top3Profissional - fluxo básico", () => {
     expect(consoleErrors).toEqual([]);
   });
 
-  test("barra de busca fixa embaixo existe e aceita texto", async ({ page }) => {
+  test("barra de busca do hero existe e aceita texto", async ({ page }) => {
     await page.goto("/");
-    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
+    const searchInput = page.locator("#hero-search-input");
     await expect(searchInput).toBeVisible();
     await searchInput.fill("manicure amanhã em BH");
     await expect(searchInput).toHaveValue("manicure amanhã em BH");
@@ -41,20 +41,41 @@ test.describe("Top3Profissional - fluxo básico", () => {
     await expect(heroInput).toHaveValue("");
   });
 
-  test("chips de categoria do hero (task-012) levam pra experiência de cada categoria", async ({ page }) => {
+  test("chips de categoria do hero abrem o painel inline de cada categoria", async ({ page }) => {
     await page.goto("/");
-    await page.locator('[data-hero-category="profissional"]').click();
-    await expect(page.locator("#top3")).toBeInViewport();
+    const panelBody = page.locator("#category-panel-body");
+
+    // "Serviços" traz o ranking pra dentro do painel, sem rolar a página
+    await page.locator('[data-hero-category="servico"]').click();
+    await expect(page.locator("#category-quick-panel")).toBeVisible();
+    await expect(page.locator("#category-panel-title")).toHaveText("Serviços perto de você");
+    await expect(panelBody.locator("#top3")).toBeAttached();
+
+    // "Grupo" troca o conteúdo do painel e devolve o ranking pro lugar
     await page.locator('[data-hero-category="grupo"]').click();
-    await expect(page.locator("#grupos")).toBeInViewport();
+    await expect(panelBody.locator("#grupos")).toBeAttached();
+    await expect(panelBody.locator("#top3")).toHaveCount(0);
+    await expect(page.locator("#requester-view #top3")).toBeAttached();
+  });
+
+  test("fechar o painel devolve as seções emprestadas pra página", async ({ page }) => {
+    await page.goto("/");
+    await page.locator('[data-hero-category="viagem"]').click();
+    // Viagem empresta as duas fontes: corridas/entregas e caronas (grupos)
+    await expect(page.locator("#category-panel-body #corridas")).toBeAttached();
+    await expect(page.locator("#category-panel-body #grupos")).toBeAttached();
+
+    await page.locator(".category-panel-close").click();
+    await expect(page.locator("#category-quick-panel")).toBeHidden();
+    await expect(page.locator("#requester-view #corridas")).toBeAttached();
+    await expect(page.locator("#requester-view #grupos")).toBeAttached();
   });
 
   test("placeholder da busca muda conforme o modo ('Solicito serviço' vs 'Presto serviço')", async ({ page }) => {
     await page.goto("/");
-    // Locator por id (não por placeholder) porque é exatamente o atributo
-    // que este teste está conferindo mudar.
-    const searchInput = page.locator("#bottom-search-input");
-    await expect(searchInput).toHaveAttribute("placeholder", "Descreva o que você gostaria de solicitar...");
+    // Busca agora é só pelo hero — placeholder muda com o modo
+    const searchInput = page.locator("#hero-search-input");
+    await expect(searchInput).toHaveAttribute("placeholder", "O que você está procurando?");
 
     await page.locator('.mode-btn[data-mode="provider"]').click();
     await expect(searchInput).toHaveAttribute("placeholder", /Solicito serviço/);
@@ -86,15 +107,15 @@ test.describe("Top3Profissional - fluxo básico", () => {
     });
 
     await page.goto("/");
-    const bottomInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
-    const bottomSubmit = page.locator("#bottom-search-form button[type=submit]");
+    const bottomInput = page.locator("#hero-search-input");
+    const bottomSubmit = page.locator("#hero-search-form button[type=submit]");
 
     await bottomInput.fill("primeira busca");
     await bottomSubmit.click();
     await firstRequestReceived;
 
     // Enquanto a primeira busca está em voo, o campo e o botão de envio
-    // da barra de baixo devem estar desabilitados.
+    // devem estar desabilitados — agora controlados pelo hero form.
     await expect(bottomInput).toBeDisabled();
     await expect(bottomSubmit).toBeDisabled();
 
@@ -160,7 +181,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
 
   test('alternar para "presto um serviço" mostra pedidos em aberto', async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("tab", { name: /presto um serviço/i }).click();
+    await page.getByRole("tab", { name: /presto serviço/i }).click();
     const requests = page.locator(".request-item");
     await expect(requests.first()).toBeVisible();
   });
@@ -226,7 +247,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
     expect(created.type).toBe("terreno");
 
     await page.goto("/");
-    await page.getByRole("tab", { name: /presto um serviço/i }).click();
+    await page.getByRole("tab", { name: /presto serviço/i }).click();
     await expect(page.locator(".request-badge", { hasText: "terreno" }).first()).toBeVisible();
   });
 
@@ -260,7 +281,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
     });
 
     await page.goto("/");
-    await page.getByRole("tab", { name: /presto um serviço/i }).click();
+    await page.getByRole("tab", { name: /presto serviço/i }).click();
     await expect(page.locator(".request-item").first()).toBeVisible();
 
     const html = await page.locator("#requests-list").innerHTML();
@@ -301,20 +322,20 @@ test.describe("Top3Profissional - fluxo básico", () => {
     const id = created.request.id;
 
     await page.goto("/");
-    await page.getByRole("tab", { name: /presto um serviço/i }).click();
+    await page.getByRole("tab", { name: /presto serviço/i }).click();
     const item = page.locator(`.request-item[data-id="${id}"]`);
     await expect(item).toContainText("Barreiro, Belo Horizonte");
     await expect(item).not.toContainText("31988887777");
 
     await request.post(`/api/requests/${id}/accept`, { data: { provider: "Prestador Teste" } });
     await page.reload();
-    await page.getByRole("tab", { name: /presto um serviço/i }).click();
+    await page.getByRole("tab", { name: /presto serviço/i }).click();
     await expect(item).toContainText("31988887777");
   });
 
   test("busca por serviço cadastrado mostra o ranking filtrado — sem gastar chamada de IA", async ({ page }) => {
     await page.goto("/");
-    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
+    const searchInput = page.locator("#hero-search-input");
     await searchInput.fill("preciso de um eletricista hoje");
     await searchInput.press("Enter");
 
@@ -336,7 +357,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
     page,
   }) => {
     await page.goto("/");
-    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
+    const searchInput = page.locator("#hero-search-input");
     await searchInput.fill("corrida do Centro pra Rodoviária");
     await searchInput.press("Enter");
 
@@ -354,7 +375,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
       "precisa de SEARXNG_URL ou BRAVE_SEARCH_API_KEY pra testar a busca na web de verdade"
     );
     await page.goto("/");
-    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
+    const searchInput = page.locator("#hero-search-input");
     await searchInput.fill("terreno barato em Contagem");
     await searchInput.press("Enter");
     const answer = page.locator(".result-answer");
@@ -381,7 +402,7 @@ test.describe("Top3Profissional - mobile", () => {
     });
 
     await page.goto("/");
-    await expect(page.getByPlaceholder("Descreva o que você gostaria de solicitar...")).toBeVisible();
+    await expect(page.getByPlaceholder("O que você está procurando?")).toBeVisible();
 
     // force:true de propósito, motivo investigado a fundo (não é achado
     // escondido): com a home bem mais alta desde a task-012 (várias
@@ -396,7 +417,7 @@ test.describe("Top3Profissional - mobile", () => {
     // prévia do Playwright que fica instável nesse cenário específico
     // (viewport mobile + touch + página alta), não um bug real de
     // sobreposição visual.
-    await page.getByRole("tab", { name: /presto um serviço/i }).click({ force: true });
+    await page.getByRole("tab", { name: /presto serviço/i }).click({ force: true });
     await expect(page.locator(".request-item").first()).toBeVisible();
 
     expect(consoleErrors).toEqual([]);
@@ -442,7 +463,7 @@ test.describe("Top3Profissional - avaliação pós-serviço", () => {
     expect(rated.rating).toBe(5);
 
     await page.goto("/");
-    await page.getByRole("tab", { name: /presto um serviço/i }).click();
+    await page.getByRole("tab", { name: /presto serviço/i }).click();
     const item = page.locator(`.request-item[data-id="${id}"]`);
     await expect(item.locator(".star--filled")).toHaveCount(5);
     await expect(item).toContainText("Ótimo atendimento");
@@ -464,7 +485,7 @@ test.describe("Top3Profissional - avaliação pós-serviço", () => {
     });
 
     await page.goto("/");
-    await page.getByRole("tab", { name: /presto um serviço/i }).click();
+    await page.getByRole("tab", { name: /presto serviço/i }).click();
     const html = await page.locator("#requests-list").innerHTML();
     expect(html).not.toContain("<img");
     expect(alerts).toEqual([]);
@@ -724,7 +745,7 @@ test.describe("Top3Profissional - perfil profissional (pilar 4.12)", () => {
 
   test("busca por 'criar meu perfil' rola até a seção certa, sem gastar chamada de IA", async ({ page }) => {
     await page.goto("/");
-    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
+    const searchInput = page.locator("#hero-search-input");
     await searchInput.fill("quero criar meu perfil profissional");
     await searchInput.press("Enter");
 
@@ -757,7 +778,7 @@ test.describe("Top3Profissional - perfil profissional (pilar 4.12)", () => {
     await page.goto("/");
     await servicesResponse; // espera o front-end aprender sobre o serviço novo antes de buscar
 
-    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
+    const searchInput = page.locator("#hero-search-input");
     await searchInput.fill(`preciso de ${uniqueService} hoje`);
     await searchInput.press("Enter");
 
@@ -813,7 +834,7 @@ test.describe("Top3Profissional - perfil profissional (pilar 4.12)", () => {
     const servicesResponse = page.waitForResponse((r) => r.url().includes("/api/services"));
     await page.goto("/");
     await servicesResponse;
-    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
+    const searchInput = page.locator("#hero-search-input");
     await searchInput.fill(`preciso de ${uniqueService} hoje`);
     await searchInput.press("Enter");
 
@@ -827,7 +848,7 @@ test.describe("Top3Profissional - perfil profissional (pilar 4.12)", () => {
   test("card sem foto continua mostrando iniciais", async ({ page, request }) => {
     // Serviço único sem foto — usa PROVIDERS mock que não têm photoUrl.
     await page.goto("/");
-    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
+    const searchInput = page.locator("#hero-search-input");
     await searchInput.fill("preciso de manicure");
     await searchInput.press("Enter");
 
@@ -1529,7 +1550,7 @@ test.describe("Top3Profissional - login simples por email/senha + perfil (task-0
 
   test("usar sem estar logado continua funcionando 100% — sugestão de login nunca bloqueia nada", async ({ page }) => {
     await page.goto("/");
-    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
+    const searchInput = page.locator("#hero-search-input");
     await expect(searchInput).toBeEditable();
     await page.getByRole("button", { name: "+ Criar um grupo" }).click();
     await expect(page.locator("#group-form")).toBeVisible();
@@ -1540,7 +1561,7 @@ test.describe("Top3Profissional - login simples por email/senha + perfil (task-0
     await page.locator("#email-auth-toggle").click();
     await expect(page.locator("#email-auth-panel")).toBeVisible();
     // Abrir o painel de login não deve desmarcar o modo ativo
-    await expect(page.locator('.bottom-mode-btn[data-mode="requester"]')).toHaveClass(/is-active/);
+    await expect(page.locator('.mode-btn[data-mode="requester"]')).toHaveClass(/is-active/);
     await expect(page.locator("#requester-view")).toBeVisible();
   });
 
@@ -2290,7 +2311,7 @@ test.describe("Top3Profissional - busca por palavra-chave, sem IA (task-005)", (
 
   test("UI: buscar um sinônimo de serviço na barra principal mostra o ranking filtrado, sem cair na busca web", async ({ page }) => {
     await page.goto("/");
-    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
+    const searchInput = page.locator("#hero-search-input");
     await searchInput.fill("preciso fazer unha amanhã");
     await searchInput.press("Enter");
     await expect(page.locator("#ranking-title")).toContainText("manicure");
@@ -2303,7 +2324,7 @@ test.describe("Top3Profissional - busca por palavra-chave, sem IA (task-005)", (
       data: { category: "frete", title: "Ofereço frete pra mudança", city: cidade, targetMembers: 2, whatsapp: "31911110000", name: "Zeca", tipo: "ofereco" },
     });
     await page.goto("/");
-    const searchInput = page.getByPlaceholder("Descreva o que você gostaria de solicitar...");
+    const searchInput = page.locator("#hero-search-input");
     await searchInput.fill(`mudança em ${cidade}`);
     await searchInput.press("Enter");
     await expect(page.locator('.group-category-btn[data-category="frete"]')).toHaveClass(/is-active/);
@@ -2811,7 +2832,7 @@ test.describe("Top3Profissional - correções de UX no formulário de Publicar (
     const { request: carroRequest } = await carro.json();
 
     await page.goto("/");
-    await page.getByRole("tab", { name: /presto um serviço/i }).click();
+    await page.getByRole("tab", { name: /presto serviço/i }).click();
     await page.locator("#requests-filter-keyword").fill("TV");
     await expect(page.locator(`.request-item[data-id="${tvRequest.id}"]`)).toBeVisible();
     await expect(page.locator(`.request-item[data-id="${carroRequest.id}"]`)).toHaveCount(0);
@@ -2829,15 +2850,13 @@ test.describe("Top3Profissional - correções de UX no formulário de Publicar (
     await expect(page.locator(`.request-item[data-id="${tvRequest.id}"]`)).toHaveCount(0);
   });
 
-  test("item 4: menu do topo não repete 'Corridas' e 'Publicar' como destinos separados — 'Viagens' (task-012 renomeou 'Publicar') abre a busca rápida seguida do formulário completo", async ({
+  test("item 4: menu do topo removido — seções 'corridas' e 'publicar' permanecem na página e são adjacentes", async ({
     page,
   }) => {
     await page.goto("/");
-    const navLinks = await page.locator(".site-nav a").evaluateAll((links) => links.map((a) => a.textContent.trim()));
-    expect(navLinks).not.toContain("Corridas");
-    expect(navLinks).not.toContain("Publicar");
-    expect(navLinks).toContain("Viagens");
-    await expect(page.locator('.site-nav a:has-text("Viagens")')).toHaveAttribute("href", "#corridas");
+    // Nav removido — verificar que as seções ainda existem
+    await expect(page.locator("#corridas")).toBeAttached();
+    await expect(page.locator("#publicar")).toBeAttached();
 
     // As duas seções (busca rápida De onde/Pra onde + formulário completo)
     // ficam fisicamente juntas na página — o link do menu abre já na
@@ -2905,24 +2924,24 @@ test.describe("Top3Profissional - correções de UX no formulário de Publicar (
     await expect(page.locator("#post-location")).toHaveValue("Preenchido na mão");
   });
 
-  test("item 4 (task-009): 'Perguntar' não aparece duplicado no menu do topo", async ({ page }) => {
+  test("item 4 (task-009): nav do topo foi removido — sem links 'Perguntar' nem #nav-ask-link", async ({ page }) => {
     await page.goto("/");
-    const navLinks = await page.locator(".site-nav a").evaluateAll((links) => links.map((a) => a.textContent.trim()));
-    expect(navLinks).not.toContain("Perguntar");
+    await expect(page.locator(".site-nav")).toHaveCount(0);
     await expect(page.locator("#nav-ask-link")).toHaveCount(0);
   });
 
-  test("item 2 (task-011): 'Perguntar' saiu da barra flutuante — barra flutuante fica só com Solicito/Presto (busca central agora mora no hero, task-012)", async ({
+  test("item 2 (task-011): barra flutuante removida — modos 'Solicito/Presto' agora ficam no hero acima da busca", async ({
     page,
   }) => {
     await page.goto("/");
-    expect(await page.locator("#bottom-ask-btn").count()).toBe(0);
-    expect(await page.locator(".bottom-mode-suggestions").getByText("Perguntar", { exact: true }).count()).toBe(0);
-
-    const modeButtons = page.locator(".bottom-mode-suggestions .bottom-mode-btn");
-    await expect(modeButtons).toHaveCount(2);
-    await expect(modeButtons.nth(0)).toHaveText("Solicito serviço");
-    await expect(modeButtons.nth(1)).toHaveText("Presto serviço");
+    // Barra flutuante de baixo removida
+    await expect(page.locator(".bottom-bar")).toHaveCount(0);
+    await expect(page.locator("#bottom-ask-btn")).toHaveCount(0);
+    // Modos agora estão no hero
+    const heroModeButtons = page.locator(".hero-mode-tabs .hero-mode-btn");
+    await expect(heroModeButtons).toHaveCount(2);
+    await expect(heroModeButtons.nth(0)).toHaveText("Solicito serviço");
+    await expect(heroModeButtons.nth(1)).toHaveText("Presto serviço");
   });
 
   test("item 6a: botão do Google usa o tema oficial escuro (filled_black), não o claro (outline)", async ({ page }) => {
@@ -2947,8 +2966,8 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
     await expect(page.locator(".site-header .logo")).toContainText("TOP3");
     await expect(page.locator(".logo-subtitle")).toHaveText("Inteligência em resultados");
 
-    const navLinks = await page.locator(".site-nav > a").evaluateAll((links) => links.map((a) => a.textContent.trim()));
-    expect(navLinks).toEqual(["Início", "Buscar", "Grupos", "Profissionais", "Viagens"]);
+    // Nav de links removido — header tem apenas logo + auth
+    await expect(page.locator(".site-nav")).toHaveCount(0);
 
     // "Online" só aparece depois de um /health real responder (item 1) —
     // não é decorativo fixo no HTML.
@@ -2957,13 +2976,14 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
     await expect(page.locator("#email-auth-toggle")).toHaveText("Entrar");
   });
 
-  test("'Mais' abre um dropdown com Criar meu perfil, Benefícios e Como funciona", async ({ page }) => {
+  test("header limpo: sem nav de links, apenas logo + auth + indicador Online", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator("#nav-more-menu")).toBeHidden();
-    await page.locator("#nav-more-toggle").click();
-    await expect(page.locator("#nav-more-menu")).toBeVisible();
-    const items = await page.locator("#nav-more-menu a").evaluateAll((links) => links.map((a) => a.textContent.trim()));
-    expect(items).toEqual(["Criar meu perfil", "Benefícios", "Como funciona"]);
+    // Nav de links foi removido para deixar o header limpo
+    await expect(page.locator(".site-nav")).toHaveCount(0);
+    await expect(page.locator("#nav-more-toggle")).toHaveCount(0);
+    // Logo, auth e indicador Online permanecem
+    await expect(page.locator(".site-header .logo")).toBeVisible();
+    await expect(page.locator("#email-auth-toggle")).toBeVisible();
   });
 
   test("'Entrar' abre o painel de login", async ({ page }) => {
@@ -2973,9 +2993,11 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
     await expect(page.locator(".social-login-title")).toBeVisible();
   });
 
-  test("hero: título com destaque em ciano, busca central funcional", async ({ page }) => {
+  test("hero: modo tabs acima da busca, busca central funcional", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator(".hero-title-accent")).toHaveText("o que você precisa.");
+    // Título removido; agora o hero mostra os tabs de modo acima da busca
+    await expect(page.locator(".hero-mode-tabs")).toBeVisible();
+    await expect(page.locator(".hero-mode-btn").first()).toHaveText("Solicito serviço");
     await expect(page.getByPlaceholder("O que você está procurando?")).toBeVisible();
   });
 
@@ -3077,12 +3099,109 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
     page,
   }) => {
     await page.goto("/");
-    await page.getByRole("tab", { name: /presto um serviço/i }).click({ force: true }); // ver comentário no teste mobile equivalente
+    await page.getByRole("tab", { name: /presto serviço/i }).click({ force: true }); // ver comentário no teste mobile equivalente
     await expect(page.locator("#provider-view")).toBeVisible();
     // #requests-list especificamente — .request-item sozinho também casa
     // com os cards de #groups-list (mesma classe, "group-card" só
     // adicional), que ficam ocultos nesse modo mas ainda no DOM.
     await expect(page.locator("#requests-list .request-item").first()).toBeVisible();
+  });
+
+  test("as abas de modo ficam fora do #requester-view — dá pra voltar de 'Presto' pra 'Solicito'", async ({ page }) => {
+    await page.goto("/");
+    // O hero mora fora do #requester-view de propósito: se ficasse dentro,
+    // setMode("provider") esconderia as abas junto e prenderia a pessoa no
+    // modo prestador, sem nenhum jeito de voltar.
+    await page.locator('.mode-btn[data-mode="provider"]').click();
+    await expect(page.locator("#provider-view")).toBeVisible();
+    await expect(page.locator('.mode-btn[data-mode="requester"]')).toBeVisible();
+    // Busca e chips somem nesse modo, só as abas ficam
+    await expect(page.locator("#hero-requester-tools")).toBeHidden();
+
+    await page.locator('.mode-btn[data-mode="requester"]').click();
+    await expect(page.locator("#requester-view")).toBeVisible();
+    await expect(page.locator("#hero-requester-tools")).toBeVisible();
+  });
+});
+
+test.describe("Top3Profissional - painéis de categoria do hero", () => {
+  test("Serviços: seletor de categoria filtra o ranking de verdade", async ({ page }) => {
+    await page.goto("/");
+    await page.locator('[data-hero-category="servico"]').click();
+    const select = page.locator("#panel-servico-select");
+    await expect(select).toBeVisible();
+    // Opções vêm de /api/services, não são fixas no HTML
+    await expect(select.locator("option")).not.toHaveCount(1);
+
+    await select.selectOption("eletricista");
+    await expect(page.locator("#ranking-title")).toContainText("eletricista");
+  });
+
+  test("Viagem: uma busca só alimenta corridas e caronas ao mesmo tempo", async ({ page }) => {
+    await page.goto("/");
+    await page.locator('[data-hero-category="viagem"]').click();
+
+    await page.locator("#panel-viagem-de").fill("Rua Bahia");
+    await page.locator("#panel-viagem-para").fill("Aeroporto");
+    await page.locator("#panel-viagem-form button[type=submit]").click();
+
+    // A busca de cima preenche os dois mecanismos de baixo
+    await expect(page.locator("#ride-from")).toHaveValue("Rua Bahia");
+    await expect(page.locator("#carona-search-origem")).toHaveValue("Rua Bahia");
+    await expect(page.locator('.group-category-btn[data-category="carona"]')).toHaveClass(/is-active/);
+    await expect(page.locator(".ride-match").first()).toContainText("Aeroporto");
+  });
+
+  test("Produtos: alterna Produtos/Imóveis e filtra por faixa de preço, sem teto de valor", async ({ page, request }) => {
+    const suffix = Math.random().toString(36).slice(2, 8);
+    // Valor alto de propósito: o filtro de preço não pode ter limite máximo
+    await request.post("/api/requests", {
+      data: { type: "produto", title: `trator caro ${suffix}`, price: 450000, whatsapp: "31999994444", location: "Uberaba" },
+    });
+    await request.post("/api/requests", {
+      data: { type: "produto", title: `bicicleta barata ${suffix}`, price: 90, whatsapp: "31999991111", location: "Belo Horizonte" },
+    });
+    await request.post("/api/requests", {
+      data: { type: "imovel", title: `kitnet ${suffix}`, price: 1200, whatsapp: "31999993333", location: "Belo Horizonte" },
+    });
+
+    await page.goto("/");
+    await page.locator('[data-hero-category="produto"]').click();
+    const list = page.locator("#panel-produto-list");
+    await expect(list.getByText(`trator caro ${suffix}`)).toBeVisible();
+    await expect(list.getByText(`bicicleta barata ${suffix}`)).toBeVisible();
+
+    // Preço mínimo alto continua achando o item de R$ 450.000
+    await page.locator("#panel-produto-min").fill("1000");
+    await expect(list.getByText(`bicicleta barata ${suffix}`)).toHaveCount(0);
+    await expect(list.getByText(`trator caro ${suffix}`)).toBeVisible();
+
+    // Aba de imóveis troca a fonte de dados
+    await page.locator("#panel-produto-min").fill("");
+    await page.locator('[data-produto-type="imovel"]').click();
+    await expect(list.getByText(`kitnet ${suffix}`)).toBeVisible();
+    await expect(list.getByText(`trator caro ${suffix}`)).toHaveCount(0);
+  });
+
+  test("controles do painel seguem o design system (select escuro, seta própria, foco visível)", async ({ page }) => {
+    await page.goto("/");
+    await page.locator('[data-hero-category="produto"]').click();
+    const select = page.locator("#panel-produto-state");
+
+    // Regra do CLAUDE.md: select nunca pode cair no visual nativo branco
+    const style = await select.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { appearance: cs.appearance, backgroundImage: cs.backgroundImage, minHeight: cs.minHeight };
+    });
+    expect(style.appearance).toBe("none");
+    expect(style.backgroundImage).not.toBe("none");
+    expect(parseInt(style.minHeight, 10)).toBeGreaterThanOrEqual(40);
+
+    // Campo de preço não pode ter teto que trave o que dá pra digitar
+    const min = page.locator("#panel-produto-min");
+    await expect(min).not.toHaveAttribute("max", /.*/);
+    await min.fill("999999999");
+    await expect(min).toHaveValue("999999999");
   });
 });
 
