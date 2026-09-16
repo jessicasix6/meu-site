@@ -20,13 +20,13 @@ const { registerWhatsAppRoutes, isConfigured: isWhatsAppConfigured } = require("
 const { SERVICO_SYNONYMS, GROUP_CATEGORY_SYNONYMS, CITY_SYNONYMS } = require("./keywords");
 
 const PROVIDERS = [
-  { name: "Ana Souza", service: "manicure", city: "Belo Horizonte", time: "amanhã às 14h", rating: 4.9, distanceKm: 1.2, price: 45, fastReply: true, lat: -19.9245, lng: -43.9352 },
-  { name: "Carla Lima", service: "manicure", city: "Belo Horizonte", time: "hoje às 17h30", rating: 4.6, distanceKm: 3.8, price: 35, fastReply: false, lat: -19.9331, lng: -43.9378 },
-  { name: "Fernanda Reis", service: "manicure", city: "Belo Horizonte", time: "amanhã às 09h", rating: 4.8, distanceKm: 2.1, price: 40, fastReply: true, lat: -19.9089, lng: -43.9265 },
-  { name: "João Pedro", service: "eletricista", city: "Curitiba", time: "hoje às 15h", rating: 4.7, distanceKm: 4.5, price: 90, fastReply: true, lat: -25.4372, lng: -49.2691 },
-  { name: "Marcos Vieira", service: "eletricista", city: "Curitiba", time: "amanhã às 10h", rating: 4.5, distanceKm: 6.0, price: 80, fastReply: false, lat: -25.4152, lng: -49.2803 },
-  { name: "Beatriz Alves", service: "cabeleireiro", city: "São Paulo", time: "hoje às 18h", rating: 5.0, distanceKm: 0.8, price: 120, fastReply: true, lat: -23.5613, lng: -46.6558 },
-  { name: "Ricardo Nunes", service: "encanador", city: "Rio de Janeiro", time: "amanhã às 08h", rating: 4.4, distanceKm: 5.2, price: 100, fastReply: false, lat: -22.9707, lng: -43.1823 },
+  { name: "Ana Souza", service: "manicure", city: "Belo Horizonte", time: "amanhã às 14h", rating: 4.9, reviewCount: 24, distanceKm: 1.2, price: 45, fastReply: true, lat: -19.9245, lng: -43.9352 },
+  { name: "Carla Lima", service: "manicure", city: "Belo Horizonte", time: "hoje às 17h30", rating: 4.6, reviewCount: 11, distanceKm: 3.8, price: 35, fastReply: false, lat: -19.9331, lng: -43.9378 },
+  { name: "Fernanda Reis", service: "manicure", city: "Belo Horizonte", time: "amanhã às 09h", rating: 4.8, reviewCount: 17, distanceKm: 2.1, price: 40, fastReply: true, lat: -19.9089, lng: -43.9265 },
+  { name: "João Pedro", service: "eletricista", city: "Curitiba", time: "hoje às 15h", rating: 4.7, reviewCount: 9, distanceKm: 4.5, price: 90, fastReply: true, lat: -25.4372, lng: -49.2691 },
+  { name: "Marcos Vieira", service: "eletricista", city: "Curitiba", time: "amanhã às 10h", rating: 4.5, reviewCount: 6, distanceKm: 6.0, price: 80, fastReply: false, lat: -25.4152, lng: -49.2803 },
+  { name: "Beatriz Alves", service: "cabeleireiro", city: "São Paulo", time: "hoje às 18h", rating: 5.0, reviewCount: 38, distanceKm: 0.8, price: 120, fastReply: true, lat: -23.5613, lng: -46.6558 },
+  { name: "Ricardo Nunes", service: "encanador", city: "Rio de Janeiro", time: "amanhã às 08h", rating: 4.4, reviewCount: 5, distanceKm: 5.2, price: 100, fastReply: false, lat: -22.9707, lng: -43.1823 },
 ];
 
 // Perfis profissionais criados pela pessoa (pilar 4.12) — em memória, igual
@@ -1578,8 +1578,10 @@ app.get("/api/ranking", (req, res) => {
 
   const top3 = sorted
     .slice(0, 3)
-    .map(({ name, service, city, rating, distanceKm, price, fastReply, slug, nextSlot, isAvailable, time }) => ({
-      name, service, city, rating, distanceKm, price, fastReply, slug: slug || null,
+    .map(({ name, service, city, rating, reviewCount, distanceKm, price, slug, nextSlot, isAvailable, time }) => ({
+      name, service, city, rating,
+      reviewCount: typeof reviewCount === "number" ? reviewCount : null,
+      distanceKm, price, slug: slug || null,
       nextSlot: nextSlot || (time ? `Disponível ${time}` : null),
       isAvailable: isAvailable != null ? isAvailable : Boolean(nextSlot || time),
     }));

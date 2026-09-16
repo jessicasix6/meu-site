@@ -317,38 +317,46 @@ async function loadRanking(sortBy, service) {
       // Perfil real recém-criado (pilar 4.12) ainda não tem avaliação, preço
       // nem distância de verdade — mostra "novo" em vez de tentar formatar
       // um número que não existe.
+      const reviewsText = typeof p.reviewCount === "number"
+        ? ` <span class="rank-review-count">• ${p.reviewCount} avaliações</span>` : "";
       const ratingHtml =
         typeof p.rating === "number"
-          ? `${starRow(p.rating)}<span class="rank-rating-num">${p.rating.toFixed(1)}</span>`
+          ? `${starRow(p.rating)}<span class="rank-rating-num">${p.rating.toFixed(1).replace(".", ",")}</span>${reviewsText}`
           : '<span class="chip chip--new">novo</span>';
-      const distanceChip = typeof p.distanceKm === "number" ? `<span class="chip">📍 ${p.distanceKm.toFixed(1)} km</span>` : "";
-      const priceChip = typeof p.price === "number" ? `<span class="chip">A partir de R$ ${p.price}</span>` : "";
+      const distanceText = typeof p.distanceKm === "number" ? `<span class="rank-meta-item">📍 ${p.distanceKm.toFixed(1)} km</span>` : "";
+      const priceText = typeof p.price === "number" ? `<span class="rank-meta-item rank-meta-price">A partir de R$ ${p.price}</span>` : "";
       const availBadge = p.isAvailable
         ? `<span class="avail-badge avail-badge--on">● Disponível</span>`
-        : `<span class="avail-badge avail-badge--off">Sem horário disponível</span>`;
+        : `<span class="avail-badge avail-badge--off">Sem horário</span>`;
       const nextSlotLine = p.nextSlot && p.isAvailable
-        ? `<p class="rank-next-slot">Próximo horário: ${escapeHtml(p.nextSlot)}</p>` : "";
+        ? `<p class="rank-next-slot">${escapeHtml(p.nextSlot)}</p>` : "";
       const ctaProfile = p.slug
-        ? `<a href="/prestador/${encodeURIComponent(p.slug)}" class="rank-cta--secondary" target="_blank" rel="noopener">Ver perfil</a>`
-        : "";
+        ? `<a href="/prestador/${encodeURIComponent(p.slug)}" class="rank-view-profile" target="_blank" rel="noopener">Ver perfil</a>`
+        : `<button type="button" class="rank-view-profile" disabled>Ver perfil</button>`;
       const ctaContact = p.slug
         ? `<a href="/prestador/${encodeURIComponent(p.slug)}" class="rank-cta" target="_blank" rel="noopener">Chamar / Agendar</a>`
         : `<button type="button" class="rank-cta" data-name="${escapeHtml(p.name)}">Chamar / Agendar</button>`;
       item.innerHTML = `
-        <div class="rank-card-top">
+        <div class="rank-card-header">
           <div class="rank-avatar">${escapeHtml(initials(p.name))}</div>
-          <span class="rank-pos">#${index + 1}</span>
+          <div class="rank-header-info">
+            <div class="rank-header-row">
+              <h3 class="rank-name">${escapeHtml(p.name)}</h3>
+              <span class="rank-pos">#${index + 1}</span>
+            </div>
+            <p class="rank-service">${escapeHtml(p.service)}</p>
+            <p class="rank-city">${escapeHtml(p.city)}</p>
+          </div>
         </div>
-        <h3 class="rank-name">${escapeHtml(p.name)}</h3>
-        <p class="rank-service">${escapeHtml(p.service)} · ${escapeHtml(p.city)}</p>
         <div class="rank-stars">${ratingHtml}</div>
-        <div class="rank-chips">
-          ${distanceChip}
-          ${priceChip}
-          ${p.fastReply ? '<span class="chip chip--fast">resposta rápida</span>' : ""}
+        <div class="rank-meta">
+          ${distanceText}
+          ${priceText}
         </div>
-        ${availBadge}
-        ${nextSlotLine}
+        <div class="rank-avail-row">
+          ${availBadge}
+          ${nextSlotLine}
+        </div>
         <div class="rank-cta-row">
           ${ctaProfile}
           ${ctaContact}
