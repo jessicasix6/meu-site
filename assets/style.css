@@ -331,6 +331,75 @@ a {
 
 /* task-013: era verde (#accent-dim = #12352f antes), completamente fora
    da paleta. Agora escuro com blur + borda ciano fraca. */
+/* Banner de permissão de localização */
+.geo-permission-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 1.5rem;
+  background: rgba(8, 14, 20, 0.94);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(53, 230, 255, 0.3);
+  text-align: center;
+}
+.geo-permission-banner p { margin: 0; color: #eafbff; font-size: 0.88rem; }
+.geo-banner-icon { font-size: 1.1rem; }
+.geo-banner-actions { display: flex; align-items: center; gap: 0.5rem; }
+.geo-btn { padding: 0.3rem 0.9rem; font-size: 0.82rem; }
+.geo-dismiss { background: none; border: none; color: #9db7c2; cursor: pointer; font-size: 1rem; padding: 0.2rem 0.4rem; }
+
+/* Modal de WhatsApp */
+.whatsapp-prompt-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+}
+.whatsapp-prompt-overlay[hidden] { display: none !important; }
+.whatsapp-prompt-box {
+  background: var(--surface, #0e1419);
+  border: 1px solid rgba(53,230,255,0.25);
+  border-radius: 10px;
+  padding: 1.5rem;
+  width: min(340px, 92vw);
+  display: flex; flex-direction: column; gap: 0.75rem;
+}
+.whatsapp-prompt-title { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--text); }
+.whatsapp-prompt-desc { margin: 0; font-size: 0.87rem; color: var(--text-dim); }
+.whatsapp-prompt-input {
+  width: 100%; box-sizing: border-box;
+  padding: 0.6rem 0.75rem; border-radius: 6px;
+  border: 1px solid rgba(53,230,255,0.2);
+  background: rgba(255,255,255,0.04); color: var(--text);
+  font-size: 1rem;
+}
+.whatsapp-prompt-actions { display: flex; gap: 0.6rem; }
+.whatsapp-prompt-actions button { flex: 1; }
+
+/* Painel de tracking ao vivo */
+.live-tracking-panel {
+  margin-top: 1.2rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid rgba(53,230,255,0.2);
+  border-radius: 8px;
+  background: rgba(53,230,255,0.04);
+}
+.live-tracking-title {
+  margin: 0 0 0.35rem;
+  font-weight: 600; font-size: 0.95rem;
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.live-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: #2ecc71; display: inline-block;
+  animation: blink-live 1.2s ease-in-out infinite;
+}
+@keyframes blink-live { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.live-tracking-desc { margin: 0 0 0.75rem; font-size: 0.84rem; color: var(--text-dim); }
+.live-tracking-btn { font-size: 0.85rem; padding: 0.4rem 1rem; }
+.live-tracking-status { margin: 0.5rem 0 0; font-size: 0.83rem; color: var(--accent); }
+
 .login-suggestion-banner {
   display: flex;
   align-items: center;
@@ -1952,6 +2021,17 @@ button.cta-secondary:hover {
   margin-top: 0.25rem;
   font-size: 0.82rem;
   color: var(--text-dim);
+}
+.ride-track-btn {
+  margin-top: 0.5rem;
+  padding: 0.28rem 0.7rem;
+  font-size: 0.78rem;
+}
+.ride-live-pos {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--accent);
 }
 
 .ride-empty,

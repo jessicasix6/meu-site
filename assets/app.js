@@ -568,9 +568,10 @@ function renderRideResults(matches) {
     ? `<ul class="ride-matches">${matches
         .map(
           (r) => `
-        <li class="ride-match">
+        <li class="ride-match" data-owner-id="${escapeHtml(r.ownerUserId || "")}">
           <strong>${escapeHtml(r.title)}</strong>
           <span class="ride-match-meta">${escapeHtml(r.requester)} · ${escapeHtml(r.when || "a combinar")} · R$ ${r.price}</span>
+          ${r.ownerUserId ? `<button type="button" class="ride-track-btn cta-secondary" data-user-id="${escapeHtml(r.ownerUserId)}">📍 Ver ao vivo</button><span class="ride-live-pos" hidden></span>` : ""}
         </li>`
         )
         .join("")}</ul>`
@@ -605,7 +606,30 @@ rideForm.addEventListener("submit", async (event) => {
   }
 });
 
-rideResults.addEventListener("click", (event) => {
+rideResults.addEventListener("click", async (event) => {
+  const trackBtn = event.target.closest(".ride-track-btn");
+  if (trackBtn) {
+    const userId = trackBtn.dataset.userId;
+    const posEl = trackBtn.closest(".ride-match").querySelector(".ride-live-pos");
+    if (!posEl) return;
+    if (!posEl.hidden) { posEl.hidden = true; trackBtn.textContent = "📍 Ver ao vivo"; return; }
+    posEl.hidden = false;
+    trackBtn.textContent = "⏹ Fechar";
+    posEl.textContent = "buscando posição…";
+    const poll = async () => {
+      try {
+        const r = await fetch(`/api/location/${encodeURIComponent(userId)}`);
+        const d = await r.json();
+        if (!d.online) { posEl.textContent = "Motorista não está compartilhando posição no momento."; return; }
+        const mapsLink = `https://www.google.com/maps?q=${d.lat},${d.lng}`;
+        posEl.innerHTML = `<a href="${mapsLink}" target="_blank" rel="noopener noreferrer">Ver no mapa ↗</a> · atualizado ${new Date(d.updatedAt).toLocaleTimeString("pt-BR")}`;
+        if (!posEl.hidden) setTimeout(poll, 6000);
+      } catch (_) { posEl.textContent = "Falha ao obter posição."; }
+    };
+    poll();
+    return;
+  }
+
   const btn = event.target.closest("#ride-publish-btn");
   if (!btn) return;
   const from = rideFrom.value.trim();
@@ -2155,6 +2179,10 @@ function renderLoggedInUser(user, providers, groups, requests) {
   // signup-toggle removido (tarefa de simplificação do login)
   hideLoginSuggestionBanner();
   renderUserPanel();
+  // Prompt de WhatsApp para quem entrou via login social sem número cadastrado
+  showWhatsAppPromptIfNeeded(user);
+  // Painel de tracking ao vivo (aparece na seção de corridas para usuários logados)
+  initLiveTracking(user);
 }
 
 // Edição de perfil (task-003) — WhatsApp, tipo de uso, dados de motorista e
@@ -2503,6 +2531,149 @@ fetch("/api/auth/config")
   })
   .catch(() => {})
   .finally(() => showLoginSuggestionBannerIfApplicable());
+
+// ── Banner de permissão de localização ─────────────────────────────────────
+// Pede permissão logo ao abrir o site (não só ao ordenar por distância).
+// Se já foi concedida, aproveitamos sem mostrar o banner.
+(async function initGeoBanner() {
+  if (!navigator.geolocation) return;
+  const banner = document.getElementById("geo-permission-banner");
+  const activateBtn = document.getElementById("geo-permission-btn");
+  const dismissBtn = document.getElementById("geo-permission-dismiss");
+  if (!banner) return;
+
+  let permState = "prompt";
+  try {
+    const perm = await navigator.permissions.query({ name: "geolocation" });
+    permState = perm.state;
+  } catch (_) {}
+
+  if (permState === "granted") return; // já tem, não mostra nada
+  if (permState === "denied") return;  // negada, não adianta pedir
+
+  // Só mostra se ainda não foi dispensado nesta sessão
+  if (sessionStorage.getItem("geo-banner-dismissed")) return;
+  banner.hidden = false;
+
+  activateBtn.addEventListener("click", () => {
+    banner.hidden = true;
+    navigator.geolocation.getCurrentPosition(() => {}, () => {});
+  });
+  dismissBtn.addEventListener("click", () => {
+    banner.hidden = true;
+    sessionStorage.setItem("geo-banner-dismissed", "1");
+  });
+})();
+
+// ── Prompt de WhatsApp para usuários de login social ────────────────────────
+// Usuários que entram pelo Google/Facebook/Instagram não passam pelo cadastro
+// com WhatsApp — pedimos depois do login se ainda não tiver.
+function showWhatsAppPromptIfNeeded(user) {
+  if (user.whatsapp) return;
+  const overlay = document.getElementById("whatsapp-prompt-modal");
+  const input = document.getElementById("whatsapp-prompt-input");
+  const saveBtn = document.getElementById("whatsapp-prompt-save");
+  const skipBtn = document.getElementById("whatsapp-prompt-skip");
+  const errorEl = document.getElementById("whatsapp-prompt-error");
+  if (!overlay) return;
+  overlay.hidden = false;
+
+  saveBtn.addEventListener("click", async () => {
+    errorEl.hidden = true;
+    const val = input.value.trim();
+    const digits = val.replace(/\D/g, "");
+    if (digits.length < 10 || digits.length > 11) {
+      errorEl.textContent = "Use o formato (DD) 9XXXX-XXXX";
+      errorEl.hidden = false;
+      return;
+    }
+    saveBtn.disabled = true;
+    try {
+      const r = await fetch("/api/auth/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ whatsapp: val }),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        errorEl.textContent = data.error || "Não consegui salvar.";
+        errorEl.hidden = false;
+        return;
+      }
+      overlay.hidden = true;
+    } catch (_) {
+      errorEl.textContent = "Falha de conexão.";
+      errorEl.hidden = false;
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+  skipBtn.addEventListener("click", () => { overlay.hidden = true; });
+}
+
+// ── Rastreamento ao vivo de corridas ────────────────────────────────────────
+let liveTrackingWatchId = null;
+let liveTrackingInterval = null;
+
+function initLiveTracking(user) {
+  const panel = document.getElementById("live-tracking-panel");
+  const toggleBtn = document.getElementById("live-tracking-toggle");
+  const statusEl = document.getElementById("live-tracking-status");
+  if (!panel || !toggleBtn) return;
+  panel.hidden = false;
+
+  toggleBtn.addEventListener("click", () => {
+    if (liveTrackingWatchId !== null) {
+      // Para o compartilhamento
+      navigator.geolocation.clearWatch(liveTrackingWatchId);
+      clearInterval(liveTrackingInterval);
+      liveTrackingWatchId = null;
+      liveTrackingInterval = null;
+      fetch("/api/location", { method: "DELETE" }).catch(() => {});
+      toggleBtn.textContent = "Iniciar compartilhamento";
+      toggleBtn.classList.remove("cta-primary");
+      toggleBtn.classList.add("cta-secondary");
+      if (statusEl) statusEl.hidden = true;
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      if (statusEl) { statusEl.textContent = "Geolocalização não suportada neste dispositivo."; statusEl.hidden = false; }
+      return;
+    }
+
+    let lastPos = null;
+    liveTrackingWatchId = navigator.geolocation.watchPosition(
+      (pos) => { lastPos = { lat: pos.coords.latitude, lng: pos.coords.longitude }; },
+      () => {
+        if (statusEl) { statusEl.textContent = "Sem acesso à localização — verifique as permissões."; statusEl.hidden = false; }
+        navigator.geolocation.clearWatch(liveTrackingWatchId);
+        liveTrackingWatchId = null;
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+    );
+
+    // Envia posição ao servidor a cada 8 segundos
+    liveTrackingInterval = setInterval(async () => {
+      if (!lastPos) return;
+      try {
+        await fetch("/api/location", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(lastPos),
+        });
+      } catch (_) {}
+    }, 8000);
+
+    toggleBtn.textContent = "Parar compartilhamento";
+    toggleBtn.classList.remove("cta-secondary");
+    toggleBtn.classList.add("cta-primary");
+    if (statusEl) {
+      statusEl.textContent = "Compartilhando localização ao vivo…";
+      statusEl.hidden = false;
+    }
+  });
+}
 
 // task-012 — nova home "TOP3 SYSTEM": tudo que parece estatística ou
 // atividade aqui embaixo vem de consulta real (fetch pro backend), nunca

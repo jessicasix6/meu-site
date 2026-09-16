@@ -132,6 +132,30 @@ const REQUEST_TYPE_MAX_LENGTH = 30;
 const REQUEST_WHATSAPP_MAX_LENGTH = 20;
 const REQUEST_LOCATION_MAX_LENGTH = 80;
 
+// Valida e normaliza número de WhatsApp brasileiro.
+// Retorna { ok: true, digits } ou { ok: false, error }.
+function validateBrazilianPhone(raw) {
+  if (!raw || typeof raw !== "string") return { ok: false, error: "informe um WhatsApp para contato" };
+  const digits = raw.replace(/\D/g, "");
+  // Aceita 10 (DDD + 8 dígitos, fixo) ou 11 (DDD + 9 dígitos, celular)
+  if (digits.length < 10 || digits.length > 11) {
+    return { ok: false, error: "WhatsApp inválido — use o formato (DD) 9XXXX-XXXX" };
+  }
+  const ddd = Number(digits.slice(0, 2));
+  if (ddd < 11 || ddd > 99) {
+    return { ok: false, error: "DDD inválido no WhatsApp informado" };
+  }
+  // Celular com 11 dígitos deve começar com 6, 7, 8 ou 9 após o DDD
+  if (digits.length === 11 && !["6","7","8","9"].includes(digits[2])) {
+    return { ok: false, error: "WhatsApp inválido — número celular deve começar com 9 após o DDD" };
+  }
+  // Rejeita números obviamente falsos (todos iguais ou sequenciais)
+  if (/^(\d)\1+$/.test(digits)) {
+    return { ok: false, error: "WhatsApp inválido — número não pode ser todo repetido" };
+  }
+  return { ok: true, digits };
+}
+
 
 // Teto de segurança pro orçamento (ver docs/visao-produto.md seção 7). Brave
 // Search cobra US$5/1000 buscas; esse número fica com margem confortável
@@ -1058,19 +1082,14 @@ app.post("/api/auth/signup", async (req, res) => {
   if (!password || typeof password !== "string" || password.length < PASSWORD_MIN_LENGTH) {
     return res.status(400).json({ error: `senha precisa ter pelo menos ${PASSWORD_MIN_LENGTH} caracteres` });
   }
-  if (!whatsapp || typeof whatsapp !== "string" || !whatsapp.trim()) {
-    return res.status(400).json({ error: "informe seu WhatsApp" });
-  }
-  const normalizedWhatsapp = whatsapp.trim();
-  if (normalizedWhatsapp.length > REQUEST_WHATSAPP_MAX_LENGTH) {
-    return res.status(400).json({ error: `WhatsApp muito longo (máximo ${REQUEST_WHATSAPP_MAX_LENGTH} caracteres)` });
-  }
+  const wpResult = validateBrazilianPhone(whatsapp);
+  if (!wpResult.ok) return res.status(400).json({ error: wpResult.error });
   if (USERS.some((u) => u.email && u.email.toLowerCase() === normalizedEmail)) {
     return res.status(409).json({ error: "já existe conta com esse e-mail — tente entrar em vez de cadastrar" });
   }
 
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-  const user = createUser({ passwordHash, email: normalizedEmail, name: name.trim(), whatsapp: normalizedWhatsapp });
+  const user = createUser({ passwordHash, email: normalizedEmail, name: name.trim(), whatsapp: wpResult.digits });
   startSession(req, res, user);
   res.status(201).json({ user: publicUserFields(user) });
 });
@@ -1758,18 +1777,47 @@ app.get("/api/price-reference", async (req, res) => {
   }
 });
 
-// ownerUserId nunca aparece numa resposta pública (mesma regra já aplicada
-// em Grupos e Perfis) — só existe pra filtrar "meus pedidos" no painel
-// pessoal de quem publicou logado.
-// lat/lng (task-009, item 1) ficam de fora do público por padrão, mesmo
-// motivo de sempre: coordenada exata de onde alguém está é mais sensível
-// que a localização em texto que a própria pessoa já escolheu mostrar —
-// mesmo padrão que carona/grupos já seguem (lat/lng nunca sai em
-// groupSummary, só o derivado disso, tipo distanceKm).
+// lat/lng (task-009, item 1) ficam de fora do público — coordenada exata
+// é mais sensível que o texto de localização que a própria pessoa já escolheu
+// mostrar. ownerUserId é exposto como ID opaco (não revela nome/contato)
+// e é necessário para que passageiros consultem o tracking ao vivo do motorista.
 function requestSummary(r) {
-  const { ownerUserId, lat, lng, ...rest } = r;
+  const { lat, lng, ...rest } = r;
   return rest;
 }
+
+// Localização ao vivo (rastreamento de corridas em tempo real).
+// Motoristas autenticados publicam posição GPS; passageiros consultam.
+const LIVE_LOCATIONS = new Map(); // userId -> { lat, lng, updatedAt }
+const LIVE_LOCATION_TTL_MS = 2 * 60 * 1000; // 2 min sem atualizar = offline
+
+app.post("/api/location", (req, res) => {
+  const user = getSessionUser(req);
+  if (!user) return res.status(401).json({ error: "não autenticado" });
+  const { lat, lng } = req.body || {};
+  const latN = Number(lat);
+  const lngN = Number(lng);
+  if (!Number.isFinite(latN) || !Number.isFinite(lngN) || Math.abs(latN) > 90 || Math.abs(lngN) > 180) {
+    return res.status(400).json({ error: "coordenadas inválidas" });
+  }
+  LIVE_LOCATIONS.set(user.id, { lat: latN, lng: lngN, updatedAt: Date.now() });
+  res.json({ ok: true });
+});
+
+app.delete("/api/location", (req, res) => {
+  const user = getSessionUser(req);
+  if (!user) return res.status(401).json({ error: "não autenticado" });
+  LIVE_LOCATIONS.delete(user.id);
+  res.json({ ok: true });
+});
+
+app.get("/api/location/:userId", (req, res) => {
+  const entry = LIVE_LOCATIONS.get(req.params.userId);
+  if (!entry || Date.now() - entry.updatedAt > LIVE_LOCATION_TTL_MS) {
+    return res.json({ online: false });
+  }
+  res.json({ online: true, lat: entry.lat, lng: entry.lng, updatedAt: entry.updatedAt });
+});
 
 app.get("/api/requests", (req, res) => {
   res.json({ requests: REQUESTS.map(requestSummary) });
@@ -1807,13 +1855,9 @@ function createRequest({ type, title, requester, when, price, whatsapp, location
   // caso à toa. Quando realmente não vem nenhuma (nem digitada, nem
   // extraída), o post segue sem local (mostrado como "local não
   // informado" no card) em vez de travar a publicação.
-  if (!whatsapp || typeof whatsapp !== "string" || !whatsapp.trim()) {
-    return { ok: false, error: "informe um WhatsApp pra contato" };
-  }
-  const normalizedWhatsapp = whatsapp.trim();
-  if (normalizedWhatsapp.length > REQUEST_WHATSAPP_MAX_LENGTH) {
-    return { ok: false, error: `WhatsApp muito longo (máximo ${REQUEST_WHATSAPP_MAX_LENGTH} caracteres)` };
-  }
+  const wpResult = validateBrazilianPhone(whatsapp);
+  if (!wpResult.ok) return { ok: false, error: wpResult.error };
+  const normalizedWhatsapp = wpResult.digits;
   if (location !== undefined && location !== null && typeof location !== "string") {
     return { ok: false, error: "localização inválida" };
   }

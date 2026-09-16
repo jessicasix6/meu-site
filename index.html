@@ -199,6 +199,26 @@
   </div>
 
   <main>
+    <div id="geo-permission-banner" class="geo-permission-banner" hidden>
+      <span class="geo-banner-icon" aria-hidden="true">📍</span>
+      <p>Ative a localização para ver corridas e profissionais perto de você.</p>
+      <div class="geo-banner-actions">
+        <button type="button" id="geo-permission-btn" class="cta-secondary geo-btn">Ativar</button>
+        <button type="button" id="geo-permission-dismiss" aria-label="Fechar" class="geo-dismiss">✕</button>
+      </div>
+    </div>
+    <div id="whatsapp-prompt-modal" class="whatsapp-prompt-overlay" hidden>
+      <div class="whatsapp-prompt-box">
+        <p class="whatsapp-prompt-title">Informe seu WhatsApp</p>
+        <p class="whatsapp-prompt-desc">Necessário para que motoristas e prestadores entrem em contato com você.</p>
+        <input id="whatsapp-prompt-input" type="tel" placeholder="(31) 99999-0000" class="whatsapp-prompt-input" maxlength="20" />
+        <p id="whatsapp-prompt-error" class="post-status post-status--error" hidden></p>
+        <div class="whatsapp-prompt-actions">
+          <button type="button" id="whatsapp-prompt-save" class="cta-primary">Salvar</button>
+          <button type="button" id="whatsapp-prompt-skip" class="cta-secondary">Agora não</button>
+        </div>
+      </div>
+    </div>
     <div id="login-suggestion-banner" class="login-suggestion-banner" hidden>
       <p>Crie uma conta grátis e preencha seus dados uma vez só — da próxima vez é tudo automático.</p>
       <div class="login-suggestion-actions">
@@ -520,6 +540,15 @@
           <button type="submit">Buscar</button>
         </form>
         <div id="ride-results" class="ride-results" aria-live="polite"></div>
+        <div id="live-tracking-panel" class="live-tracking-panel" hidden>
+          <p class="live-tracking-title">
+            <span class="live-dot" aria-hidden="true"></span>
+            Compartilhar minha localização ao vivo
+          </p>
+          <p class="live-tracking-desc">Ative para que passageiros vejam sua posição em tempo real durante a corrida.</p>
+          <button type="button" id="live-tracking-toggle" class="cta-secondary live-tracking-btn">Iniciar compartilhamento</button>
+          <p id="live-tracking-status" class="live-tracking-status" hidden></p>
+        </div>
       </div>
     </section>
 
