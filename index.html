@@ -659,6 +659,54 @@
             <label id="provider-photos-label" for="provider-photos">Fotos (pelo menos uma)</label>
             <input id="provider-photos" name="photos" type="file" accept="image/png,image/jpeg,image/webp" multiple required />
           </div>
+          <div class="post-field post-field--wide">
+            <label>Disponibilidade (horários em que você atende)</label>
+            <div class="provider-availability-list" id="provider-availability-list">
+              <div class="provider-avail-row" data-day="segunda">
+                <span class="provider-avail-day">Seg</span>
+                <input type="time" class="provider-avail-inicio" aria-label="Segunda, início" />
+                <span class="provider-avail-sep">–</span>
+                <input type="time" class="provider-avail-fim" aria-label="Segunda, fim" />
+              </div>
+              <div class="provider-avail-row" data-day="terca">
+                <span class="provider-avail-day">Ter</span>
+                <input type="time" class="provider-avail-inicio" aria-label="Terça, início" />
+                <span class="provider-avail-sep">–</span>
+                <input type="time" class="provider-avail-fim" aria-label="Terça, fim" />
+              </div>
+              <div class="provider-avail-row" data-day="quarta">
+                <span class="provider-avail-day">Qua</span>
+                <input type="time" class="provider-avail-inicio" aria-label="Quarta, início" />
+                <span class="provider-avail-sep">–</span>
+                <input type="time" class="provider-avail-fim" aria-label="Quarta, fim" />
+              </div>
+              <div class="provider-avail-row" data-day="quinta">
+                <span class="provider-avail-day">Qui</span>
+                <input type="time" class="provider-avail-inicio" aria-label="Quinta, início" />
+                <span class="provider-avail-sep">–</span>
+                <input type="time" class="provider-avail-fim" aria-label="Quinta, fim" />
+              </div>
+              <div class="provider-avail-row" data-day="sexta">
+                <span class="provider-avail-day">Sex</span>
+                <input type="time" class="provider-avail-inicio" aria-label="Sexta, início" />
+                <span class="provider-avail-sep">–</span>
+                <input type="time" class="provider-avail-fim" aria-label="Sexta, fim" />
+              </div>
+              <div class="provider-avail-row" data-day="sabado">
+                <span class="provider-avail-day">Sáb</span>
+                <input type="time" class="provider-avail-inicio" aria-label="Sábado, início" />
+                <span class="provider-avail-sep">–</span>
+                <input type="time" class="provider-avail-fim" aria-label="Sábado, fim" />
+              </div>
+              <div class="provider-avail-row" data-day="domingo">
+                <span class="provider-avail-day">Dom</span>
+                <input type="time" class="provider-avail-inicio" aria-label="Domingo, início" />
+                <span class="provider-avail-sep">–</span>
+                <input type="time" class="provider-avail-fim" aria-label="Domingo, fim" />
+              </div>
+            </div>
+            <p class="post-field-hint">Deixe em branco os dias que não atende.</p>
+          </div>
           <div class="post-field post-field--wide post-field--checkbox">
             <label for="provider-new-background">
               <input id="provider-new-background" name="newBackground" type="checkbox" />

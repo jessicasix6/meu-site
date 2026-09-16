@@ -46,6 +46,40 @@ function slugify(text) {
   return (base || "prestador") + "-" + Math.random().toString(36).slice(2, 6);
 }
 
+// Mapa dia-da-semana (nome em PT) → índice JS (0=dom, 1=seg...)
+const DAY_INDEX = { domingo: 0, segunda: 1, terca: 2, terça: 2, quarta: 3, quinta: 4, sexta: 5, sabado: 6, sábado: 6 };
+
+// Recebe array de { dia, inicio, fim } (ex: [{dia:"segunda",inicio:"09:00",fim:"17:00"}])
+// e devolve { label, hour, minute } do próximo horário válido a partir de agora,
+// ou null se não houver nenhum nas próximas 7 dias.
+function computeNextSlot(availability) {
+  if (!Array.isArray(availability) || availability.length === 0) return null;
+  const now = new Date();
+  const todayIndex = now.getDay();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+  let best = null;
+  for (let offset = 0; offset < 7; offset++) {
+    const dayIndex = (todayIndex + offset) % 7;
+    const slots = availability.filter((s) => DAY_INDEX[s.dia] === dayIndex && s.inicio && s.fim);
+    for (const slot of slots) {
+      const [h, m] = slot.inicio.split(":").map(Number);
+      const slotMinutes = h * 60 + m;
+      if (offset === 0 && slotMinutes <= nowMinutes) continue;
+      const candidate = { offset, hour: h, minute: m };
+      if (!best || offset < best.offset || (offset === best.offset && slotMinutes < best.hour * 60 + best.minute)) {
+        best = candidate;
+      }
+    }
+    if (best && best.offset === offset) break;
+  }
+  if (!best) return null;
+  const hh = String(best.hour).padStart(2, "0");
+  const mm = String(best.minute).padStart(2, "0");
+  const label = best.offset === 0 ? `Hoje ${hh}:${mm}` : best.offset === 1 ? `Amanhã ${hh}:${mm}` : `Em ${best.offset} dias ${hh}:${mm}`;
+  return { label, hour: best.hour, minute: best.minute, offset: best.offset };
+}
+
 // Fórmula de Haversine — distância real em km entre dois pontos lat/lng.
 function haversineKm(lat1, lng1, lat2, lng2) {
   const R = 6371;
@@ -1491,18 +1525,24 @@ function isOwnerSuspended(ownerUserId) {
 }
 
 function providerProfilesForRanking() {
-  return PROVIDER_PROFILES.filter((p) => !isOwnerSuspended(p.ownerUserId)).map((p) => ({
-    name: p.name,
-    service: p.service,
-    city: p.location,
-    rating: null,
-    distanceKm: null,
-    price: null,
-    fastReply: false,
-    lat: null,
-    lng: null,
-    slug: p.slug,
-  }));
+  return PROVIDER_PROFILES.filter((p) => !isOwnerSuspended(p.ownerUserId)).map((p) => {
+    const nextSlot = computeNextSlot(p.availability);
+    return {
+      name: p.name,
+      service: p.service,
+      city: p.location,
+      rating: null,
+      distanceKm: null,
+      price: null,
+      fastReply: false,
+      lat: null,
+      lng: null,
+      slug: p.slug,
+      availability: p.availability || [],
+      nextSlot: nextSlot ? nextSlot.label : null,
+      isAvailable: Boolean(nextSlot),
+    };
+  });
 }
 
 app.get("/api/ranking", (req, res) => {
@@ -1538,8 +1578,10 @@ app.get("/api/ranking", (req, res) => {
 
   const top3 = sorted
     .slice(0, 3)
-    .map(({ name, service, city, rating, distanceKm, price, fastReply, slug }) => ({
+    .map(({ name, service, city, rating, distanceKm, price, fastReply, slug, nextSlot, isAvailable, time }) => ({
       name, service, city, rating, distanceKm, price, fastReply, slug: slug || null,
+      nextSlot: nextSlot || (time ? `Disponível ${time}` : null),
+      isAvailable: isAvailable != null ? isAvailable : Boolean(nextSlot || time),
     }));
   res.json({ top3, sortBy, usedRealLocation: hasRealLocation && sortBy === "distance" });
 });
@@ -3234,6 +3276,15 @@ app.post("/api/providers", (req, res, next) => {
     const bio = fields.description;
 
     const currentUser = getCurrentUser(req);
+    let availability = [];
+    try {
+      const raw = req.body.availability;
+      if (raw) availability = JSON.parse(raw);
+    } catch (_) {}
+    availability = (Array.isArray(availability) ? availability : []).filter(
+      (s) => s && s.dia && s.inicio && s.fim
+    );
+
     const provider = {
       id,
       slug,
@@ -3243,6 +3294,7 @@ app.post("/api/providers", (req, res, next) => {
       location: fields.location,
       whatsapp: fields.whatsapp,
       photos,
+      availability,
       // Login é opcional (pilar 4.13) — perfil continua podendo ser criado
       // sem logar, só fica sem dono (ownerUserId null) nesse caso.
       ownerUserId: currentUser ? currentUser.id : null,
@@ -3309,6 +3361,15 @@ app.put("/api/providers/:slug", uploadProviderPhotos, async (req, res) => {
     provider.service = fields.service;
     provider.location = fields.location;
     provider.whatsapp = fields.whatsapp;
+    try {
+      const rawAvail = req.body.availability;
+      if (rawAvail !== undefined) {
+        const parsed = JSON.parse(rawAvail);
+        provider.availability = (Array.isArray(parsed) ? parsed : []).filter(
+          (s) => s && s.dia && s.inicio && s.fim
+        );
+      }
+    } catch (_) {}
     provider.updatedAt = new Date().toISOString();
     res.json({ provider });
   } catch (err) {

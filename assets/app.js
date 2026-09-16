@@ -321,11 +321,19 @@ async function loadRanking(sortBy, service) {
         typeof p.rating === "number"
           ? `${starRow(p.rating)}<span class="rank-rating-num">${p.rating.toFixed(1)}</span>`
           : '<span class="chip chip--new">novo</span>';
-      const distanceChip = typeof p.distanceKm === "number" ? `<span class="chip">${p.distanceKm.toFixed(1)} km</span>` : "";
-      const priceChip = typeof p.price === "number" ? `<span class="chip">R$ ${p.price}</span>` : "";
-      const ctaHtml = p.slug
-        ? `<a href="/prestador/${encodeURIComponent(p.slug)}" class="rank-cta" target="_blank" rel="noopener">Ver perfil</a>`
-        : `<button type="button" class="rank-cta" data-name="${escapeHtml(p.name)}">Chamar agora</button>`;
+      const distanceChip = typeof p.distanceKm === "number" ? `<span class="chip">📍 ${p.distanceKm.toFixed(1)} km</span>` : "";
+      const priceChip = typeof p.price === "number" ? `<span class="chip">A partir de R$ ${p.price}</span>` : "";
+      const availBadge = p.isAvailable
+        ? `<span class="avail-badge avail-badge--on">● Disponível</span>`
+        : `<span class="avail-badge avail-badge--off">Sem horário disponível</span>`;
+      const nextSlotLine = p.nextSlot && p.isAvailable
+        ? `<p class="rank-next-slot">Próximo horário: ${escapeHtml(p.nextSlot)}</p>` : "";
+      const ctaProfile = p.slug
+        ? `<a href="/prestador/${encodeURIComponent(p.slug)}" class="rank-cta--secondary" target="_blank" rel="noopener">Ver perfil</a>`
+        : "";
+      const ctaContact = p.slug
+        ? `<a href="/prestador/${encodeURIComponent(p.slug)}" class="rank-cta" target="_blank" rel="noopener">Chamar / Agendar</a>`
+        : `<button type="button" class="rank-cta" data-name="${escapeHtml(p.name)}">Chamar / Agendar</button>`;
       item.innerHTML = `
         <div class="rank-card-top">
           <div class="rank-avatar">${escapeHtml(initials(p.name))}</div>
@@ -339,7 +347,12 @@ async function loadRanking(sortBy, service) {
           ${priceChip}
           ${p.fastReply ? '<span class="chip chip--fast">resposta rápida</span>' : ""}
         </div>
-        ${ctaHtml}
+        ${availBadge}
+        ${nextSlotLine}
+        <div class="rank-cta-row">
+          ${ctaProfile}
+          ${ctaContact}
+        </div>
       `;
       rankingList.appendChild(item);
     });
@@ -1930,6 +1943,12 @@ async function startEditingProvider(slug) {
     providerForm.elements.location.value = provider.location;
     providerForm.elements.whatsapp.value = provider.whatsapp;
     providerForm.elements.description.value = "";
+    const avail = Array.isArray(provider.availability) ? provider.availability : [];
+    providerAvailRows.forEach((row) => {
+      const slot = avail.find((s) => s.dia === row.dataset.day);
+      row.querySelector(".provider-avail-inicio").value = slot ? slot.inicio : "";
+      row.querySelector(".provider-avail-fim").value = slot ? slot.fim : "";
+    });
     providerEditName.textContent = provider.name;
     setProviderFormMode("edit");
     highlightSection(document.getElementById("criar-perfil"));
@@ -1949,9 +1968,22 @@ providerEditCancel.addEventListener("click", () => {
   providerResult.hidden = true;
 });
 
+const providerAvailRows = document.querySelectorAll("#provider-availability-list .provider-avail-row");
+
+function collectProviderAvailability() {
+  const slots = [];
+  providerAvailRows.forEach((row) => {
+    const inicio = row.querySelector(".provider-avail-inicio").value;
+    const fim = row.querySelector(".provider-avail-fim").value;
+    if (inicio && fim) slots.push({ dia: row.dataset.day, inicio, fim });
+  });
+  return slots;
+}
+
 providerForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const data = new FormData(providerForm);
+  data.set("availability", JSON.stringify(collectProviderAvailability()));
   const isEditing = Boolean(editingProviderSlug);
 
   providerStatus.textContent = isEditing ? "salvando alterações…" : "criando seu perfil…";
