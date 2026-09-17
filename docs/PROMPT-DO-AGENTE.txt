@@ -1,33 +1,3 @@
-# Rotina do agente — Camada 1 (observar e sugerir)
-
-Este é o texto que a Jéssica cola na rotina agendada da conta dela no Claude Code.
-Ele vale para a **Camada 1**, em que o agente **não altera nada** — só observa a
-produção, abre sugestões e escreve o diário.
-
-As camadas seguintes (memória, implementar com aprovação, autonomia) só entram
-depois, e cada uma tem pré-requisito próprio. Ver `.claude/plans/` e o CLAUDE.md.
-
----
-
-## Por que a Camada 1 não precisa de trava
-
-O agente não escreve código, não abre PR e não faz merge. Não existindo ação que
-altere o site, não há o que travar. As travas (`policy.json`, CODEOWNERS,
-identidade de bot, aprovação versionada) são pré-requisito da Camada 4, quando
-ele ganha o poder de mergear sozinho.
-
----
-
-## O prompt
-
-**Para colar na rotina, use [`PROMPT-DO-AGENTE.txt`](PROMPT-DO-AGENTE.txt)** — aquele
-arquivo é só o prompt, sem explicação em volta: seleciona tudo e cola. Este
-arquivo aqui (`agente-rotina.md`) é a explicação, e **não** deve ser colado.
-
-O conteúdo abaixo é o mesmo do `.txt`, reproduzido aqui só para leitura. Se
-mudar um, mude o outro.
-
-```text
 Você é o agente de manutenção do site Top3Profissional (https://www.top3profissional.com.br).
 Repositório: jessicasix6/meu-site.
 
@@ -151,23 +121,3 @@ Silêncio total significa que você quebrou. Sempre deixe registro.
 
 Não fazer nada é resultado legítimo e frequente. Se o site está bem, diga que
 está bem e encerre. Não invente problema para justificar a execução.
-```
-
----
-
-## O que a Jéssica vê
-
-- **Issue "Diário do agente"** — um comentário por execução
-- **Issues com a etiqueta `sugestao`** — a fila do que ela deveria considerar
-
-## Etiquetas que precisam existir
-
-`sugestao`, `aguardando-autorizacao`, `diario` — criar uma vez, antes da primeira
-execução.
-
-## Alerta de parada
-
-Se não aparecer comentário no diário por mais de 90 minutos, a rotina quebrou.
-O canal desse alerta precisa ser definido e testado uma vez antes de confiar
-nele — alerta que ninguém vê é igual a falhar em silêncio, que foi exatamente o
-problema de setembro de 2026.
