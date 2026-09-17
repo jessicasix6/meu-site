@@ -1,0 +1,114 @@
+# Vigia da rotina do agente.
+#
+# O agente não consegue avisar que morreu — quem está morto não manda recado.
+# Então quem avisa é este workflow, que roda por fora e cobra presença: se o
+# diário não recebe comentário há mais de 90 minutos, ele marca a Jéssica numa
+# issue, e a marcação vira e-mail do GitHub.
+#
+# Esse é exatamente o problema de setembro de 2026, quando a rotina passou horas
+# falhando em silêncio e aparecendo como sucesso.
+name: vigia-agente
+
+on:
+  schedule:
+    # A cada 30 minutos. O agendador do GitHub atrasa sob carga, o que é
+    # aceitável para um limite de 90 minutos.
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      forcar_alerta:
+        description: "Manda o alerta mesmo com o diário em dia (para testar o canal)"
+        type: boolean
+        default: false
+
+permissions:
+  issues: write
+
+jobs:
+  checar-diario:
+    # Duas execuções simultâneas passariam as duas pela checagem do marcador
+    # antes de qualquer uma comentar, gerando alerta e e-mail em dobro.
+    concurrency:
+      group: vigia-agente-${{ github.repository }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cobrar presenca do agente
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          DONA: ${{ github.repository_owner }}
+          FORCAR: ${{ inputs.forcar_alerta }}
+        run: |
+          set -euo pipefail
+          LIMITE_MIN=90
+          MARCADOR='<!-- alerta-vigia -->'
+
+          NUM=$(gh issue list --repo "$REPO" --label diario --state open \
+                  --limit 1 --json number --jq '.[0].number // empty')
+
+          if [ -z "$NUM" ]; then
+            # Sair aqui deixaria o caso "o agente nunca comecou" sem alerta
+            # nenhum, que e o mesmo silencio que este vigia existe pra acabar.
+            # Criando o diario vazio, a falta de comentario vira alerta em 90min.
+            echo "Nao existe issue de diario. Criando para poder cobrar presenca."
+            # gh issue create devolve a URL, nao JSON — o numero sai do fim dela.
+            URL=$(gh issue create --repo "$REPO" \
+                    --title "Diário do agente" \
+                    --label diario \
+                    --body "Registro de cada execução da rotina do agente. Criado pelo vigia porque ainda não existia.")
+            NUM="${URL##*/}"
+            echo "Diario criado: #$NUM"
+          fi
+
+          if [ -z "$NUM" ]; then
+            echo "Nao consegui obter o numero do diario."
+            exit 1
+          fi
+
+          # --paginate roda o --jq em CADA pagina: um diario com mais de 30
+          # comentarios devolveria varias datas e o `date` abaixo morreria sob
+          # set -e — o vigia falharia calado justamente no dia movimentado.
+          # --slurp junta as paginas num array unico, mas o gh nao aceita
+          # --slurp junto com --jq, entao o jq vem por fora, no pipe.
+          COMENTARIO=$(gh api "repos/$REPO/issues/$NUM/comments" --paginate --slurp | jq -c 'add | last // {}')
+          ULTIMO=$(printf '%s' "$COMENTARIO" | jq -r '.created_at // empty')
+          CORPO=$(printf '%s' "$COMENTARIO" | jq -r '.body // ""')
+
+          if [ -z "$ULTIMO" ]; then
+            ULTIMO=$(gh api "repos/$REPO/issues/$NUM" --jq '.created_at')
+            CORPO=""
+          fi
+
+          AGORA=$(date -u +%s)
+          VISTO=$(date -u -d "$ULTIMO" +%s)
+          PARADO=$(( (AGORA - VISTO) / 60 ))
+          echo "Ultimo sinal do agente: $ULTIMO (ha ${PARADO} min)"
+
+          if [ "${FORCAR:-false}" != "true" ] && [ "$PARADO" -le "$LIMITE_MIN" ]; then
+            echo "Dentro do limite de ${LIMITE_MIN} min. Tudo certo."
+            exit 0
+          fi
+
+          # Nao repete alerta: se o ultimo comentario ja e um alerta, o aviso ja
+          # foi dado e ficar recomentando so enche a caixa de e-mail.
+          if [ "${FORCAR:-false}" != "true" ] && printf '%s' "$CORPO" | grep -qF "$MARCADOR"; then
+            echo "Alerta ja registrado e ainda nao respondido. Nao vou repetir."
+            exit 0
+          fi
+
+          {
+            printf '%s\n' "$MARCADOR"
+            printf '## ⚠️ @%s — o agente parou de dar sinal\n\n' "$DONA"
+            printf 'Último registro no diário: **%s** (há **%s minutos**).\n' "$ULTIMO" "$PARADO"
+            printf 'O limite combinado é de %s minutos.\n\n' "$LIMITE_MIN"
+            printf 'Isso normalmente significa que a rotina agendada falhou ou foi desligada.\n\n'
+            printf '**O que conferir:**\n'
+            printf '1. Se a rotina agendada ainda está ativa na conta\n'
+            printf '2. Se a última execução dela registrou erro\n'
+            printf '3. Se o site está de pé: https://www.top3profissional.com.br/health\n\n'
+            printf 'Este aviso não se repete enquanto não houver novo registro no diário.\n'
+          } > alerta.md
+
+          gh issue comment "$NUM" --repo "$REPO" --body-file alerta.md
+          echo "Alerta publicado."
