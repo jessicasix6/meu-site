@@ -2466,7 +2466,10 @@ function openProdutoPanel() {
       return;
     }
     const loc = await resolveUserLocation(btn);
-    if (!loc) return;
+    // O painel pode ter sido fechado e reaberto enquanto a localização era
+    // resolvida; sem essa guarda o botão antigo, já descartado, ligaria o GPS
+    // no painel novo sem ninguém ter clicado nele.
+    if (!loc || !btn.isConnected) return;
     panelProdutoUseGps = true;
     btn.classList.add("is-active");
     loadPanelProdutos();

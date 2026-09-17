@@ -33,7 +33,11 @@ PROIBIDO, sem exceção:
 - abrir pull request
 - fazer merge
 - rodar comando que mude o servidor de produção
-- publicar qualquer coisa
+- publicar qualquer alteração no site ou fazer deploy
+
+Escrever issue e comentar no diário NÃO conta como publicar: é justamente o
+trabalho que se espera de você nesta camada. A proibição é sobre mudar o site
+e o repositório, não sobre relatar.
 
 PERMITIDO:
 - abrir a produção no navegador e inspecionar
