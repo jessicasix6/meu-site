@@ -3913,9 +3913,19 @@ body {
   font-size: 0.86rem;
 }
 
-/* Alvos de toque no celular: 44px é o mínimo recomendado, e as setas de preço
-   ficavam com 24px coladas uma na outra — errar o toque trocava o resultado. */
+/* Alvos de toque no celular: 44px é o mínimo recomendado — é a ponta de um
+   dedo. Abaixo disso erra o toque, e quem erra duas vezes desiste.
+   A primeira passada cobriu só os filtros; esta pega os botões principais,
+   que eram justamente os menores (a busca tinha 34px e os chips, 32px). */
 @media (max-width: 768px) {
+  .hero-mode-btn,
+  .hero-search-submit,
+  .example-chip,
+  .highlight-card-action,
+  .cta-button,
+  .cta-secondary,
+  .post-submit,
+  .benefit-connect,
   .filter-chip,
   .price-sort-btn,
   .filter-select,
@@ -3931,7 +3941,68 @@ body {
 
   .filter-chip,
   .price-sort-btn,
-  .panel-filter-btn {
+  .panel-filter-btn,
+  .hero-mode-btn,
+  .hero-search-submit,
+  .example-chip,
+  .cta-button,
+  .cta-secondary,
+  .benefit-connect {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Links soltos dentro de texto — "Publique um pedido" tinha 16px, metade
+     de um dedo. Ficam com área de toque sem virar botão visualmente. */
+  .search-hint a,
+  .highlights-empty a,
+  .activity-empty a,
+  .requests-empty a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  /* Abas de categoria de grupo e tipo de corrida estavam em 42px */
+  .mode-btn,
+  #ride-form button[type="submit"] {
+    min-height: 44px;
+  }
+
+  /* Botões de ação dos cards — só aparecem quando há dado, então passavam
+     despercebidos numa tela vazia, mas são o que a pessoa realmente toca:
+     chamar um profissional, aceitar um pedido, entrar num grupo. */
+  .rank-cta,
+  .rank-view-profile,
+  .accept-btn,
+  .complete-btn,
+  .group-join-btn,
+  .group-leave-link,
+  .ride-track-btn,
+  .rate-form button,
+  .rate-form select,
+  .rate-form input {
+    min-height: 44px;
+  }
+
+  .rank-cta,
+  .rank-view-profile,
+  .accept-btn,
+  .complete-btn,
+  .group-join-btn,
+  .ride-track-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Todo botão de dispensar/fechar: é o botão de sair, tem que acertar */
+  .category-panel-close,
+  #login-suggestion-dismiss,
+  .geo-dismiss {
+    min-width: 44px;
+    min-height: 44px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
