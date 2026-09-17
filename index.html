@@ -43,21 +43,6 @@
           TOP<span class="logo-accent">3</span>
           <span class="logo-subtitle">Inteligência em resultados</span>
         </a>
-        <nav class="site-nav">
-          <a href="#top">Início</a>
-          <a href="#bottom-search-input" id="nav-buscar-link">Buscar</a>
-          <a href="#grupos">Grupos</a>
-          <a href="#top3">Profissionais</a>
-          <a href="#corridas">Viagens</a>
-          <div class="site-nav-more">
-            <button type="button" id="nav-more-toggle" class="site-nav-more-toggle" aria-haspopup="true" aria-expanded="false">Mais</button>
-            <div id="nav-more-menu" class="site-nav-more-menu" hidden>
-              <a href="#criar-perfil">Criar meu perfil</a>
-              <a href="#beneficios">Benefícios</a>
-              <a href="#como-funciona">Como funciona</a>
-            </div>
-          </div>
-        </nav>
         <span id="online-indicator" class="online-indicator" hidden>
           <span class="online-dot" aria-hidden="true"></span>
           Online
@@ -227,37 +212,41 @@
         <button type="button" id="login-suggestion-dismiss" aria-label="Dispensar sugestão">✕</button>
       </div>
     </div>
-    <div id="requester-view">
     <section id="top" class="hero hero--centered">
       <div class="container hero-layout">
-        <ul class="hero-side hero-side-left">
-          <li>Mais pessoas</li>
-          <li>Mais oportunidades</li>
-          <li>Uma vida mais prática</li>
-        </ul>
         <div class="hero-content">
-<h1 class="hero-title">O jeito mais simples de encontrar<br /><span class="hero-title-accent">o que você precisa.</span></h1>
-          <p class="subtitle">Profissionais, viagens, grupos, serviços e oportunidades em uma única busca inteligente.</p>
-          <form id="hero-search-form" class="hero-search-form" autocomplete="off">
-            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input id="hero-search-input" type="text" placeholder="O que você está procurando?" aria-label="Buscar" />
-            <button type="submit" class="cta-button hero-search-submit">Buscar agora</button>
-          </form>
-          <div class="hero-category-chips">
-            <button type="button" class="example-chip" data-hero-category="profissional"><span aria-hidden="true">👤</span> Profissional</button>
-            <button type="button" class="example-chip" data-hero-category="viagem"><span aria-hidden="true">🚗</span> Viagem</button>
-            <button type="button" class="example-chip" data-hero-category="grupo"><span aria-hidden="true">👥</span> Grupo</button>
-            <button type="button" class="example-chip" data-hero-category="servico"><span aria-hidden="true">🔧</span> Serviço</button>
-            <button type="button" class="example-chip" data-hero-category="produto"><span aria-hidden="true">🛒</span> Produto</button>
+          <div class="hero-mode-tabs" role="tablist" aria-label="Tipo de uso">
+            <button type="button" class="hero-mode-btn mode-btn is-active" data-mode="requester" role="tab" aria-selected="true">Solicito serviço</button>
+            <button type="button" class="hero-mode-btn mode-btn" data-mode="provider" role="tab" aria-selected="false">Presto serviço</button>
+          </div>
+          <div id="hero-requester-tools">
+            <form id="hero-search-form" class="hero-search-form" autocomplete="off">
+              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input id="hero-search-input" type="text" placeholder="O que você está procurando?" aria-label="Buscar" />
+              <button type="submit" class="cta-button hero-search-submit">Buscar agora</button>
+            </form>
+            <div class="hero-category-chips">
+              <button type="button" class="example-chip" data-hero-category="servico"><span aria-hidden="true">🔧</span> Serviços</button>
+              <button type="button" class="example-chip" data-hero-category="viagem"><span aria-hidden="true">🚗</span> Viagem</button>
+              <button type="button" class="example-chip" data-hero-category="grupo"><span aria-hidden="true">👥</span> Grupo</button>
+              <button type="button" class="example-chip" data-hero-category="produto"><span aria-hidden="true">🛒</span> Produtos</button>
+            </div>
+            <div id="category-quick-panel" hidden>
+              <div class="category-panel-bar">
+                <h2 id="category-panel-title" class="category-panel-title"></h2>
+                <button type="button" class="category-panel-close" aria-label="Fechar painel">✕</button>
+              </div>
+              <div id="category-panel-content">
+                <div id="category-panel-head"></div>
+                <div id="category-panel-body"></div>
+              </div>
+            </div>
           </div>
         </div>
-        <p class="hero-side hero-side-right">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s7-7.2 7-12a7 7 0 1 0-14 0c0 4.8 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
-          Resultados reais<br />na sua região
-        </p>
       </div>
     </section>
 
+    <div id="requester-view">
     <section id="destaques" class="highlights-section">
       <div class="container">
         <div class="section-header-row">
@@ -835,22 +824,6 @@
     </div>
   </footer>
 
-  <div class="bottom-bar">
-    <div class="bottom-mode-suggestions" role="tablist" aria-label="Escolher tipo de uso">
-      <button type="button" class="mode-btn bottom-mode-btn is-active" data-mode="requester" role="tab" aria-selected="true" aria-label="Solicitar serviço">Solicito serviço</button>
-      <button type="button" class="mode-btn bottom-mode-btn" data-mode="provider" role="tab" aria-selected="false" aria-label="Presto um serviço">Presto serviço</button>
-    </div>
-    <form id="bottom-search-form" class="bottom-search-bar" autocomplete="off">
-      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input
-        id="bottom-search-input"
-        type="text"
-        placeholder="Descreva o que você gostaria de solicitar..."
-        aria-label="Buscar"
-      />
-      <button type="submit">Buscar</button>
-    </form>
-  </div>
 
   <!-- ALTCHA (task-008) — anti-spam sem terceiro, servido do próprio site (ver /vendor/altcha em server.js). -->
   <script type="module" src="/vendor/altcha/altcha.min.js"></script>
