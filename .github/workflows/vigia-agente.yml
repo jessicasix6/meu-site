@@ -44,44 +44,43 @@ jobs:
           LIMITE_MIN=90
           MARCADOR='<!-- alerta-vigia -->'
 
-          NUM=$(gh issue list --repo "$REPO" --label diario --state open \
-                  --limit 1 --json number --jq '.[0].number // empty')
+          # O batimento é a issue #95, que o worker reescreve ao fim de TODA
+          # execução — inclusive quando a fila está vazia. É o que distingue
+          # "worker sem tarefa" de "worker morto", que de fora são idênticos.
+          # Olha updatedAt (o corpo é reescrito), não comentário.
+          BATIMENTO=95
 
-          if [ -z "$NUM" ]; then
-            # Sair aqui deixaria o caso "o agente nunca comecou" sem alerta
-            # nenhum, que e o mesmo silencio que este vigia existe pra acabar.
-            # Criando o diario vazio, a falta de comentario vira alerta em 90min.
-            echo "Nao existe issue de diario. Criando para poder cobrar presenca."
-            # gh issue create devolve a URL, nao JSON — o numero sai do fim dela.
-            URL=$(gh issue create --repo "$REPO" \
-                    --title "Diário do agente" \
-                    --label diario \
-                    --body "Registro de cada execução da rotina do agente. Criado pelo vigia porque ainda não existia.")
-            NUM="${URL##*/}"
-            echo "Diario criado: #$NUM"
-          fi
-
-          if [ -z "$NUM" ]; then
-            echo "Nao consegui obter o numero do diario."
+          ESTADO=$(gh api "repos/$REPO/issues/$BATIMENTO" --jq '{updated_at, state, body}' 2>/dev/null || echo '')
+          if [ -z "$ESTADO" ]; then
+            echo "Nao consegui ler a issue de batimento #$BATIMENTO."
             exit 1
           fi
 
-          # --paginate roda o --jq em CADA pagina: um diario com mais de 30
-          # comentarios devolveria varias datas e o `date` abaixo morreria sob
-          # set -e — o vigia falharia calado justamente no dia movimentado.
-          # --slurp junta as paginas num array unico, mas o gh nao aceita
-          # --slurp junto com --jq, entao o jq vem por fora, no pipe.
-          COMENTARIO=$(gh api "repos/$REPO/issues/$NUM/comments" --paginate --slurp | jq -c 'add | last // {}')
-          ULTIMO=$(printf '%s' "$COMENTARIO" | jq -r '.created_at // empty')
-          CORPO=$(printf '%s' "$COMENTARIO" | jq -r '.body // ""')
+          CORPO=$(printf '%s' "$ESTADO" | jq -r '.body // ""')
+          FECHADA=$(printf '%s' "$ESTADO" | jq -r '.state')
+
+          # A data vem de DENTRO do corpo, não de updated_at: qualquer alteração
+          # mexe no updated_at, inclusive o comentário de alerta que este vigia
+          # posta — ele se auto-silenciaria depois do primeiro aviso, virando
+          # justamente o tipo de falha calada que ele existe pra impedir.
+          ULTIMO=$(printf '%s' "$CORPO" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2} UTC' | head -1 | sed 's/ UTC//')
 
           if [ -z "$ULTIMO" ]; then
-            ULTIMO=$(gh api "repos/$REPO/issues/$NUM" --jq '.created_at')
-            CORPO=""
+            # Sem carimbo no corpo, o Passo 10 (batimento) ainda não foi
+            # instalado no prompt do worker — é diferente de worker morto.
+            echo "Batimento nunca escrito: o Passo 10 ainda nao esta no prompt do worker."
+            NUNCA_BATEU=1
+            ULTIMO=$(printf '%s' "$ESTADO" | jq -r '.created_at // .updated_at')
+            ULTIMO=$(date -u -d "$ULTIMO" '+%Y-%m-%d %H:%M')
+          fi
+
+          if [ "$FECHADA" = "closed" ]; then
+            echo "A issue de batimento foi fechada. Sem ela o vigia fica cego."
+            gh issue reopen "$BATIMENTO" --repo "$REPO" || true
           fi
 
           AGORA=$(date -u +%s)
-          VISTO=$(date -u -d "$ULTIMO" +%s)
+          VISTO=$(date -u -d "$ULTIMO UTC" +%s)
           PARADO=$(( (AGORA - VISTO) / 60 ))
           echo "Ultimo sinal do agente: $ULTIMO (ha ${PARADO} min)"
 
@@ -99,16 +98,30 @@ jobs:
 
           {
             printf '%s\n' "$MARCADOR"
-            printf '## ⚠️ @%s — o agente parou de dar sinal\n\n' "$DONA"
-            printf 'Último registro no diário: **%s** (há **%s minutos**).\n' "$ULTIMO" "$PARADO"
-            printf 'O limite combinado é de %s minutos.\n\n' "$LIMITE_MIN"
-            printf 'Isso normalmente significa que a rotina agendada falhou ou foi desligada.\n\n'
-            printf '**O que conferir:**\n'
-            printf '1. Se a rotina agendada ainda está ativa na conta\n'
-            printf '2. Se a última execução dela registrou erro\n'
-            printf '3. Se o site está de pé: https://www.top3profissional.com.br/health\n\n'
-            printf 'Este aviso não se repete enquanto não houver novo registro no diário.\n'
+            if [ "${NUNCA_BATEU:-0}" = "1" ]; then
+              printf '## @%s — o worker ainda não deu o primeiro sinal\n\n' "$DONA"
+              printf 'O corpo desta issue nunca foi reescrito com um horário, então o\n'
+              printf 'batimento (Passo 10) ainda não está funcionando.\n\n'
+              printf 'Causa conhecida: o ambiente da rotina está sem os acessos que o\n'
+              printf 'batimento precisa — `gh` não instalado e o repositório não conectado\n'
+              printf 'à sessão (HTTP 403). Sem isso o worker não consegue escrever aqui,\n'
+              printf 'mesmo rodando normalmente.\n\n'
+              printf '**Para destravar:**\n'
+              printf '1. Conectar o repositório `%s` à rotina, nas configurações dela\n' "$REPO"
+              printf '2. Liberar `top3profissional.com.br` na política de rede da organização\n'
+              printf '3. Instalar o Passo 10 no prompt do worker (o texto está no corpo desta issue)\n\n'
+            else
+              printf '## ⚠️ @%s — o worker parou de dar sinal\n\n' "$DONA"
+              printf 'Último batimento: **%s UTC** (há **%s minutos**).\n' "$ULTIMO" "$PARADO"
+              printf 'O limite combinado é de %s minutos.\n\n' "$LIMITE_MIN"
+              printf 'Isso normalmente significa que a rotina agendada falhou ou foi desligada.\n\n'
+              printf '**O que conferir:**\n'
+              printf '1. Se a rotina agendada ainda está ativa na conta\n'
+              printf '2. Se a última execução dela registrou erro\n'
+              printf '3. Se o site está de pé: https://www.top3profissional.com.br/health\n\n'
+            fi
+            printf 'Este aviso não se repete enquanto não houver novo batimento.\n'
           } > alerta.md
 
-          gh issue comment "$NUM" --repo "$REPO" --body-file alerta.md
+          gh issue comment "$BATIMENTO" --repo "$REPO" --body-file alerta.md
           echo "Alerta publicado."
