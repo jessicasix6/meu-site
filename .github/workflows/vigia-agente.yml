@@ -26,6 +26,11 @@ permissions:
 
 jobs:
   checar-diario:
+    # Duas execuções simultâneas passariam as duas pela checagem do marcador
+    # antes de qualquer uma comentar, gerando alerta e e-mail em dobro.
+    concurrency:
+      group: vigia-agente-${{ github.repository }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
       - name: Cobrar presenca do agente
@@ -43,12 +48,32 @@ jobs:
                   --limit 1 --json number --jq '.[0].number // empty')
 
           if [ -z "$NUM" ]; then
-            echo "Ainda nao existe issue de diario - o agente cria na primeira execucao. Nada a cobrar."
-            exit 0
+            # Sair aqui deixaria o caso "o agente nunca comecou" sem alerta
+            # nenhum, que e o mesmo silencio que este vigia existe pra acabar.
+            # Criando o diario vazio, a falta de comentario vira alerta em 90min.
+            echo "Nao existe issue de diario. Criando para poder cobrar presenca."
+            # gh issue create devolve a URL, nao JSON — o numero sai do fim dela.
+            URL=$(gh issue create --repo "$REPO" \
+                    --title "Diário do agente" \
+                    --label diario \
+                    --body "Registro de cada execução da rotina do agente. Criado pelo vigia porque ainda não existia.")
+            NUM="${URL##*/}"
+            echo "Diario criado: #$NUM"
           fi
 
-          ULTIMO=$(gh api "repos/$REPO/issues/$NUM/comments" --paginate --jq '[.[]] | last | .created_at // empty')
-          CORPO=$(gh api "repos/$REPO/issues/$NUM/comments" --paginate --jq '[.[]] | last | .body // ""')
+          if [ -z "$NUM" ]; then
+            echo "Nao consegui obter o numero do diario."
+            exit 1
+          fi
+
+          # --paginate roda o --jq em CADA pagina: um diario com mais de 30
+          # comentarios devolveria varias datas e o `date` abaixo morreria sob
+          # set -e — o vigia falharia calado justamente no dia movimentado.
+          # --slurp junta as paginas num array unico, mas o gh nao aceita
+          # --slurp junto com --jq, entao o jq vem por fora, no pipe.
+          COMENTARIO=$(gh api "repos/$REPO/issues/$NUM/comments" --paginate --slurp | jq -c 'add | last // {}')
+          ULTIMO=$(printf '%s' "$COMENTARIO" | jq -r '.created_at // empty')
+          CORPO=$(printf '%s' "$COMENTARIO" | jq -r '.body // ""')
 
           if [ -z "$ULTIMO" ]; then
             ULTIMO=$(gh api "repos/$REPO/issues/$NUM" --jq '.created_at')
