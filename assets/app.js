@@ -2203,6 +2203,9 @@ const gruposSection = document.getElementById("grupos");
 const panelMovedSections = [];
 
 function restorePanelSections() {
+  // O seletor de serviço é injetado na barra do #top3, que é emprestada; sem
+  // remover aqui, ele voltaria grudado na seção ao fechar o painel.
+  document.getElementById("panel-servico-field")?.remove();
   while (panelMovedSections.length) {
     const { el, parent, nextSibling } = panelMovedSections.pop();
     parent.insertBefore(el, nextSibling);
@@ -2216,17 +2219,22 @@ function movePanelSection(el) {
 }
 
 function openServicosPanel() {
-  categoryPanelHead.innerHTML = `
-    <div class="panel-filter-row">
-      <label class="panel-field">
-        <span class="panel-field-label">Categoria de serviço</span>
-        <select id="panel-servico-select" class="panel-select">
-          <option value="">Todos os serviços</option>
-        </select>
-      </label>
-    </div>
-  `;
   movePanelSection(rankingSection);
+
+  // O seletor de categoria entra DENTRO da barra de filtros do ranking, junto
+  // de localização, estado, cidade, "ordenar por" e preço — filtro espalhado
+  // em três cantos da tela não ajuda ninguém a filtrar.
+  const barra = document.getElementById("ranking-filter-bar");
+  const campo = document.createElement("label");
+  campo.className = "ranking-sort-label";
+  campo.id = "panel-servico-field";
+  campo.innerHTML = `
+    serviço
+    <select id="panel-servico-select" class="filter-select">
+      <option value="">Todos os serviços</option>
+    </select>
+  `;
+  barra.insertBefore(campo, barra.firstChild);
 
   const select = document.getElementById("panel-servico-select");
   select.addEventListener("change", () => loadRanking(undefined, select.value));

@@ -3869,3 +3869,33 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* Seção emprestada pro painel: o painel já tem título próprio, então o
+   cabeçalho grande da seção vira repetição e come espaço à toa. */
+#category-panel-body .eyebrow {
+  display: none;
+}
+
+#category-panel-body .section-title {
+  font-size: 1rem;
+  margin: 0 0 0.6rem;
+}
+
+#category-panel-body .ranking-header,
+#category-panel-body .section-header-row {
+  margin-bottom: 0.6rem;
+}
+
+#category-panel-body .container {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Filtros todos no mesmo bloco, sem um perdido em outro canto da tela */
+#category-panel-body .location-filter-bar {
+  margin: 0 0 1rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(22, 230, 255, 0.18);
+  border-radius: 12px;
+  background: rgba(6, 20, 29, 0.6);
+}
