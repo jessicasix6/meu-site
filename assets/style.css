@@ -3979,6 +3979,9 @@ body {
   .complete-btn,
   .group-join-btn,
   .group-leave-link,
+  .group-carona-detail-btn,
+  .group-review-btn,
+  .group-avaliar-btn,
   .ride-track-btn,
   .rate-form button,
   .rate-form select,
@@ -3991,6 +3994,9 @@ body {
   .accept-btn,
   .complete-btn,
   .group-join-btn,
+  .group-carona-detail-btn,
+  .group-review-btn,
+  .group-avaliar-btn,
   .ride-track-btn {
     display: inline-flex;
     align-items: center;
