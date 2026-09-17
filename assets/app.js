@@ -2381,13 +2381,36 @@ async function loadPanelProdutos() {
         return da - db;
       });
     }
-    list.innerHTML = abertos.length
-      ? abertos.map(renderPanelProdutoCard).join("")
-      : '<li class="panel-produto-empty">Nenhum anúncio encontrado com esses filtros.</li>';
+    list.innerHTML = abertos.length ? abertos.map(renderPanelProdutoCard).join("") : renderPanelProdutoVazio();
   } catch (err) {
     if (callId !== loadPanelProdutosCallId) return;
     list.innerHTML = '<li class="panel-produto-empty">Não consegui carregar os anúncios agora.</li>';
   }
+}
+
+// Quem chegou procurando e não achou é demanda que o site perde se a tela
+// vazia não oferecer nada. Em vez de só avisar que não tem, convida a pessoa
+// a dizer o que procura — vira um pedido publicado, que é justamente o que
+// faz a categoria deixar de ser vazia.
+function panelProdutoTemFiltro() {
+  const ids = ["panel-produto-state", "panel-produto-city", "panel-produto-min", "panel-produto-max"];
+  return ids.some((id) => (document.getElementById(id) || {}).value) || Boolean(panelProdutoPriceSort) || panelProdutoUseGps;
+}
+
+function renderPanelProdutoVazio() {
+  const rotulo = panelProdutoType === "imovel" ? "imóvel" : "produto";
+  // Culpar o filtro quando nenhum foi aplicado faz a pessoa mexer nos filtros
+  // à toa procurando um erro que não é dela.
+  const aviso = panelProdutoTemFiltro()
+    ? "Nenhum anúncio com esses filtros."
+    : `Ainda não tem ${rotulo} publicado por aqui.`;
+  return `
+    <li class="panel-produto-empty">
+      <p class="panel-vazio-aviso">${escapeHtml(aviso)}</p>
+      <p class="panel-vazio-convite">Não achou o que procurava? Diga o que você precisa — quem tiver entra em contato.</p>
+      <button type="button" class="panel-submit" id="panel-produto-pedir">Publicar o que eu procuro</button>
+    </li>
+  `;
 }
 
 function openProdutoPanel() {
@@ -2465,6 +2488,13 @@ function openProdutoPanel() {
     });
   });
 
+  // Delegado na lista porque o botão nasce junto do estado vazio, que é
+  // redesenhado a cada filtro.
+  document.getElementById("panel-produto-list").addEventListener("click", (event) => {
+    if (!event.target.closest("#panel-produto-pedir")) return;
+    abrirPedidoNoPainel(panelProdutoType);
+  });
+
   document.getElementById("panel-produto-location").addEventListener("click", async (event) => {
     const btn = event.currentTarget;
     if (panelProdutoUseGps) {
@@ -2484,6 +2514,26 @@ function openProdutoPanel() {
   });
 
   loadPanelProdutos();
+}
+
+// Traz o formulário de publicar pra dentro do painel em vez de rolar a página
+// até ele — a promessa do painel é justamente não jogar a pessoa pra longe.
+function abrirPedidoNoPainel(tipo) {
+  const publicar = document.getElementById("publicar");
+  if (!publicar) return;
+  // Com o formulário aberto logo abaixo, o botão que o abriu vira ruído.
+  const botao = document.getElementById("panel-produto-pedir");
+  if (botao) botao.hidden = true;
+  movePanelSection(publicar);
+
+  const selectTipo = document.getElementById("post-type");
+  if (selectTipo && [...selectTipo.options].some((o) => o.value === tipo)) {
+    selectTipo.value = tipo;
+  }
+  const titulo = document.getElementById("post-title");
+  if (titulo) {
+    titulo.focus({ preventScroll: true });
+  }
 }
 
 const CATEGORY_PANELS = {

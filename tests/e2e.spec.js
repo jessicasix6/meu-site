@@ -3203,16 +3203,20 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
     // imóvel foi pedida ANTES, então se a guarda de corrida não existisse ela
     // chegaria depois e sobrescreveria o resultado de produto.
     let liberaImovel;
-    const imovelPedido = new Promise((resolve) => {
-      page.route("**/api/requests*", async (route) => {
-        const url = route.request().url();
-        if (url.includes("type=imovel")) {
-          resolve();
-          await new Promise((r) => (liberaImovel = r));
-          return route.fulfill({ json: { requests: [{ id: "x1", type: "imovel", title: "ANTIGO NAO DEVE APARECER", price: 1, status: "aberto", location: "BH", requester: "A", whatsapp: "31999990000" }] } });
-        }
-        return route.fulfill({ json: { requests: [{ id: "x2", type: "produto", title: "ATUAL DEVE APARECER", price: 2, status: "aberto", location: "BH", requester: "B", whatsapp: "31999990000" }] } });
-      });
+    let marcarImovelPedido;
+    const imovelPedido = new Promise((resolve) => (marcarImovelPedido = resolve));
+
+    // page.route precisa estar registrada ANTES do clique. Sem o await, sob
+    // carga o clique sai primeiro, a requisição vai pro servidor de verdade e
+    // a promessa nunca resolve — o teste falhava só na suíte cheia.
+    await page.route("**/api/requests*", async (route) => {
+      const url = route.request().url();
+      if (url.includes("type=imovel")) {
+        marcarImovelPedido();
+        await new Promise((r) => (liberaImovel = r));
+        return route.fulfill({ json: { requests: [{ id: "x1", type: "imovel", title: "ANTIGO NAO DEVE APARECER", price: 1, status: "aberto", location: "BH", requester: "A", whatsapp: "31999990000" }] } });
+      }
+      return route.fulfill({ json: { requests: [{ id: "x2", type: "produto", title: "ATUAL DEVE APARECER", price: 2, status: "aberto", location: "BH", requester: "B", whatsapp: "31999990000" }] } });
     });
 
     await page.locator('[data-produto-type="imovel"]').click();
@@ -3254,6 +3258,50 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
     await page.locator('[data-produto-type="imovel"]').click();
     await expect(list.getByText(`kitnet ${suffix}`)).toBeVisible();
     await expect(list.getByText(`trator caro ${suffix}`)).toHaveCount(0);
+  });
+
+  test("Produtos vazio convida a pessoa a publicar o que procura, com a categoria já marcada", async ({ page }) => {
+    await page.goto("/");
+    // Rota forçada a vazio: a base pode ter anúncio, e o que importa aqui é a
+    // tela que a pessoa vê quando não acha nada.
+    await page.route("**/api/requests?*type=produto*", (route) => route.fulfill({ json: { requests: [] } }));
+
+    await page.locator('[data-hero-category="produto"]').click();
+    const lista = page.locator("#panel-produto-list");
+
+    // Sem filtro aplicado, a mensagem não pode culpar o filtro
+    await expect(lista.locator(".panel-vazio-aviso")).toHaveText(/Ainda não tem produto publicado/);
+    await expect(lista.locator(".panel-vazio-convite")).toContainText("Diga o que você precisa");
+
+    // O convite tem que virar ação de verdade, não só texto
+    await page.locator("#panel-produto-pedir").click();
+    await expect(page.locator("#category-panel-body #publicar")).toBeAttached();
+    // A pessoa preenche o que quer, e a categoria já vem marcada
+    await expect(page.locator("#post-type")).toHaveValue("produto");
+    await expect(page.locator("#post-title")).toBeFocused();
+    // Continua podendo trocar a categoria
+    await page.locator("#post-type").selectOption("imovel");
+    await expect(page.locator("#post-type")).toHaveValue("imovel");
+  });
+
+  test("Produtos: com filtro aplicado a mensagem fala do filtro, não da categoria", async ({ page }) => {
+    await page.goto("/");
+    await page.locator('[data-hero-category="produto"]').click();
+    await page.locator("#panel-produto-min").fill("99999999");
+    await expect(page.locator("#panel-produto-list .panel-vazio-aviso")).toHaveText(/Nenhum anúncio com esses filtros/);
+  });
+
+  test("alvos de toque no celular têm pelo menos 44px", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/");
+    await page.locator('[data-hero-category="produto"]').click();
+
+    // 44px é o mínimo recomendado pra dedo; abaixo disso erra o toque, e as
+    // setas de preço ficam coladas uma na outra.
+    for (const sel of ["#panel-produto-location", '.panel-price-sort[data-price-sort="asc"]', '.panel-price-sort[data-price-sort="desc"]', "#panel-produto-state"]) {
+      const caixa = await page.locator(sel).first().boundingBox();
+      expect(Math.round(caixa.height), `${sel} pequeno demais pra tocar`).toBeGreaterThanOrEqual(44);
+    }
   });
 
   test("controles do painel seguem o design system (select escuro, seta própria, foco visível)", async ({ page }) => {
