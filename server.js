@@ -1872,7 +1872,7 @@ app.get("/api/location/:userId", (req, res) => {
 });
 
 app.get("/api/requests", (req, res) => {
-  const { state, city, sortPrice, type: typeFilter, lat, lng } = req.query;
+  const { state, city, sortPrice, type: typeFilter, lat, lng, minPrice, maxPrice } = req.query;
   const userLat = Number(lat);
   const userLng = Number(lng);
   const hasUserLocation = Number.isFinite(userLat) && Number.isFinite(userLng) && Math.abs(userLat) <= 90 && Math.abs(userLng) <= 180;
@@ -1889,6 +1889,20 @@ app.get("/api/requests", (req, res) => {
     const c = city.toLowerCase().trim();
     list = list.filter((r) => (r.location || "").toLowerCase().includes(c));
   }
+
+  // Faixa de preço, sem teto: qualquer valor é aceito. Ausente, vazio ou não
+  // numérico é ignorado em vez de zerar a lista — Number("") é 0, então um
+  // `maxPrice=` vazio filtraria preço <= 0 e devolveria nada, parecendo
+  // "nenhum resultado" por engano.
+  const parsePriceFilter = (value) => {
+    if (typeof value !== "string" || !value.trim()) return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  };
+  const minPriceFilter = parsePriceFilter(minPrice);
+  if (minPriceFilter !== null) list = list.filter((r) => r.price >= minPriceFilter);
+  const maxPriceFilter = parsePriceFilter(maxPrice);
+  if (maxPriceFilter !== null) list = list.filter((r) => r.price <= maxPriceFilter);
 
   // Distância aproximada: só para pedidos que têm lat/lng guardados
   if (hasUserLocation) {
