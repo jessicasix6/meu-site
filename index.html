@@ -345,14 +345,6 @@
             <p class="eyebrow">Agora, perto de você</p>
             <h2 class="section-title" id="ranking-title">Os 3 mais bem avaliados</h2>
           </div>
-          <label class="ranking-sort-label">
-            ordenar por
-            <select id="ranking-sort">
-              <option value="rating">melhor avaliação</option>
-              <option value="price">menor preço</option>
-              <option value="distance">mais perto</option>
-            </select>
-          </label>
         </div>
         <div class="location-filter-bar" id="ranking-filter-bar">
           <button type="button" id="ranking-use-location-btn" class="filter-chip" title="Usar minha localização">📍 Minha localização</button>
@@ -362,6 +354,14 @@
           <select id="ranking-filter-city" class="filter-select" aria-label="Cidade">
             <option value="">Todas as cidades</option>
           </select>
+          <label class="ranking-sort-label">
+            ordenar por
+            <select id="ranking-sort" class="filter-select">
+              <option value="rating">melhor avaliação</option>
+              <option value="price">menor preço</option>
+              <option value="distance">mais perto</option>
+            </select>
+          </label>
           <div class="price-sort-group" aria-label="Ordenar por preço">
             <button type="button" class="filter-chip price-sort-btn" data-sort="asc" title="Menor preço primeiro">R$ ↑</button>
             <button type="button" class="filter-chip price-sort-btn" data-sort="desc" title="Maior preço primeiro">R$ ↓</button>

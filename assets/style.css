@@ -3869,3 +3869,125 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* Seção emprestada pro painel: o painel já tem título próprio, então o
+   cabeçalho grande da seção vira repetição e come espaço à toa. */
+#category-panel-body .eyebrow {
+  display: none;
+}
+
+#category-panel-body .section-title {
+  font-size: 1rem;
+  margin: 0 0 0.6rem;
+}
+
+#category-panel-body .ranking-header,
+#category-panel-body .section-header-row {
+  margin-bottom: 0.6rem;
+}
+
+#category-panel-body .container {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Filtros todos no mesmo bloco, sem um perdido em outro canto da tela */
+#category-panel-body .location-filter-bar {
+  margin: 0 0 1rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(22, 230, 255, 0.18);
+  border-radius: 12px;
+  background: rgba(6, 20, 29, 0.6);
+}
+
+/* Estado vazio que convida a publicar a demanda em vez de só avisar */
+.panel-vazio-aviso {
+  margin: 0 0 0.35rem;
+  color: rgba(244, 251, 255, 0.72);
+  font-size: 0.95rem;
+}
+
+.panel-vazio-convite {
+  margin: 0 0 1rem;
+  color: rgba(244, 251, 255, 0.5);
+  font-size: 0.86rem;
+}
+
+/* Alvos de toque no celular: 44px é o mínimo recomendado, e as setas de preço
+   ficavam com 24px coladas uma na outra — errar o toque trocava o resultado. */
+@media (max-width: 768px) {
+  .filter-chip,
+  .price-sort-btn,
+  .filter-select,
+  .panel-filter-btn,
+  .panel-select,
+  .panel-input,
+  .panel-subtab,
+  .section-see-all,
+  .highlight-card-cta,
+  .panel-produto-cta {
+    min-height: 44px;
+  }
+
+  .filter-chip,
+  .price-sort-btn,
+  .panel-filter-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .section-see-all,
+  .highlight-card-cta {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* Com 44px de altura, as setas coladas viram alvo grande demais pra errar —
+     mas ainda precisam de folga entre elas. */
+  .price-sort-group {
+    display: flex;
+    gap: 0.5rem;
+  }
+}
+
+/* Item de grid nasce com min-width:auto, então não encolhe abaixo do conteúdo
+   e estoura o container quando o formulário é aberto dentro do painel. */
+.post-field {
+  min-width: 0;
+}
+
+/* O formulário de publicar foi desenhado pra largura da página; dentro do
+   painel, quatro colunas ficam espremidas. */
+#category-panel-body .post-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 100%;
+}
+
+#category-panel-body .post-field--wide {
+  grid-column: span 2;
+}
+
+@media (max-width: 600px) {
+  #category-panel-body .post-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #category-panel-body .post-field--wide {
+    grid-column: span 1;
+  }
+}
+
+/* O painel mora dentro do .hero-content, que centraliza tudo — formulário de
+   preencher precisa de rótulo alinhado à esquerda pra ficar legível. */
+#category-panel-body .post-form,
+#category-panel-body .post-field,
+#category-panel-body label,
+#category-panel-body .post-subtitle {
+  text-align: left;
+}
+
+#category-panel-body .post-section .section-title,
+#category-panel-body .post-subtitle {
+  text-align: left;
+}
