@@ -34,7 +34,39 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Stale-while-revalidate: responde do cache na hora (se tiver), e sempre
+  // Código do app (HTML, CSS, JS) vai pela rede primeiro, com o cache só como
+  // rede de segurança pra quando estiver sem conexão.
+  //
+  // Antes era stale-while-revalidate pra tudo: respondia do cache na hora e
+  // atualizava em segundo plano. O efeito colateral é que o primeiro acesso
+  // depois de uma publicação SEMPRE mostrava a versão antiga — quem fosse
+  // conferir se a mudança subiu concluía que não tinha subido, mesmo com o
+  // deploy verde. Isso aconteceu de verdade e enganou por vários minutos.
+  //
+  // Fonte e ícone continuam vindo do cache primeiro: são grandes, quase nunca
+  // mudam, e é deles que vem o ganho de carregar rápido.
+  const ehCodigoDoApp =
+    url.pathname === "/" ||
+    url.pathname.endsWith(".html") ||
+    url.pathname.endsWith(".css") ||
+    url.pathname.endsWith(".js");
+
+  if (ehCodigoDoApp) {
+    event.respondWith(
+      fetch(event.request)
+        .then((res) => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return res;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Stale-while-revalidate pro resto: responde do cache na hora (se tiver), e
   // busca uma versão nova em paralelo pra atualizar o cache.
   event.respondWith(
     caches.match(event.request).then((cached) => {
