@@ -2280,7 +2280,9 @@ function openViagemPanel() {
 
     if (caronaSearchOrigem) caronaSearchOrigem.value = de;
     if (caronaSearchDestino) caronaSearchDestino.value = para;
-    if (caronaSearchData && data) {
+    // Atribui mesmo quando vazio: /api/groups filtra data por igualdade, então
+    // uma data que sobrou da busca anterior esconderia caronas válidas desta.
+    if (caronaSearchData) {
       caronaSearchData.value = data;
       caronaSearchData.dataset.touched = "1";
     }
@@ -2304,6 +2306,7 @@ const PANEL_PRODUTO_TYPES = [
 ];
 let panelProdutoType = "produto";
 let panelProdutoPriceSort = "";
+let panelProdutoUseGps = false;
 
 function panelProdutoQueryUrl() {
   const params = new URLSearchParams({ type: panelProdutoType });
@@ -2316,6 +2319,10 @@ function panelProdutoQueryUrl() {
   if (min && min.value) params.set("minPrice", min.value);
   if (max && max.value) params.set("maxPrice", max.value);
   if (panelProdutoPriceSort) params.set("sortPrice", panelProdutoPriceSort);
+  if (panelProdutoUseGps && cachedUserLocation) {
+    params.set("lat", cachedUserLocation.lat);
+    params.set("lng", cachedUserLocation.lng);
+  }
   return `/api/requests?${params.toString()}`;
 }
 
@@ -2329,29 +2336,48 @@ function renderPanelProdutoCard(r) {
   const action = whatsapp
     ? `<a class="panel-produto-cta" href="https://wa.me/55${escapeHtml(whatsapp)}" target="_blank" rel="noopener noreferrer">Falar no WhatsApp</a>`
     : '<span class="request-provider">contato não informado</span>';
+  const distancia = typeof r.distanceKm === "number" ? `${r.distanceKm.toFixed(1)} km · ` : "";
   return `
     <li class="panel-produto-card">
       <strong class="panel-produto-title">${escapeHtml(r.title)}</strong>
       <span class="panel-produto-price">R$ ${escapeHtml(formatBRL(r.price))}</span>
-      <span class="panel-produto-meta">${escapeHtml(r.location || "local não informado")} · ${escapeHtml(r.requester || "anunciante")}</span>
+      <span class="panel-produto-meta">${distancia}${escapeHtml(r.location || "local não informado")} · ${escapeHtml(r.requester || "anunciante")}</span>
       ${action}
     </li>
   `;
 }
 
+// Mesma guarda de corrida que loadRanking() usa: trocar de filtro rápido
+// dispara várias buscas, e sem isso a resposta lenta de um filtro abandonado
+// chega depois e sobrescreve o resultado do filtro que está ativo agora.
+let loadPanelProdutosCallId = 0;
+
 async function loadPanelProdutos() {
+  const callId = ++loadPanelProdutosCallId;
   const list = document.getElementById("panel-produto-list");
   if (!list) return;
   list.innerHTML = '<li class="panel-produto-empty">Carregando…</li>';
   try {
     const res = await fetch(panelProdutoQueryUrl());
+    if (callId !== loadPanelProdutosCallId) return;
     if (!res.ok) throw new Error("falha");
     const { requests } = await res.json();
+    if (callId !== loadPanelProdutosCallId) return;
     const abertos = (requests || []).filter((r) => r.status === "aberto");
+    // Com localização ligada, ordena por perto — o servidor calcula distanceKm
+    // mas só ordena por preço, então a ordenação por distância é feita aqui.
+    if (panelProdutoUseGps) {
+      abertos.sort((a, b) => {
+        const da = typeof a.distanceKm === "number" ? a.distanceKm : Infinity;
+        const db = typeof b.distanceKm === "number" ? b.distanceKm : Infinity;
+        return da - db;
+      });
+    }
     list.innerHTML = abertos.length
       ? abertos.map(renderPanelProdutoCard).join("")
       : '<li class="panel-produto-empty">Nenhum anúncio encontrado com esses filtros.</li>';
   } catch (err) {
+    if (callId !== loadPanelProdutosCallId) return;
     list.innerHTML = '<li class="panel-produto-empty">Não consegui carregar os anúncios agora.</li>';
   }
 }
@@ -2359,6 +2385,7 @@ async function loadPanelProdutos() {
 function openProdutoPanel() {
   panelProdutoType = "produto";
   panelProdutoPriceSort = "";
+  panelProdutoUseGps = false;
   categoryPanelHead.innerHTML = `
     <div class="panel-subtabs" role="tablist" aria-label="Tipo de anúncio">
       ${PANEL_PRODUTO_TYPES.map(
@@ -2431,8 +2458,18 @@ function openProdutoPanel() {
   });
 
   document.getElementById("panel-produto-location").addEventListener("click", async (event) => {
-    const loc = await resolveUserLocation(event.currentTarget);
-    if (loc) loadPanelProdutos();
+    const btn = event.currentTarget;
+    if (panelProdutoUseGps) {
+      panelProdutoUseGps = false;
+      btn.classList.remove("is-active");
+      loadPanelProdutos();
+      return;
+    }
+    const loc = await resolveUserLocation(btn);
+    if (!loc) return;
+    panelProdutoUseGps = true;
+    btn.classList.add("is-active");
+    loadPanelProdutos();
   });
 
   loadPanelProdutos();

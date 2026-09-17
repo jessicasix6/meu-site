@@ -3152,6 +3152,79 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
     await expect(page.locator(".ride-match").first()).toContainText("Aeroporto");
   });
 
+  test("Viagem: data de uma busca anterior não fica grudada na busca seguinte", async ({ page }) => {
+    await page.goto("/");
+    await page.locator('[data-hero-category="viagem"]').click();
+
+    // Primeira busca com data
+    await page.locator("#panel-viagem-de").fill("Centro");
+    await page.locator("#panel-viagem-para").fill("Aeroporto");
+    await page.locator("#panel-viagem-data").fill("2026-12-25");
+    await page.locator("#panel-viagem-form button[type=submit]").click();
+    await expect(page.locator("#carona-search-data")).toHaveValue("2026-12-25");
+
+    // Segunda busca sem data — /api/groups filtra data por igualdade, então a
+    // data antiga esconderia caronas válidas se continuasse preenchida.
+    await page.locator("#panel-viagem-data").fill("");
+    await page.locator("#panel-viagem-form button[type=submit]").click();
+    await expect(page.locator("#carona-search-data")).toHaveValue("");
+  });
+
+  test("Produtos: 'Minha localização' entra de verdade na consulta e mostra a distância", async ({ page, context }) => {
+    await context.grantPermissions(["geolocation"]);
+    await context.setGeolocation({ latitude: -19.9167, longitude: -43.9345 });
+
+    const urls = [];
+    await page.route("**/api/requests*", (route) => {
+      urls.push(route.request().url());
+      return route.continue();
+    });
+
+    await page.goto("/");
+    await page.locator('[data-hero-category="produto"]').click();
+    await expect(page.locator("#panel-produto-list")).toBeVisible();
+
+    const antes = urls.length;
+    await page.locator("#panel-produto-location").click();
+    // Botão sem função é proibido pela regra de UI do projeto: clicar tem que
+    // mudar a consulta, não só acender o botão.
+    await expect.poll(() => urls.length).toBeGreaterThan(antes);
+    await expect.poll(() => urls.slice(antes).some((u) => u.includes("lat=") && u.includes("lng="))).toBe(true);
+    await expect(page.locator("#panel-produto-location")).toHaveClass(/is-active|active/);
+  });
+
+  test("Produtos: resposta atrasada de um filtro antigo não sobrescreve o filtro atual", async ({ page }) => {
+    await page.goto("/");
+    await page.locator('[data-hero-category="produto"]').click();
+    const list = page.locator("#panel-produto-list");
+    await expect(list).toBeVisible();
+
+    // Segura a resposta de "imovel" e deixa "produto" passar direto. A de
+    // imóvel foi pedida ANTES, então se a guarda de corrida não existisse ela
+    // chegaria depois e sobrescreveria o resultado de produto.
+    let liberaImovel;
+    const imovelPedido = new Promise((resolve) => {
+      page.route("**/api/requests*", async (route) => {
+        const url = route.request().url();
+        if (url.includes("type=imovel")) {
+          resolve();
+          await new Promise((r) => (liberaImovel = r));
+          return route.fulfill({ json: { requests: [{ id: "x1", type: "imovel", title: "ANTIGO NAO DEVE APARECER", price: 1, status: "aberto", location: "BH", requester: "A", whatsapp: "31999990000" }] } });
+        }
+        return route.fulfill({ json: { requests: [{ id: "x2", type: "produto", title: "ATUAL DEVE APARECER", price: 2, status: "aberto", location: "BH", requester: "B", whatsapp: "31999990000" }] } });
+      });
+    });
+
+    await page.locator('[data-produto-type="imovel"]').click();
+    await imovelPedido;
+    await page.locator('[data-produto-type="produto"]').click();
+    await expect(list.getByText("ATUAL DEVE APARECER")).toBeVisible();
+
+    liberaImovel();
+    await expect(list.getByText("ANTIGO NAO DEVE APARECER")).toHaveCount(0);
+    await expect(list.getByText("ATUAL DEVE APARECER")).toBeVisible();
+  });
+
   test("Produtos: alterna Produtos/Imóveis e filtra por faixa de preço, sem teto de valor", async ({ page, request }) => {
     const suffix = Math.random().toString(36).slice(2, 8);
     // Valor alto de propósito: o filtro de preço não pode ter limite máximo
