@@ -3493,7 +3493,16 @@ test.describe("Top3Profissional - PWA", () => {
 
   test("código novo aparece já no primeiro acesso depois de publicar", async ({ page }) => {
     await page.goto("/");
-    await page.evaluate(() => navigator.serviceWorker.ready);
+    // Espera pelo SW ativo E pelo controller (clients.claim pode atrasar levemente).
+    await page.evaluate(() =>
+      navigator.serviceWorker.ready.then(() =>
+        navigator.serviceWorker.controller
+          ? Promise.resolve()
+          : new Promise((res) => {
+              navigator.serviceWorker.addEventListener("controllerchange", res, { once: true });
+            })
+      )
+    );
 
     // Planta uma versão velha no cache, como ficaria logo após uma publicação.
     // Com stale-while-revalidate o service worker devolvia justamente essa —

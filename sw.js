@@ -57,11 +57,11 @@ self.addEventListener("fetch", (event) => {
         .then((res) => {
           if (res.ok) {
             const clone = res.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone)));
           }
           return res;
         })
-        .catch(() => caches.match(event.request))
+        .catch(() => caches.match(event.request).then((cached) => cached || new Response("", { status: 503 })))
     );
     return;
   }
