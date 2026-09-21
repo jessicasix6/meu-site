@@ -9,6 +9,20 @@ depois, e cada uma tem pré-requisito próprio. Ver `.claude/plans/` e o CLAUDE.
 
 ---
 
+## Pré-requisito: o ambiente da rotina precisa de acesso
+
+A rotina reportou que hoje não tem:
+
+- `gh` CLI instalado
+- acesso à API do GitHub (HTTP 403 — repositório não conectado à sessão)
+- rede até `top3profissional.com.br` (bloqueada por política da organização)
+
+Sem os dois primeiros ela não escreve o batimento nem abre sugestão; sem o
+terceiro não verifica o site. Colar o prompt antes de resolver isso produz
+uma execução que só relata que não conseguiu fazer nada.
+
+**Quem resolve é a Jéssica**, nas configurações da rotina e da organização.
+
 ## Por que a Camada 1 não precisa de trava
 
 O agente não escreve código, não abre PR e não faz merge. Não existindo ação que
@@ -123,8 +137,7 @@ qualquer dado pessoal.
 
 ### 5. Escrever no diário — inclusive quando não achou nada
 
-Existe uma issue fixada chamada "Diário do agente" com a etiqueta `diario`.
-Comente nela a cada execução. Se ela não existir, crie.
+Comente na issue #98 ("Diário do agente") a cada execução.
 
 Quando houver novidade:
 
@@ -147,10 +160,43 @@ Se as últimas execuções foram todas sem novidade, agrupe em vez de repetir:
 
 Silêncio total significa que você quebrou. Sempre deixe registro.
 
-### 6. Terminar
+### 6. Batimento — SEMPRE, sem exceção
+
+Este passo roda em TODA execução, aconteça o que acontecer: nada encontrado,
+sugestão aberta, verificação falhada, acesso negado. É a única prova de que
+você rodou.
+
+Por que importa: quando não há nada a relatar você não faz nada — e agente sem
+achado fica idêntico a agente morto, visto de fora. O batimento distingue os
+dois. Se você pular, o vigia conclui que você morreu e alarma a Jéssica à toa;
+alarme falso repetido vira ruído, para de ser lido, e volta tudo à estaca zero.
+
+Reescreva o corpo da issue #95:
+
+    gh issue edit 95 --repo jessicasix6/meu-site --body "<corpo>"
+
+O <corpo> deve seguir exatamente esta forma, trocando só os valores:
+
+    🫀 **Última execução:** <saída de `date -u '+%Y-%m-%d %H:%M UTC'`>
+    **Resultado:** <uma linha só — ex: "nada a relatar, site saudável" /
+    "abri sugestão #123 sobre botão cortado no celular" /
+    "não consegui verificar: acesso à rede negado">
+
+    _Sinal de vida do agente, reescrito ao fim de cada execução. Não fechar,
+    não adicionar a label `top3-task`._
+
+O horário DENTRO do corpo é o que o vigia lê — não basta tocar na issue de
+qualquer outro jeito.
+
+Se o `gh issue edit` falhar, tente mais uma vez. Se falhar de novo, registre o
+erro no resumo final e siga — não fique tentando em loop.
+
+### 7. Terminar
 
 Não fazer nada é resultado legítimo e frequente. Se o site está bem, diga que
 está bem e encerre. Não invente problema para justificar a execução.
+
+O batimento do passo 6 acontece mesmo assim.
 ```
 
 ---

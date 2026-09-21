@@ -3198,6 +3198,9 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
     await page.locator('[data-hero-category="produto"]').click();
     const list = page.locator("#panel-produto-list");
     await expect(list).toBeVisible();
+    // Espera a carga inicial assentar: se ela ainda estiver em voo quando a
+    // interceptação entra, sobra uma resposta fora do controle do teste.
+    await expect(list).not.toContainText("Carregando");
 
     // Segura a resposta de "imovel" e deixa "produto" passar direto. A de
     // imóvel foi pedida ANTES, então se a guarda de corrida não existisse ela
@@ -3302,6 +3305,46 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
       const caixa = await page.locator(sel).first().boundingBox();
       expect(Math.round(caixa.height), `${sel} pequeno demais pra tocar`).toBeGreaterThanOrEqual(44);
     }
+  });
+
+  test("os botões principais da home também têm 44px no celular", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/");
+
+    // A primeira correção cobriu só os filtros e deixou de fora justamente os
+    // botões mais usados — a busca tinha 34px e os chips, 32px.
+    const principais = [
+      ".hero-search-submit",
+      '.hero-mode-btn[data-mode="requester"]',
+      '.hero-mode-btn[data-mode="provider"]',
+      '[data-hero-category="servico"]',
+      '[data-hero-category="produto"]',
+    ];
+    for (const sel of principais) {
+      const caixa = await page.locator(sel).first().boundingBox();
+      expect(Math.round(caixa.height), `${sel} pequeno demais pra tocar`).toBeGreaterThanOrEqual(44);
+    }
+  });
+
+  test("nenhum botão visível fica abaixo de 44px no celular", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/");
+    await page.locator('[data-hero-category="grupo"]').click();
+    await expect(page.locator("#category-quick-panel")).toBeVisible();
+
+    // Varredura, não lista fixa: botão novo que nasça pequeno é pego aqui,
+    // em vez de só o que alguém lembrou de listar.
+    const pequenos = await page.evaluate(() =>
+      [...document.querySelectorAll("button, a")]
+        .filter((el) => {
+          if (!el.offsetParent) return false;
+          if (el.classList.contains("logo")) return false;
+          const r = el.getBoundingClientRect();
+          return r.height > 0 && r.height < 44;
+        })
+        .map((el) => `${(el.textContent || "").trim().slice(0, 22)}: ${Math.round(el.getBoundingClientRect().height)}px`)
+    );
+    expect(pequenos, `alvos de toque pequenos demais: ${pequenos.join(" | ")}`).toEqual([]);
   });
 
   test("controles do painel seguem o design system (select escuro, seta própria, foco visível)", async ({ page }) => {
