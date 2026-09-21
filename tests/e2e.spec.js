@@ -1467,6 +1467,15 @@ test.describe("Top3Profissional - login simples por email/senha + perfil (task-0
 
   test("busca de carona abre já filtrada em hoje, e sugere amanhã quando não acha nada", async ({ page }) => {
     await page.goto("/");
+    // Garante resultado vazio para carona hoje, independente dos dados do CI
+    await page.route(/\/api\/groups(\?.*)?$/, (route) => {
+      const url = route.request().url();
+      if (url.includes("category=carona") || url.includes("data=")) {
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ groups: [] }) });
+      } else {
+        route.continue();
+      }
+    });
     await page.locator('.group-category-btn[data-category="carona"]').click();
     const dataInput = page.locator("#carona-search-data");
     const today = new Date();
