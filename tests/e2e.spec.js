@@ -1467,6 +1467,15 @@ test.describe("Top3Profissional - login simples por email/senha + perfil (task-0
 
   test("busca de carona abre já filtrada em hoje, e sugere amanhã quando não acha nada", async ({ page }) => {
     await page.goto("/");
+    // Garante resultado vazio para carona hoje, independente dos dados do CI
+    await page.route(/\/api\/groups(\?.*)?$/, (route) => {
+      const url = route.request().url();
+      if (url.includes("category=carona") || url.includes("data=")) {
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ groups: [] }) });
+      } else {
+        route.continue();
+      }
+    });
     await page.locator('.group-category-btn[data-category="carona"]').click();
     const dataInput = page.locator("#carona-search-data");
     const today = new Date();
@@ -3198,6 +3207,9 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
     await page.locator('[data-hero-category="produto"]').click();
     const list = page.locator("#panel-produto-list");
     await expect(list).toBeVisible();
+    // Espera a carga inicial assentar: se ela ainda estiver em voo quando a
+    // interceptação entra, sobra uma resposta fora do controle do teste.
+    await expect(list).not.toContainText("Carregando");
 
     // Segura a resposta de "imovel" e deixa "produto" passar direto. A de
     // imóvel foi pedida ANTES, então se a guarda de corrida não existisse ela
@@ -3302,6 +3314,46 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
       const caixa = await page.locator(sel).first().boundingBox();
       expect(Math.round(caixa.height), `${sel} pequeno demais pra tocar`).toBeGreaterThanOrEqual(44);
     }
+  });
+
+  test("os botões principais da home também têm 44px no celular", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/");
+
+    // A primeira correção cobriu só os filtros e deixou de fora justamente os
+    // botões mais usados — a busca tinha 34px e os chips, 32px.
+    const principais = [
+      ".hero-search-submit",
+      '.hero-mode-btn[data-mode="requester"]',
+      '.hero-mode-btn[data-mode="provider"]',
+      '[data-hero-category="servico"]',
+      '[data-hero-category="produto"]',
+    ];
+    for (const sel of principais) {
+      const caixa = await page.locator(sel).first().boundingBox();
+      expect(Math.round(caixa.height), `${sel} pequeno demais pra tocar`).toBeGreaterThanOrEqual(44);
+    }
+  });
+
+  test("nenhum botão visível fica abaixo de 44px no celular", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/");
+    await page.locator('[data-hero-category="grupo"]').click();
+    await expect(page.locator("#category-quick-panel")).toBeVisible();
+
+    // Varredura, não lista fixa: botão novo que nasça pequeno é pego aqui,
+    // em vez de só o que alguém lembrou de listar.
+    const pequenos = await page.evaluate(() =>
+      [...document.querySelectorAll("button, a")]
+        .filter((el) => {
+          if (!el.offsetParent) return false;
+          if (el.classList.contains("logo")) return false;
+          const r = el.getBoundingClientRect();
+          return r.height > 0 && r.height < 44;
+        })
+        .map((el) => `${(el.textContent || "").trim().slice(0, 22)}: ${Math.round(el.getBoundingClientRect().height)}px`)
+    );
+    expect(pequenos, `alvos de toque pequenos demais: ${pequenos.join(" | ")}`).toEqual([]);
   });
 
   test("controles do painel seguem o design system (select escuro, seta própria, foco visível)", async ({ page }) => {
@@ -3437,5 +3489,30 @@ test.describe("Top3Profissional - PWA", () => {
     expect(cachedPaths).toContain("/assets/app.js");
     expect(cachedPaths.some((p) => p.startsWith("/api/"))).toBe(false);
     expect(cachedPaths).not.toContain("/health");
+  });
+
+  test("código novo aparece já no primeiro acesso depois de publicar", async ({ page }) => {
+    await page.goto("/");
+    await page.evaluate(() => navigator.serviceWorker.ready);
+
+    // Planta uma versão velha no cache, como ficaria logo após uma publicação.
+    // Com stale-while-revalidate o service worker devolvia justamente essa —
+    // e quem fosse conferir se a mudança subiu concluía que não tinha subido,
+    // mesmo com o deploy verde. Aconteceu de verdade e enganou por minutos.
+    await page.evaluate(async () => {
+      const cache = await caches.open("top3-shell-v1");
+      await cache.put(
+        "/assets/app.js",
+        new Response("/* VERSAO VELHA DO CACHE */", { headers: { "Content-Type": "application/javascript" } })
+      );
+    });
+
+    const conteudo = await page.evaluate(async () => {
+      const res = await fetch("/assets/app.js");
+      return res.text();
+    });
+
+    expect(conteudo, "o service worker serviu a versão velha do cache").not.toContain("VERSAO VELHA DO CACHE");
+    expect(conteudo).toContain("hero-search-input");
   });
 });
