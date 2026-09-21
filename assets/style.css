@@ -343,7 +343,7 @@ a {
   text-align: center;
 }
 .geo-permission-banner p { margin: 0; color: #eafbff; font-size: 0.88rem; }
-.geo-banner-icon { font-size: 1.1rem; }
+.geo-banner-icon { display: inline-flex; color: var(--accent); }
 .geo-banner-actions { display: flex; align-items: center; gap: 0.5rem; }
 .geo-btn { padding: 0.3rem 0.9rem; font-size: 0.82rem; }
 .geo-dismiss { background: none; border: none; color: #9db7c2; cursor: pointer; font-size: 1rem; padding: 0.2rem 0.4rem; }
@@ -1163,27 +1163,14 @@ button.cta-secondary {
   cursor: pointer;
 }
 
+button.cta-secondary .icon {
+  width: 15px;
+  height: 15px;
+  color: var(--accent);
+}
+
 button.cta-secondary:hover {
   background: var(--glass-bg);
-  border-color: var(--accent);
-}
-
-.example-chip {
-  padding: 0.4rem 0.85rem;
-  font-size: 0.82rem;
-  font-family: var(--font-body);
-  color: var(--text-dim);
-  /* task-011 item 1: mesmo vidro fosco dos outros botões-pílula do site. */
-  background: var(--glass-bg);
-  backdrop-filter: blur(14px);
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-
-.example-chip:hover {
-  color: var(--accent);
   border-color: var(--accent);
 }
 
@@ -1447,8 +1434,16 @@ button.cta-secondary:hover {
 }
 
 .rank-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   font-size: 0.8rem;
   color: var(--text-dim);
+}
+
+.rank-meta-item .icon {
+  width: 13px;
+  height: 13px;
 }
 
 .rank-meta-price {
@@ -1596,6 +1591,18 @@ button.cta-secondary:hover {
   height: 18px;
   color: var(--accent);
   flex-shrink: 0;
+}
+
+/* Sistema único de ícone: todo ícone do site usa esse SVG line-icon
+   (stroke=currentColor, mesmo traço do .search-icon acima) em vez de
+   emoji solto — emoji renderiza colorido (fonte do sistema) mesmo dentro
+   do tema escuro monocromático, e quebra a paleta ciano/cinza em
+   qualquer lugar que aparece. */
+.icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  vertical-align: -3px;
 }
 
 .search-results {
@@ -1861,6 +1868,41 @@ button.cta-secondary:hover {
   padding: 0.5rem 0;
   border: none;
   background: transparent;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+/* O botão nativo do input[type=file] ("Choose Files") ignora o resto do
+   input e vem com o cinza claro padrão do navegador — destoava muito do
+   tema escuro, já que só o container em volta tinha sido estilizado.
+   ::file-selector-button (e o prefixo -webkit- equivalente pro Safari)
+   é a única forma de re-estilizar essa parte específica. */
+.post-field input[type="file"]::file-selector-button,
+.post-field input[type="file"]::-webkit-file-upload-button {
+  margin-right: 0.75rem;
+  padding: 0.5rem 1rem;
+  background: var(--glass-bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.post-field input[type="file"]:hover::file-selector-button,
+.post-field input[type="file"]:hover::-webkit-file-upload-button {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.post-field input[type="file"]:focus-visible::file-selector-button,
+.post-field input[type="file"]:focus-visible::-webkit-file-upload-button {
+  outline: none;
+  border-color: #16e6ff;
+  box-shadow: 0 0 0 2px rgba(22, 230, 255, 0.12);
 }
 
 .post-submit {
@@ -2609,29 +2651,6 @@ button.cta-secondary:hover {
   margin-top: 1.5rem;
 }
 
-.category-card {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 1.1rem 1.3rem;
-  background: var(--glass-bg);
-  backdrop-filter: blur(14px);
-  border: 1px solid rgba(22, 230, 255, 0.28);
-  border-radius: 12px;
-  color: var(--text);
-  text-decoration: none;
-  font-size: 0.92rem;
-  font-weight: 600;
-  box-shadow: 0 0 0 1px rgba(22, 230, 255, 0.12), 0 0 20px rgba(22, 230, 255, 0.08);
-  transition: border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.category-card:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  box-shadow: 0 0 0 1px rgba(22, 230, 255, 0.35), 0 0 30px rgba(22, 230, 255, 0.20);
-}
-
 /* task-012: chamada final */
 
 .final-cta-section {
@@ -2731,7 +2750,7 @@ button.cta-secondary:hover {
 .filter-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.35rem;
   padding: 0.3rem 0.75rem;
   border: 1.5px solid var(--accent);
   border-radius: 999px;
@@ -2751,6 +2770,11 @@ button.cta-secondary:hover {
 .filter-chip:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+.filter-chip .icon {
+  width: 15px;
+  height: 15px;
 }
 
 .filter-select {
@@ -2894,21 +2918,6 @@ body {
   font-size: 0.9rem;
 }
 
-/* Chips de categoria ligeiramente maiores */
-.example-chip {
-  padding: 0.45rem 1rem;
-  font-size: 0.84rem;
-  color: var(--text-dim);
-  border-color: rgba(22, 230, 255, 0.18);
-}
-
-.example-chip:hover,
-.example-chip.is-active {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: rgba(22, 230, 255, 0.07);
-}
-
 /* --- Três painéis lado a lado (desktop) --- */
 .three-panels-row {
   display: grid;
@@ -2972,27 +2981,6 @@ body {
   grid-template-columns: repeat(3, 1fr);
   gap: 0.85rem;
   margin-top: 1.5rem;
-}
-
-.category-card {
-  padding: 1.1rem 1.3rem;
-  font-size: 0.95rem;
-  font-weight: 500;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  color: var(--text-dim);
-  text-decoration: none;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
-}
-
-.category-card:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: rgba(22, 230, 255, 0.05);
 }
 
 /* --- Final CTA mais impactante --- */
@@ -3117,8 +3105,14 @@ body {
 
 /* Ícone antes do título dos painéis */
 .panel-icon {
-  font-size: 1.1em;
-  vertical-align: -0.05em;
+  display: inline-flex;
+  vertical-align: -4px;
+  color: var(--accent);
+}
+
+.panel-icon .icon {
+  width: 22px;
+  height: 22px;
 }
 
 /* Cards de destaque com header colorido por categoria */
@@ -3338,13 +3332,23 @@ body {
 
 /* ---- Chips: pílulas com borda ciano sutil ---- */
 .example-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   padding: 0.45rem 1rem;
   font-size: 0.84rem;
+  font-family: var(--font-body);
   background: rgba(6, 20, 29, 0.8);
   border: 1px solid rgba(22, 230, 255, 0.22);
   border-radius: 999px;
   color: var(--text-dim);
+  cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.example-chip .icon {
+  width: 15px;
+  height: 15px;
 }
 
 .example-chip:hover,
@@ -3447,11 +3451,16 @@ body {
   text-decoration: none;
   font-size: 0.92rem;
   font-weight: 600;
-  transition: border-color 0.15s, box-shadow 0.15s, color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s, color 0.15s, background 0.15s;
+}
+
+.category-card .icon {
+  color: var(--accent);
 }
 
 .category-card:hover {
   border-color: rgba(22, 230, 255, 0.45);
+  background: rgba(22, 230, 255, 0.05);
   box-shadow: 0 0 20px rgba(22, 230, 255, 0.08);
   color: var(--accent);
 }
@@ -3732,6 +3741,9 @@ body {
 }
 
 .panel-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   min-height: 40px;
   padding: 0.5rem 0.9rem;
   background: #06141d;
