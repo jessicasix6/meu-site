@@ -1467,6 +1467,15 @@ test.describe("Top3Profissional - login simples por email/senha + perfil (task-0
 
   test("busca de carona abre já filtrada em hoje, e sugere amanhã quando não acha nada", async ({ page }) => {
     await page.goto("/");
+    // Garante resultado vazio para carona hoje, independente dos dados do CI
+    await page.route(/\/api\/groups(\?.*)?$/, (route) => {
+      const url = route.request().url();
+      if (url.includes("category=carona") || url.includes("data=")) {
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ groups: [] }) });
+      } else {
+        route.continue();
+      }
+    });
     await page.locator('.group-category-btn[data-category="carona"]').click();
     const dataInput = page.locator("#carona-search-data");
     const today = new Date();
@@ -3480,5 +3489,30 @@ test.describe("Top3Profissional - PWA", () => {
     expect(cachedPaths).toContain("/assets/app.js");
     expect(cachedPaths.some((p) => p.startsWith("/api/"))).toBe(false);
     expect(cachedPaths).not.toContain("/health");
+  });
+
+  test("código novo aparece já no primeiro acesso depois de publicar", async ({ page }) => {
+    await page.goto("/");
+    await page.evaluate(() => navigator.serviceWorker.ready);
+
+    // Planta uma versão velha no cache, como ficaria logo após uma publicação.
+    // Com stale-while-revalidate o service worker devolvia justamente essa —
+    // e quem fosse conferir se a mudança subiu concluía que não tinha subido,
+    // mesmo com o deploy verde. Aconteceu de verdade e enganou por minutos.
+    await page.evaluate(async () => {
+      const cache = await caches.open("top3-shell-v1");
+      await cache.put(
+        "/assets/app.js",
+        new Response("/* VERSAO VELHA DO CACHE */", { headers: { "Content-Type": "application/javascript" } })
+      );
+    });
+
+    const conteudo = await page.evaluate(async () => {
+      const res = await fetch("/assets/app.js");
+      return res.text();
+    });
+
+    expect(conteudo, "o service worker serviu a versão velha do cache").not.toContain("VERSAO VELHA DO CACHE");
+    expect(conteudo).toContain("hero-search-input");
   });
 });
