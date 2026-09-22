@@ -53,6 +53,12 @@
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+  /* header sticky tem ~72px — âncoras não ficam escondidas sob ele */
+  scroll-padding-top: 72px;
+}
+
 /* Garante que o atributo hidden sempre esconda, mesmo em elementos cuja
    própria classe define display (flex/grid/block) — sem isso, campos com
    "hidden" alternado por JS (ex: campos condicionais de formulário) ficam
