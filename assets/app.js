@@ -269,6 +269,7 @@ let currentRankingService = "";
 async function loadRanking(sortBy, service) {
   if (service !== undefined) currentRankingService = service;
   const callId = ++loadRankingCallId;
+  rankingList.innerHTML = '<li class="ranking-loading" aria-live="polite">Carregando…</li>';
   try {
     const effectiveSortBy = sortBy || rankingSort.value;
     let url = `/api/ranking?sortBy=${encodeURIComponent(effectiveSortBy)}`;
@@ -498,7 +499,10 @@ async function loadRequests() {
     const qs = params.toString();
     if (qs) url += "?" + qs;
     const res = await fetch(url);
-    if (!res.ok) return;
+    if (!res.ok) {
+      requestsList.innerHTML = '<li class="requests-error">Não consegui carregar os pedidos agora.</li>';
+      return;
+    }
     const { requests } = await res.json();
     allRequests = requests;
     applyRequestsFilter();
@@ -1093,13 +1097,22 @@ function renderGroupsList(groups) {
   groupsList.innerHTML = groups.map((g) => (g.category === "carona" ? renderCaronaGroupCard(g) : renderGenericGroupCard(g))).join("");
 }
 
+let loadGroupsCallId = 0;
+
 async function loadGroups() {
+  const callId = ++loadGroupsCallId;
   try {
     const res = await fetch(buildGroupsQueryUrl());
-    if (!res.ok) return;
+    if (callId !== loadGroupsCallId) return;
+    if (!res.ok) {
+      groupsList.innerHTML = '<li class="groups-empty">Não consegui carregar os grupos agora.</li>';
+      return;
+    }
     const { groups } = await res.json();
+    if (callId !== loadGroupsCallId) return;
     renderGroupsList(groups);
   } catch (err) {
+    if (callId !== loadGroupsCallId) return;
     groupsList.innerHTML = '<li class="groups-empty">Não consegui carregar os grupos agora.</li>';
   }
 }
