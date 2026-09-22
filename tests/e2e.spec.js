@@ -3335,6 +3335,28 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
     }
   });
 
+  test("campo de busca do hero não tem zona morta no celular", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/");
+
+    // Achado real: a correção anterior esticou só o botão "Buscar" pra 44px,
+    // deixando o próprio campo de texto com a altura de linha original
+    // (~22px) dentro de um pill visualmente maior (~65px) — quem tocasse
+    // perto da borda do pill (não bem no centro) não conseguia abrir o
+    // teclado. O campo precisa da mesma altura mínima do resto da fileira.
+    const caixaInput = await page.locator("#hero-search-input").boundingBox();
+    expect(Math.round(caixaInput.height), "campo de busca pequeno demais pra tocar").toBeGreaterThanOrEqual(44);
+
+    // Regressão direta: a folga entre o campo e o pill que o envolve não pode
+    // voltar a ser maior que o padding normal do pill (~10px no mobile) — se
+    // voltar a ~21px de cada lado, a zona morta está de volta.
+    const caixaPill = await page.locator(".hero-search-form").boundingBox();
+    const folgaCima = caixaInput.y - caixaPill.y;
+    const folgaBaixo = caixaPill.y + caixaPill.height - (caixaInput.y + caixaInput.height);
+    expect(Math.round(folgaCima), "zona morta acima do campo de busca").toBeLessThanOrEqual(12);
+    expect(Math.round(folgaBaixo), "zona morta abaixo do campo de busca").toBeLessThanOrEqual(12);
+  });
+
   test("nenhum botão visível fica abaixo de 44px no celular", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("/");
