@@ -138,9 +138,14 @@ function populateCitySelect(citySelect, uf) {
 
 async function resolveUserLocation(btn) {
   if (cachedUserLocation) return cachedUserLocation;
-  if (btn) btn.textContent = "📍 Buscando...";
+  const label = btn && btn.querySelector(".btn-label");
+  const setLabel = (text) => {
+    if (label) label.textContent = text;
+    else if (btn) btn.textContent = text;
+  };
+  setLabel("Buscando...");
   const loc = await getUserLocation();
-  if (btn) btn.textContent = "📍 Minha localização";
+  setLabel("Minha localização");
   if (loc) {
     cachedUserLocation = loc;
     btn && btn.classList.add("active");
@@ -323,7 +328,7 @@ async function loadRanking(sortBy, service) {
         typeof p.rating === "number"
           ? `${starRow(p.rating)}<span class="rank-rating-num">${p.rating.toFixed(1).replace(".", ",")}</span>${reviewsText}`
           : '<span class="chip chip--new">novo</span>';
-      const distanceText = typeof p.distanceKm === "number" ? `<span class="rank-meta-item">📍 ${p.distanceKm.toFixed(1)} km</span>` : "";
+      const distanceText = typeof p.distanceKm === "number" ? `<span class="rank-meta-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg> ${p.distanceKm.toFixed(1)} km</span>` : "";
       const priceText = typeof p.price === "number" ? `<span class="rank-meta-item rank-meta-price">A partir de R$ ${p.price}</span>` : "";
       const availBadge = p.isAvailable
         ? `<span class="avail-badge avail-badge--on">● Disponível</span>`
@@ -602,8 +607,12 @@ function renderRequests(requests) {
     item.className = `request-item request-item--${typeSlug} request-item--${r.status === "concluído" ? "concluido" : r.status}`;
     item.dataset.id = r.id;
     const distanceChip = typeof r.distanceKm === "number" ? `${r.distanceKm.toFixed(1)} km · ` : "";
+    const photoThumb = r.photoUrl
+      ? `<img src="${escapeHtml(r.photoUrl)}" alt="Foto anexada ao pedido" class="request-photo" loading="lazy" />`
+      : "";
     item.innerHTML = `
       <span class="request-icon request-icon--${typeSlug}">${REQUEST_ICONS[r.type] || REQUEST_ICON_DEFAULT}</span>
+      ${photoThumb}
       <span class="request-info">
         <span class="request-badge request-badge--${typeSlug}">${escapeHtml(REQUEST_LABELS[r.type] || r.type)}</span>
         <br />
@@ -792,6 +801,9 @@ rideTypeButtons.forEach((btn) => {
   });
 });
 
+const RIDE_TRACK_ICON_PIN = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>';
+const RIDE_TRACK_ICON_STOP = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>';
+
 function renderRideResults(matches) {
   const matchesHtml = matches.length
     ? `<ul class="ride-matches">${matches
@@ -800,7 +812,7 @@ function renderRideResults(matches) {
         <li class="ride-match" data-owner-id="${escapeHtml(r.ownerUserId || "")}">
           <strong>${escapeHtml(r.title)}</strong>
           <span class="ride-match-meta">${escapeHtml(r.requester)} · ${escapeHtml(r.when || "a combinar")} · R$ ${r.price}</span>
-          ${r.ownerUserId ? `<button type="button" class="ride-track-btn cta-secondary" data-user-id="${escapeHtml(r.ownerUserId)}">📍 Ver ao vivo</button><span class="ride-live-pos" hidden></span>` : ""}
+          ${r.ownerUserId ? `<button type="button" class="ride-track-btn cta-secondary" data-user-id="${escapeHtml(r.ownerUserId)}">${RIDE_TRACK_ICON_PIN} <span class="btn-label">Ver ao vivo</span></button><span class="ride-live-pos" hidden></span>` : ""}
         </li>`
         )
         .join("")}</ul>`
@@ -841,9 +853,9 @@ rideResults.addEventListener("click", async (event) => {
     const userId = trackBtn.dataset.userId;
     const posEl = trackBtn.closest(".ride-match").querySelector(".ride-live-pos");
     if (!posEl) return;
-    if (!posEl.hidden) { posEl.hidden = true; trackBtn.textContent = "📍 Ver ao vivo"; return; }
+    if (!posEl.hidden) { posEl.hidden = true; trackBtn.innerHTML = `${RIDE_TRACK_ICON_PIN} <span class="btn-label">Ver ao vivo</span>`; return; }
     posEl.hidden = false;
-    trackBtn.textContent = "⏹ Fechar";
+    trackBtn.innerHTML = `${RIDE_TRACK_ICON_STOP} <span class="btn-label">Fechar</span>`;
     posEl.textContent = "buscando posição…";
     const poll = async () => {
       try {
@@ -881,13 +893,13 @@ rideResults.addEventListener("click", async (event) => {
 // continuam fora de escopo, dependem de login que o site ainda não exige
 // aqui).
 const GROUP_CATEGORY_ICONS = {
-  compra: "🛒",
-  frete: "📦",
-  viagem: "🧳",
-  servico: "🧰",
-  curso: "🎓",
-  assinatura: "📺",
-  carona: "🚗",
+  compra: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>',
+  frete: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.89 1.45l8 4A2 2 0 0 1 22 7.24v9.53a2 2 0 0 1-1.11 1.79l-8 4a2 2 0 0 1-1.78 0l-8-4a2 2 0 0 1-1.11-1.79V7.24a2 2 0 0 1 1.11-1.79l8-4a2 2 0 0 1 1.78 0Z"/><path d="M2.32 6.16 12 11l9.68-4.84"/><line x1="12" y1="22.76" x2="12" y2="11"/></svg>',
+  viagem: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>',
+  servico: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94Z"/></svg>',
+  curso: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5"/></svg>',
+  assinatura: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>',
+  carona: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11 6.5 6.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11"/><rect x="3" y="11" width="18" height="6" rx="2"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/></svg>',
 };
 
 // Aviso fixo só pra grupos de assinatura (task-001) — deixa claro que o
@@ -977,7 +989,7 @@ function renderGenericGroupCard(g) {
   const noticeHtml = g.category === "assinatura" ? `<p class="group-assinatura-notice">${escapeHtml(GROUP_ASSINATURA_NOTICE)}</p>` : "";
   return `
     <li class="request-item group-card" data-group-id="${escapeHtml(g.id)}">
-      <span class="request-icon">${GROUP_CATEGORY_ICONS[g.category] || "👥"}</span>
+      <span class="request-icon">${GROUP_CATEGORY_ICONS[g.category] || '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'}</span>
       <span class="request-info">
         <strong>${escapeHtml(g.title)}</strong>
         <br />
@@ -1887,12 +1899,28 @@ postForm.addEventListener("submit", async (event) => {
   postStatus.textContent = "publicando…";
   postStatus.className = "post-status";
 
+  // Foto é opcional — só muda pra multipart/form-data quando alguém
+  // realmente anexa uma; sem isso, mantém o JSON de sempre (menos coisa
+  // pra quebrar no caminho mais comum, sem foto nenhuma).
+  const postPhotoInput = document.getElementById("post-photo");
+  const hasPhoto = postPhotoInput && postPhotoInput.files && postPhotoInput.files.length > 0;
+
   try {
-    const res = await fetch("/api/requests", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    let res;
+    if (hasPhoto) {
+      const body = new FormData();
+      Object.entries(payload).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) body.append(key, value);
+      });
+      body.append("photo", postPhotoInput.files[0]);
+      res = await fetch("/api/requests", { method: "POST", body });
+    } else {
+      res = await fetch("/api/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    }
     const result = await res.json();
 
     if (!res.ok) {
@@ -2428,7 +2456,7 @@ function openProdutoPanel() {
       ).join("")}
     </div>
     <div class="panel-filter-row">
-      <button type="button" id="panel-produto-location" class="panel-filter-btn">📍 Minha localização</button>
+      <button type="button" id="panel-produto-location" class="panel-filter-btn"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg> <span class="btn-label">Minha localização</span></button>
       <label class="panel-field">
         <span class="panel-field-label">Estado</span>
         <select id="panel-produto-state" class="panel-select">
@@ -2786,6 +2814,10 @@ function renderLoggedInUser(user, providers, groups, requests) {
   `;
   emailAuthToggle.hidden = true;
   emailAuthPanel.hidden = true;
+  // "Criar conta" no header ficava visível mesmo logada — a função só
+  // escondia o "Entrar" (emailAuthToggle), nunca esse botão separado.
+  const criarContaHeaderBtn = document.getElementById("criar-conta-header-btn");
+  if (criarContaHeaderBtn) criarContaHeaderBtn.hidden = true;
   // signup-toggle removido (tarefa de simplificação do login)
   hideLoginSuggestionBanner();
   renderUserPanel();
