@@ -83,19 +83,19 @@
             <form id="email-auth-form" class="email-auth-form" hidden style="display:none">
               <div class="post-field post-field--wide" data-auth-field="name" hidden>
                 <label for="auth-name">Seu nome</label>
-                <input id="auth-name" name="name" type="text" placeholder="ex: Juliana Martins" autocomplete="name" />
+                <input id="auth-name" name="name" type="text" placeholder="ex: Juliana Martins" enterkeyhint="next" autocomplete="name" />
               </div>
               <div class="post-field post-field--wide" data-auth-field="whatsapp" hidden>
                 <label for="auth-whatsapp">Seu WhatsApp</label>
-                <input id="auth-whatsapp" name="whatsapp" type="tel" placeholder="ex: (31) 99999-0000" autocomplete="tel" />
+                <input id="auth-whatsapp" name="whatsapp" type="tel" placeholder="ex: (31) 99999-0000" inputmode="tel" enterkeyhint="next" autocomplete="tel" />
               </div>
               <div class="post-field post-field--wide">
                 <label for="auth-email">E-mail</label>
-                <input id="auth-email" name="email" type="email" placeholder="ex: voce@email.com" autocomplete="email" />
+                <input id="auth-email" name="email" type="email" placeholder="ex: voce@email.com" enterkeyhint="next" autocomplete="email" />
               </div>
               <div class="post-field post-field--wide">
                 <label for="auth-password">Senha</label>
-                <input id="auth-password" name="password" type="password" placeholder="mínimo 8 caracteres" autocomplete="current-password" />
+                <input id="auth-password" name="password" type="password" placeholder="mínimo 8 caracteres" enterkeyhint="done" autocomplete="current-password" />
               </div>
               <div class="post-field post-field--wide" data-auth-field="altcha" id="email-auth-altcha-slot" hidden></div>
               <button type="submit" class="post-submit" id="email-auth-submit">Entrar</button>
@@ -110,7 +110,7 @@
             <form id="profile-edit-form" class="post-form">
               <div class="post-field post-field--wide">
                 <label for="profile-whatsapp">Seu WhatsApp</label>
-                <input id="profile-whatsapp" name="whatsapp" type="tel" placeholder="ex: (31) 99999-0000" autocomplete="tel" required />
+                <input id="profile-whatsapp" name="whatsapp" type="tel" placeholder="ex: (31) 99999-0000" inputmode="tel" enterkeyhint="done" autocomplete="tel" required />
               </div>
               <div class="post-field post-field--wide">
                 <label for="profile-tipo-uso">Como você usa o site</label>
@@ -213,7 +213,7 @@
       <div class="whatsapp-prompt-box">
         <p class="whatsapp-prompt-title">Informe seu WhatsApp</p>
         <p class="whatsapp-prompt-desc">Necessário para que motoristas e prestadores entrem em contato com você.</p>
-        <input id="whatsapp-prompt-input" type="tel" placeholder="(31) 99999-0000" class="whatsapp-prompt-input" maxlength="20" autocomplete="tel" />
+        <input id="whatsapp-prompt-input" type="tel" placeholder="(31) 99999-0000" class="whatsapp-prompt-input" maxlength="20" inputmode="tel" enterkeyhint="done" autocomplete="tel" />
         <p id="whatsapp-prompt-error" class="post-status post-status--error" hidden></p>
         <div class="whatsapp-prompt-actions">
           <button type="button" id="whatsapp-prompt-save" class="cta-primary">Salvar</button>
@@ -241,7 +241,7 @@
           <div id="hero-requester-tools">
             <form id="hero-search-form" class="hero-search-form" autocomplete="off">
               <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input id="hero-search-input" type="text" placeholder="O que você está procurando?" aria-label="Buscar" />
+              <input id="hero-search-input" type="search" placeholder="O que você está procurando?" aria-label="Buscar" enterkeyhint="search" spellcheck="false" />
               <button type="submit" class="cta-button hero-search-submit">Buscar agora</button>
             </form>
             <div class="hero-category-chips">
@@ -426,8 +426,8 @@
           <button type="button" class="mode-btn group-category-btn" data-category="carona">Carona</button>
         </div>
         <div id="carona-search-extra" class="carona-search-extra" hidden>
-          <input id="carona-search-origem" type="text" placeholder="Origem" aria-label="Filtrar por origem" />
-          <input id="carona-search-destino" type="text" placeholder="Destino" aria-label="Filtrar por destino" />
+          <input id="carona-search-origem" type="text" placeholder="Origem" aria-label="Filtrar por origem" enterkeyhint="next" spellcheck="false" />
+          <input id="carona-search-destino" type="text" placeholder="Destino" aria-label="Filtrar por destino" enterkeyhint="search" spellcheck="false" />
           <input id="carona-search-data" type="date" aria-label="Filtrar por data" />
           <button type="button" id="carona-search-location">Ordenar por perto de mim</button>
         </div>
