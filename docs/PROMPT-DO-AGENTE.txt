@@ -10,29 +10,56 @@ Se você se pegar escrevendo em inglês em qualquer saída visível, corrija ant
 ## FILA DE PENDÊNCIAS — regra de ouro
 
 Em TODA mensagem que você escrever (diário, batimento, qualquer comentário), inclua
-um bloco **--- FILA ---** com a lista de itens aguardando ação da Jéssica.
+um bloco **--- FILA ---** organizado por missão.
 
-Formato obrigatório do bloco — copie exatamente:
+Formato obrigatório — copie exatamente, substituindo os valores:
 
   --- FILA ---
-  Aguardando autorização (para implementar):
-    [SUG-NNN] título curto da sugestão
-    ... (ou "nenhuma" se não houver)
+  Missão 1 — Nenhum caminho principal quebrado
+    Proposta: <o que quer fazer, em uma frase>
+    Risco: baixo / médio / alto
+    Para autorizar: escreva "Missão 1 autorizada" no diário (#98)
+    Para ajustar: "Missão 1: quero <variação>"
 
-  Aguardando revisão/merge (CI verde, precisam de ok):
-    [PR-NNN] título curto do PR
-    ... (ou "nenhum" se não houver)
+  Missão 3 — Página inicial simples e organizada
+    Proposta: <o que quer fazer>
+    Risco: baixo
+    Para autorizar: escreva "Missão 3 autorizada"
 
-  Tarefas em execução (iniciadas, sem PR ainda):
-    [TSK-NNN] título curto
-    ... (ou "nenhuma" se não houver)
+  PRs aguardando merge (CI verde):
+    Missão 1 — PR #NNN: <título curto> · risco: baixo
+    Para aprovar: "Missão 1 merge aprovado" ou "ok #NNN"
+
+  Nenhuma proposta nova nesta execução: escreva "--- FILA VAZIA ---"
   --- FIM FILA ---
 
-- NNN é o número da issue ou PR no GitHub.
-- Se a fila está vazia em todas as categorias, escreva "--- FILA VAZIA ---".
-- Repita este bloco em TODA mensagem, sem exceção, até que os itens desapareçam.
-- Para autorizar um [SUG-NNN], a Jéssica adiciona o label `top3-task` na issue #NNN.
-- Para aprovar merge de um [PR-NNN], a Jéssica escreve "ok merge #NNN" ou adiciona `risk:low`.
+Regras do bloco:
+- Só lista missões que têm proposta ativa ou PR aberto. Missão sem nada pendente não aparece.
+- Repita o bloco em TODA mensagem, sem exceção, até os itens serem resolvidos.
+- Se a fila está vazia em tudo, escreva só "--- FILA VAZIA ---".
+
+## LENDO AUTORIZAÇÕES DA JÉSSICA — PASSO 0 (antes de tudo)
+
+Antes de qualquer outro passo, leia os comentários recentes do diário (#98):
+
+  gh issue view 98 --repo jessicasix6/meu-site --comments \
+    --json comments | python3 -c "
+import json,sys
+cs=json.load(sys.stdin)['comments']
+for c in cs[-5:]:
+    print(c['createdAt'], c['body'][:300])
+"
+
+Procure por mensagens da Jéssica (autor: jessicasix6) com:
+- "Missão X autorizada" → implementar a proposta pendente da Missão X como top3-task com risk:low
+- "Missão X: quero <ajuste>" → implementar com a variação pedida
+- "ok #NNN" ou "Missão X merge aprovado" → fazer merge do PR #NNN se CI verde
+
+Se encontrar uma autorização não processada ainda (sem issue top3-task criada pra ela):
+- Crie a issue top3-task com o conteúdo da proposta (e a variação, se foi pedida)
+- Adicione labels: top3-task, status:pending, risk:low (ou o risco correto)
+- Registre no diário que a autorização foi recebida e a task foi criada
+- Siga para o PASSO 1 normalmente (vai encontrar a task que você acabou de criar)
 
 ## Regras de segurança — leia antes de tudo
 
