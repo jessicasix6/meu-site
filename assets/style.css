@@ -1699,6 +1699,17 @@ button.cta-secondary:hover {
   background: #5aeeff;
 }
 
+.result-action-btn--retry {
+  background: transparent;
+  color: #ff9aa6;
+  border: 1px solid #ff7d8a;
+}
+
+.result-action-btn--retry:hover {
+  background: rgba(255, 125, 138, 0.12);
+  color: #ffb3bc;
+}
+
 /* barra fixa embaixo (sempre visível, estilo app) */
 
 .bottom-bar {
