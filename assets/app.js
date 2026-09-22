@@ -3550,3 +3550,11 @@ async function loadHomeStats() {
 loadHighlights();
 loadActivityFeed();
 loadHomeStats();
+
+// SearchAction (schema.org): executa busca automaticamente se ?q= vier na URL.
+// Permite que o Google envie usuários direto pra uma consulta via Sitelinks
+// Searchbox — o GoogleBot indexa o potentialAction e monta o link de busca.
+const _qParam = new URLSearchParams(window.location.search).get("q");
+if (_qParam && _qParam.trim()) {
+  performSearch(_qParam.trim());
+}
