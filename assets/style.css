@@ -4514,3 +4514,62 @@ body {
 .ranking-section .section-title {
   font-size: clamp(1.8rem, 3vw, 2.6rem);
 }
+
+/* ── Skeleton loaders ──────────────────────────────────────────────────────── */
+@keyframes skeleton-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.skeleton-block {
+  background: linear-gradient(
+    90deg,
+    var(--bg-raised) 25%,
+    rgba(22, 230, 255, 0.06) 50%,
+    var(--bg-raised) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.6s infinite linear;
+  border-radius: 6px;
+  display: block;
+}
+
+/* Ranking skeleton card */
+.rank-card--skeleton {
+  pointer-events: none;
+}
+.rank-card--skeleton .rank-card-photo {
+  background: var(--bg-raised);
+}
+.rank-card--skeleton .sk-photo {
+  width: 100%;
+  height: 190px;
+}
+.rank-card--skeleton .rank-card-body {
+  padding: 1rem 1.2rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rank-card--skeleton .sk-stars  { height: 12px; width: 55%; }
+.rank-card--skeleton .sk-name   { height: 20px; width: 75%; }
+.rank-card--skeleton .sk-meta   { height: 13px; width: 45%; }
+.rank-card--skeleton .sk-btn    { height: 38px; width: 100%; border-radius: 10px; margin-top: 4px; }
+
+/* Request/group skeleton item */
+.request-item--skeleton {
+  pointer-events: none;
+}
+.request-item--skeleton .sk-icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.request-item--skeleton .sk-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.request-item--skeleton .sk-title  { height: 16px; width: 65%; }
+.request-item--skeleton .sk-detail { height: 12px; width: 40%; }
