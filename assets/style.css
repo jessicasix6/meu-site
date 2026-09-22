@@ -825,6 +825,10 @@ input[type="number"] {
 
 .accept-btn {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
   padding: 0.5rem 1rem;
   font-family: var(--font-body);
   font-size: 0.85rem;
@@ -2167,14 +2171,16 @@ button.cta-secondary:focus-visible {
 }
 
 .group-leave-link {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   margin-top: 0.35rem;
   font-size: 0.72rem;
   color: var(--text-faint);
   background: transparent;
   border: none;
   cursor: pointer;
-  padding: 0;
+  padding: 0 0.5rem;
   font-family: var(--font-body);
   text-decoration: underline;
 }
@@ -2274,6 +2280,10 @@ button.cta-secondary:focus-visible {
 }
 
 .group-carona-detail-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
   padding: 0.5rem 1rem;
   font-family: var(--font-body);
   font-size: 0.85rem;
@@ -2843,6 +2853,9 @@ button.cta-secondary:focus-visible {
 }
 
 .footer-nav-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   font-size: 0.85rem;
   color: var(--text-dim);
   text-decoration: none;
