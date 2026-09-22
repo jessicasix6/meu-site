@@ -342,7 +342,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
     await expect(page.locator("#ranking-title")).toContainText("eletricista");
     const cards = page.locator(".rank-card");
     await expect(cards).toHaveCount(2);
-    await expect(page.locator(".rank-service").first()).toContainText("eletricista");
+    await expect(page.locator(".rank-service-city").first()).toContainText("eletricista");
     await expect(page.locator("#ranking-filter-hint")).toBeVisible();
 
     // Não foi pro texto de IA nem gastou uma chamada de /api/chat.
@@ -840,7 +840,7 @@ test.describe("Top3Profissional - perfil profissional (pilar 4.12)", () => {
 
     const card = page.locator(".rank-card").first();
     await expect(card).toContainText("Foto Ranking Teste");
-    const img = card.locator(".rank-avatar--photo img");
+    const img = card.locator(".rank-card-img");
     await expect(img).toBeVisible();
     await expect(img).toHaveAttribute("src", expectedUrl);
   });
@@ -854,9 +854,9 @@ test.describe("Top3Profissional - perfil profissional (pilar 4.12)", () => {
 
     const cards = page.locator(".rank-card");
     await expect(cards.first()).toBeVisible();
-    // Cards mock não têm foto — devem mostrar iniciais, nunca .rank-avatar--photo.
-    await expect(cards.first().locator(".rank-avatar--photo")).toHaveCount(0);
-    await expect(cards.first().locator(".rank-avatar")).not.toBeEmpty();
+    // Cards mock não têm foto — devem mostrar iniciais, nunca .rank-card-img.
+    await expect(cards.first().locator(".rank-card-img")).toHaveCount(0);
+    await expect(cards.first().locator(".rank-card-initials-big")).not.toBeEmpty();
   });
 });
 
