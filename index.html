@@ -538,11 +538,11 @@
 
           <div class="post-field">
             <label for="group-whatsapp">Seu WhatsApp</label>
-            <input id="group-whatsapp" name="whatsapp" type="tel" placeholder="ex: (31) 99999-0000" required />
+            <input id="group-whatsapp" name="whatsapp" type="tel" placeholder="ex: (31) 99999-0000" autocomplete="tel" required />
           </div>
           <div class="post-field">
             <label for="group-name">Seu nome (opcional)</label>
-            <input id="group-name" name="name" type="text" placeholder="ex: João" />
+            <input id="group-name" name="name" type="text" placeholder="ex: João" autocomplete="given-name" />
           </div>
           <button type="button" id="group-price-reference-btn" class="cta-secondary">Ver preços de referência</button>
           <!-- Mesma lógica do slot em #email-auth-form: só ganha o widget de verdade via JS, se configurado. -->
@@ -634,7 +634,7 @@
           </div>
           <div class="post-field">
             <label for="post-requester">Seu nome (opcional)</label>
-            <input id="post-requester" name="requester" type="text" placeholder="ex: Juliana M." enterkeyhint="done" autocomplete="name" />
+            <input id="post-requester" name="requester" type="text" placeholder="ex: Juliana M." enterkeyhint="done" autocomplete="given-name" />
           </div>
           <div class="post-field post-field--wide">
             <label for="post-photo">Foto (opcional, ex: o que precisa consertar)</label>
