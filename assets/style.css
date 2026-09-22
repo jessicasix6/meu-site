@@ -713,6 +713,15 @@ a {
   height: 22px;
 }
 
+.request-photo {
+  flex-shrink: 0;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid var(--border-strong);
+}
+
 .request-icon--entrega {
   background: rgba(232, 182, 76, 0.14);
   color: var(--gold);
