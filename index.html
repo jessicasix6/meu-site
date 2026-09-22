@@ -439,7 +439,7 @@
         <form id="group-form" class="post-form" hidden>
           <div class="post-field post-field--wide">
             <label for="group-title">O que o grupo quer conseguir</label>
-            <input id="group-title" name="title" type="text" placeholder="ex: Lavagem de caixa d'água" required />
+            <input id="group-title" name="title" type="text" placeholder="ex: Lavagem de caixa d'água" required enterkeyhint="next" />
           </div>
           <div class="post-field">
             <label for="group-category">Categoria</label>
@@ -455,11 +455,11 @@
           </div>
           <div class="post-field" id="group-city-field">
             <label for="group-city">Cidade/bairro</label>
-            <input id="group-city" name="city" type="text" placeholder="ex: Centro, Belo Horizonte" required />
+            <input id="group-city" name="city" type="text" placeholder="ex: Centro, Belo Horizonte" required enterkeyhint="next" spellcheck="false" />
           </div>
           <div class="post-field" id="group-target-field">
             <label for="group-target">Quantas pessoas no total</label>
-            <input id="group-target" name="targetMembers" type="number" min="2" max="50" step="1" placeholder="ex: 4" required />
+            <input id="group-target" name="targetMembers" type="number" min="2" max="50" step="1" placeholder="ex: 4" required inputmode="numeric" enterkeyhint="next" />
           </div>
           <div class="post-field" id="group-tipo-field">
             <label for="group-tipo">Você quer ou oferece? (opcional)</label>
@@ -471,11 +471,11 @@
           </div>
           <div class="post-field" id="group-price-field">
             <label for="group-price">Valor estimado por pessoa (R$, opcional)</label>
-            <input id="group-price" name="estimatedIndividualPrice" type="number" min="0" step="1" placeholder="ex: 55" />
+            <input id="group-price" name="estimatedIndividualPrice" type="number" min="0" step="1" placeholder="ex: 55" inputmode="numeric" enterkeyhint="next" />
           </div>
           <div class="post-field" id="group-deadline-field">
             <label for="group-deadline">Prazo (opcional)</label>
-            <input id="group-deadline" name="deadline" type="text" placeholder="ex: até sexta-feira" />
+            <input id="group-deadline" name="deadline" type="text" placeholder="ex: até sexta-feira" enterkeyhint="done" />
           </div>
 
           <fieldset id="group-carona-fields" class="post-field post-field--wide group-carona-fieldset" hidden>
@@ -591,7 +591,7 @@
         <form id="post-form" class="post-form">
           <div class="post-field post-field--wide">
             <label for="post-title">O que você precisa</label>
-            <input id="post-title" name="title" type="text" placeholder="ex: Centro → Rodoviária" required />
+            <input id="post-title" name="title" type="text" placeholder="ex: Centro → Rodoviária" required enterkeyhint="next" />
           </div>
           <div class="post-field">
             <label for="post-type">Tipo</label>
@@ -606,7 +606,7 @@
           </div>
           <div class="post-field">
             <label for="post-location">Onde (opcional se já estiver em "O que você precisa", ex: "Centro → Rodoviária")</label>
-            <input id="post-location" name="location" type="text" placeholder="ex: Savassi, Belo Horizonte" />
+            <input id="post-location" name="location" type="text" placeholder="ex: Savassi, Belo Horizonte" enterkeyhint="next" spellcheck="false" autocomplete="street-address" />
           </div>
           <div class="post-field post-field--checkbox" id="post-location-geo" hidden>
             <button type="button" id="post-use-location" class="cta-secondary"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg> Usar minha localização</button>
@@ -616,11 +616,11 @@
           </div>
           <div class="post-field">
             <label for="post-whatsapp">Seu WhatsApp</label>
-            <input id="post-whatsapp" name="whatsapp" type="tel" placeholder="ex: (31) 99999-0000" required />
+            <input id="post-whatsapp" name="whatsapp" type="tel" placeholder="ex: (31) 99999-0000" required inputmode="tel" enterkeyhint="next" autocomplete="tel" />
           </div>
           <div class="post-field">
             <label for="post-price">Valor (R$)</label>
-            <input id="post-price" name="price" type="number" min="0" step="1" placeholder="ex: 25" required />
+            <input id="post-price" name="price" type="number" min="0" step="1" placeholder="ex: 25" required inputmode="numeric" enterkeyhint="next" />
           </div>
           <div class="post-field">
             <label for="post-date">Quando</label>
@@ -632,7 +632,7 @@
           </div>
           <div class="post-field">
             <label for="post-requester">Seu nome (opcional)</label>
-            <input id="post-requester" name="requester" type="text" placeholder="ex: Juliana M." />
+            <input id="post-requester" name="requester" type="text" placeholder="ex: Juliana M." enterkeyhint="done" autocomplete="name" />
           </div>
           <div class="post-field post-field--wide">
             <label for="post-photo">Foto (opcional, ex: o que precisa consertar)</label>
@@ -659,19 +659,19 @@
         <form id="provider-form" class="post-form" enctype="multipart/form-data">
           <div class="post-field post-field--wide">
             <label for="provider-name">Seu nome</label>
-            <input id="provider-name" name="name" type="text" placeholder="ex: Juliana Martins" required />
+            <input id="provider-name" name="name" type="text" placeholder="ex: Juliana Martins" required enterkeyhint="next" autocomplete="name" />
           </div>
           <div class="post-field">
             <label for="provider-service">O que você faz</label>
-            <input id="provider-service" name="service" type="text" placeholder="ex: manicure, eletricista..." required />
+            <input id="provider-service" name="service" type="text" placeholder="ex: manicure, eletricista..." required enterkeyhint="next" spellcheck="false" />
           </div>
           <div class="post-field">
             <label for="provider-location">Onde você atende</label>
-            <input id="provider-location" name="location" type="text" placeholder="ex: Savassi, Belo Horizonte" required />
+            <input id="provider-location" name="location" type="text" placeholder="ex: Savassi, Belo Horizonte" required enterkeyhint="next" spellcheck="false" autocomplete="street-address" />
           </div>
           <div class="post-field">
             <label for="provider-whatsapp">Seu WhatsApp</label>
-            <input id="provider-whatsapp" name="whatsapp" type="tel" placeholder="ex: (31) 99999-0000" required />
+            <input id="provider-whatsapp" name="whatsapp" type="tel" placeholder="ex: (31) 99999-0000" required inputmode="tel" enterkeyhint="next" autocomplete="tel" />
           </div>
           <div class="post-field post-field--wide">
             <label id="provider-description-label" for="provider-description">Descreva o que você faz, com suas palavras</label>
