@@ -15,6 +15,7 @@
 }
 
 :root {
+  color-scheme: dark;
   /* hollywood-redesign: dark premium marketplace */
   --bg: #040810;
   --bg-raised: #08121c;
