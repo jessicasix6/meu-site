@@ -620,6 +620,12 @@ a {
   border-color: var(--text-dim);
 }
 
+.mode-btn:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(22, 230, 255, 0.25);
+}
+
 .mode-btn.is-active {
   color: var(--accent-ink);
   background: var(--accent);
@@ -793,6 +799,11 @@ a {
 
 .accept-btn:hover:not(:disabled) {
   background: #5aeeff;
+}
+
+.accept-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(22, 230, 255, 0.35);
 }
 
 .accept-btn:disabled {
@@ -1109,6 +1120,12 @@ a {
   transform: translateY(-1px);
 }
 
+.cta-button:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(22, 230, 255, 0.40);
+}
+
 /* task-013: "Criar conta" no header — ciano com brilho sutil, hierarquia
    primária clara. O brilho sutil destaca o CTA sem violar a regra
    "só um brilho por vez" porque é mais fraco e não há outro brilho ativo
@@ -1187,6 +1204,12 @@ button.cta-secondary .icon {
 button.cta-secondary:hover {
   background: var(--glass-bg);
   border-color: var(--accent);
+}
+
+button.cta-secondary:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(22, 230, 255, 0.25);
 }
 
 /* sections */
