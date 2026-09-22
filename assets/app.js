@@ -257,6 +257,32 @@ function starRow(rating) {
   return out;
 }
 
+function rankingSkeletonHtml() {
+  const card = `
+    <li class="rank-card rank-card--skeleton" aria-hidden="true">
+      <div class="rank-card-photo"><span class="skeleton-block sk-photo"></span></div>
+      <div class="rank-card-body">
+        <span class="skeleton-block sk-stars"></span>
+        <span class="skeleton-block sk-name"></span>
+        <span class="skeleton-block sk-meta"></span>
+        <span class="skeleton-block sk-btn"></span>
+      </div>
+    </li>`;
+  return card + card + card;
+}
+
+function listSkeletonHtml(count = 3) {
+  const item = `
+    <li class="request-item request-item--skeleton" aria-hidden="true">
+      <span class="skeleton-block sk-icon"></span>
+      <div class="sk-lines">
+        <span class="skeleton-block sk-title"></span>
+        <span class="skeleton-block sk-detail"></span>
+      </div>
+    </li>`;
+  return Array(count).fill(item).join("");
+}
+
 // A espera pela geolocalização pode ser lenta (até 8s) — se a pessoa trocar
 // de filtro de novo antes disso resolver, essa chamada antiga não pode
 // sobrescrever uma mais recente quando finalmente responder.
@@ -269,6 +295,7 @@ let currentRankingService = "";
 async function loadRanking(sortBy, service) {
   if (service !== undefined) currentRankingService = service;
   const callId = ++loadRankingCallId;
+  rankingList.innerHTML = rankingSkeletonHtml();
   try {
     const effectiveSortBy = sortBy || rankingSort.value;
     let url = `/api/ranking?sortBy=${encodeURIComponent(effectiveSortBy)}`;
@@ -479,6 +506,7 @@ requestsFilterType.addEventListener("change", applyRequestsFilter);
 requestsFilterKeyword.addEventListener("input", applyRequestsFilter);
 
 async function loadRequests() {
+  requestsList.innerHTML = listSkeletonHtml();
   try {
     let url = "/api/requests";
     const params = new URLSearchParams();
@@ -1094,6 +1122,7 @@ function renderGroupsList(groups) {
 }
 
 async function loadGroups() {
+  groupsList.innerHTML = listSkeletonHtml();
   try {
     const res = await fetch(buildGroupsQueryUrl());
     if (!res.ok) return;
