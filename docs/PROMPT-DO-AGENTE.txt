@@ -38,44 +38,43 @@ Implemente a tarefa seguindo as regras de segurança acima.
 - Nunca --no-verify, nunca pula teste, nunca força push.
 Depois de implementar, vá direto para o PASSO 5 (batimento) e PASSO 6 (diário).
 
-### PASSO 3 — Observar o site em produção
+### PASSO 3 — Observar o repositório e o CI (acesso visual ao site não disponível)
 
-Acesse https://www.top3profissional.com.br no navegador e verifique:
+Nota: o ambiente de nuvem das rotinas não tem acesso de rede externo a
+www.top3profissional.com.br — não tente abrir o site no navegador e não tente
+curl/fetch para esse domínio. Use só as fontes abaixo, que funcionam.
 
-Desktop (1280px):
-- Erros no console do navegador
-- Requisição que falha (4xx/5xx) no painel de rede
-- Texto cortado, estouro de largura ou elemento fora do lugar
-- Link ou botão que não leva a nenhum lugar
-- Contraste de texto baixo demais para ler
-- Página demorando mais de 4 segundos para ficar utilizável
-- Fluxo principal funcionando: buscar, abrir categoria, publicar pedido
+**3a. Execuções recentes do CI:**
+  gh run list --repo jessicasix6/meu-site --limit 5 --json status,conclusion,name,createdAt
+  Registre quantas passaram/falharam e quando foi a última. Se algum falhou, leia
+  o log do passo com problema:
+    gh run view <id> --repo jessicasix6/meu-site --log-failed
 
-Celular (375px):
-- Os mesmos pontos acima
-- Nenhum elemento com scroll horizontal
-- Formulário utilizável com teclado virtual
+**3b. Leia os PRs abertos e seus checks:**
+  gh pr list --repo jessicasix6/meu-site --state open \
+    --json number,title,statusCheckRollup,author
+  Se algum PR tiver CI vermelho, registre no diário qual é e por quê.
 
-Também verifique:
-- Resposta do /health (via curl ou navegador): checar status e uptimeSeconds
-- Erros recentes no GitHub Actions: gh run list --repo jessicasix6/meu-site --limit 5
+**3c. Leia as issues recentes abertas por pessoas (não pelo agente):**
+  gh issue list --repo jessicasix6/meu-site --state open \
+    --json number,title,labels,createdAt --limit 10
+  Filtre as que NÃO têm label sugestao, top3-task ou diario — essas podem ser
+  relatos de bug reais de usuários. Se encontrar, registre no diário.
 
 ### PASSO 4 — Consultar métricas do site (diagnóstico de visitas)
 
 Execute estas consultas de diagnóstico e registre os números no diário:
 
-**4a. Tráfego do repositório (GitHub — sempre disponível):**
-  Use a ferramenta github com action "list issues" para contar issues abertas, ou
-  execute via Bash (se disponível):
-    gh api /repos/jessicasix6/meu-site/traffic/views
-    gh api /repos/jessicasix6/meu-site/traffic/popular/referrers
-  Se o comando gh api não estiver disponível, pule e registre "API REST indisponível".
+**4a. Tráfego do repositório (GitHub):**
+  gh api /repos/jessicasix6/meu-site/traffic/views 2>/dev/null \
+    || echo "traffic API indisponível"
+  gh api /repos/jessicasix6/meu-site/traffic/popular/referrers 2>/dev/null \
+    || echo "referrers indisponível"
+  Se o comando retornar erro, pule e registre "indisponível" — não tente de novo.
 
-**4b. Execuções recentes do CI (substitui /health quando o site está bloqueado):**
-  gh run list --repo jessicasix6/meu-site --limit 5 --json status,conclusion,name,createdAt
-  Registre: quantas passaram, quantas falharam, quando foi a última.
-  Se o egress até www.top3profissional.com.br estiver liberado, também acesse
-  https://www.top3profissional.com.br/health e registre uptimeSeconds e integrações.
+**4b. Últimas execuções do CI (indica saúde do deploy):**
+  gh run list --repo jessicasix6/meu-site --limit 3 --json conclusion,createdAt,name
+  Anote se os últimos deploys passaram ou falharam.
 
 **4c. Fila de issues abertas:**
   gh issue list --repo jessicasix6/meu-site --state open --json number,title,labels --limit 20
