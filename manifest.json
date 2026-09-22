@@ -1,6 +1,7 @@
 {
+  "id": "/",
   "name": "Top3Profissional",
-  "short_name": "Top3Profissional",
+  "short_name": "Top3Pro",
   "description": "Descreva o que precisa numa frase — um profissional, uma corrida, um terreno, o que for — e um agente de IA busca no catálogo local e na web.",
   "start_url": "/",
   "scope": "/",
@@ -8,6 +9,8 @@
   "background_color": "#0a0c0d",
   "theme_color": "#0a0c0d",
   "lang": "pt-BR",
+  "dir": "ltr",
+  "categories": ["utilities", "productivity"],
   "icons": [
     { "src": "/assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
@@ -15,24 +18,31 @@
   ],
   "shortcuts": [
     {
-      "name": "Buscar profissional",
-      "short_name": "Buscar",
-      "description": "Buscar um profissional na sua cidade",
-      "url": "/#top",
+      "name": "Ver ranking",
+      "short_name": "Ranking",
+      "description": "Os 3 profissionais mais bem avaliados",
+      "url": "/#top3",
       "icons": [{ "src": "/assets/icons/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Publicar pedido",
       "short_name": "Publicar",
-      "description": "Publicar um pedido de serviço",
+      "description": "Publique o que você precisa e receba propostas",
       "url": "/#publicar",
       "icons": [{ "src": "/assets/icons/icon-192.png", "sizes": "192x192" }]
     },
     {
-      "name": "Ver grupos",
+      "name": "Grupos de economia",
       "short_name": "Grupos",
-      "description": "Ver grupos de economia e caronas",
+      "description": "Junte-se a grupos para dividir o custo de serviços",
       "url": "/#grupos",
+      "icons": [{ "src": "/assets/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Criar perfil profissional",
+      "short_name": "Criar perfil",
+      "description": "Divulgue seus serviços e receba solicitações",
+      "url": "/#criar-perfil",
       "icons": [{ "src": "/assets/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
