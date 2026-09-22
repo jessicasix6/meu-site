@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sem conexão — Top3Profissional</title>
+  <meta name="theme-color" content="#0a0c0d" />
+  <style>
+    :root {
+      --bg: #040810;
+      --bg-card: #0c1826;
+      --accent: #16e6ff;
+      --border: rgba(22, 230, 255, 0.14);
+      --text: #ffffff;
+      --text-dim: #8ba3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, sans-serif;
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+      text-align: center;
+    }
+    .logo {
+      font-size: 1.6rem;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      text-decoration: none;
+      margin-bottom: 2.5rem;
+    }
+    .logo-accent { color: var(--accent); }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 2.5rem 2rem;
+      max-width: 380px;
+      width: 100%;
+    }
+    .icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      display: block;
+    }
+    h1 {
+      font-size: 1.3rem;
+      font-weight: 800;
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.02em;
+    }
+    p {
+      color: var(--text-dim);
+      font-size: 0.92rem;
+      line-height: 1.55;
+      margin-bottom: 1.5rem;
+    }
+    button {
+      background: var(--accent);
+      color: #030810;
+      border: none;
+      border-radius: 10px;
+      padding: 0.75rem 1.75rem;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+    button:focus-visible {
+      outline: 2px solid #030810;
+      outline-offset: 2px;
+      box-shadow: 0 0 0 4px rgba(22, 230, 255, 0.4);
+    }
+  </style>
+</head>
+<body>
+  <a href="/" class="logo">TOP<span class="logo-accent">3</span></a>
+  <div class="card">
+    <span class="icon" aria-hidden="true">📶</span>
+    <h1>Sem conexão com a internet</h1>
+    <p>Parece que você está offline. Verifique sua conexão e tente de novo — o site continua aqui quando a rede voltar.</p>
+    <button type="button" onclick="location.reload()">Tentar novamente</button>
+  </div>
+</body>
+</html>
