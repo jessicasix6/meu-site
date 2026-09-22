@@ -15,6 +15,7 @@
 }
 
 :root {
+  color-scheme: dark;
   /* hollywood-redesign: dark premium marketplace */
   --bg: #040810;
   --bg-raised: #08121c;
@@ -53,6 +54,32 @@
   box-sizing: border-box;
 }
 
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 0;
+  min-height: 44px;
+  padding: 0.75rem 1.2rem;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-decoration: none;
+  z-index: 10000;
+  border-radius: 0 0 8px 0;
+  transition: top 0.15s ease;
+}
+.skip-link:focus-visible {
+  top: 0;
+  outline: none;
+}
+
+html {
+  scroll-behavior: smooth;
+  /* header sticky tem ~72px — âncoras não ficam escondidas sob ele */
+  scroll-padding-top: 72px;
+}
+
 /* Garante que o atributo hidden sempre esconda, mesmo em elementos cuja
    própria classe define display (flex/grid/block) — sem isso, campos com
    "hidden" alternado por JS (ex: campos condicionais de formulário) ficam
@@ -85,6 +112,19 @@ p {
 
 a {
   color: inherit;
+}
+
+/* Remove os spin buttons nativos de inputs numéricos — eles quebram
+   o visual escuro do design system (aparecem com fundo claro no Chrome
+   até o color-scheme:dark ser aplicado). Usuários ainda podem digitar
+   ou usar ↑↓ do teclado para incrementar/decrementar. */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
 }
 
 .container {
@@ -620,6 +660,12 @@ a {
   border-color: var(--text-dim);
 }
 
+.mode-btn:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(22, 230, 255, 0.25);
+}
+
 .mode-btn.is-active {
   color: var(--accent-ink);
   background: var(--accent);
@@ -779,6 +825,10 @@ a {
 
 .accept-btn {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
   padding: 0.5rem 1rem;
   font-family: var(--font-body);
   font-size: 0.85rem;
@@ -793,6 +843,11 @@ a {
 
 .accept-btn:hover:not(:disabled) {
   background: #5aeeff;
+}
+
+.accept-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(22, 230, 255, 0.35);
 }
 
 .accept-btn:disabled {
@@ -916,6 +971,13 @@ a {
 .ranking-error {
   color: var(--text-dim);
   font-size: 0.9rem;
+}
+
+.ranking-loading {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  font-style: italic;
+  padding: 0.5rem 0;
 }
 
 /* hero */
@@ -1109,6 +1171,12 @@ a {
   transform: translateY(-1px);
 }
 
+.cta-button:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(22, 230, 255, 0.40);
+}
+
 /* task-013: "Criar conta" no header — ciano com brilho sutil, hierarquia
    primária clara. O brilho sutil destaca o CTA sem violar a regra
    "só um brilho por vez" porque é mais fraco e não há outro brilho ativo
@@ -1187,6 +1255,12 @@ button.cta-secondary .icon {
 button.cta-secondary:hover {
   background: var(--glass-bg);
   border-color: var(--accent);
+}
+
+button.cta-secondary:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(22, 230, 255, 0.25);
 }
 
 /* sections */
@@ -1674,6 +1748,18 @@ button.cta-secondary:hover {
   color: var(--text-dim);
 }
 
+@keyframes result-dot-pulse {
+  0%, 60%, 100% { opacity: 0.15; }
+  30% { opacity: 1; }
+}
+
+.result-loading-dots span {
+  animation: result-dot-pulse 1.4s infinite;
+  display: inline-block;
+}
+.result-loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.result-loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
 .result-action-btn {
   display: block;
   margin-top: 0.9rem;
@@ -1690,6 +1776,17 @@ button.cta-secondary:hover {
 
 .result-action-btn:hover {
   background: #5aeeff;
+}
+
+.result-action-btn--retry {
+  background: transparent;
+  color: #ff9aa6;
+  border: 1px solid #ff7d8a;
+}
+
+.result-action-btn--retry:hover {
+  background: rgba(255, 125, 138, 0.12);
+  color: #ffb3bc;
 }
 
 /* barra fixa embaixo (sempre visível, estilo app) */
@@ -2074,14 +2171,16 @@ button.cta-secondary:hover {
 }
 
 .group-leave-link {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   margin-top: 0.35rem;
   font-size: 0.72rem;
   color: var(--text-faint);
   background: transparent;
   border: none;
   cursor: pointer;
-  padding: 0;
+  padding: 0 0.5rem;
   font-family: var(--font-body);
   text-decoration: underline;
 }
@@ -2119,6 +2218,17 @@ button.cta-secondary:hover {
   padding: 0.5rem 0.7rem;
   font-size: 0.85rem;
   font-family: var(--font-body);
+  transition: border-color 0.15s;
+}
+
+.carona-search-extra input:hover {
+  border-color: rgba(22, 230, 255, 0.55);
+}
+
+.carona-search-extra input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(22, 230, 255, 0.12);
 }
 
 .carona-search-extra button {
@@ -2170,6 +2280,10 @@ button.cta-secondary:hover {
 }
 
 .group-carona-detail-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
   padding: 0.5rem 1rem;
   font-family: var(--font-body);
   font-size: 0.85rem;
@@ -2690,21 +2804,72 @@ button.cta-secondary:hover {
 /* footer */
 
 .site-footer {
-  padding: 2rem 0;
+  padding: 2.5rem 0;
   /* Espaço reservado embaixo pra barra de busca fixa nunca cobrir o rodapé. */
   padding-bottom: calc(2rem + 108px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border);
 }
 
-.footer-grid {
+.footer-inner {
   display: flex;
-  align-items: center;
-  gap: 1.5rem;
+  gap: 3rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.footer-brand {
+  flex: 1 1 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.footer-tagline {
+  font-size: 0.82rem;
+  color: var(--text-faint);
+  max-width: 28ch;
+  line-height: 1.5;
+}
+
+.footer-nav {
+  display: flex;
+  gap: 3rem;
   flex-wrap: wrap;
 }
 
-.footer-grid p {
-  font-size: 0.82rem;
-  color: var(--text-faint);
+.footer-nav-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.footer-nav-heading {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(244, 251, 255, 0.45);
+  margin-bottom: 0.25rem;
+}
+
+.footer-nav-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.footer-nav-link:hover {
+  color: var(--text);
+}
+
+.footer-nav-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
 }
 
 @media (max-width: 860px) {
@@ -4424,3 +4589,62 @@ body {
 .ranking-section .section-title {
   font-size: clamp(1.8rem, 3vw, 2.6rem);
 }
+
+/* ── Skeleton loaders ──────────────────────────────────────────────────────── */
+@keyframes skeleton-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.skeleton-block {
+  background: linear-gradient(
+    90deg,
+    var(--bg-raised) 25%,
+    rgba(22, 230, 255, 0.06) 50%,
+    var(--bg-raised) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.6s infinite linear;
+  border-radius: 6px;
+  display: block;
+}
+
+/* Ranking skeleton card */
+.rank-card--skeleton {
+  pointer-events: none;
+}
+.rank-card--skeleton .rank-card-photo {
+  background: var(--bg-raised);
+}
+.rank-card--skeleton .sk-photo {
+  width: 100%;
+  height: 190px;
+}
+.rank-card--skeleton .rank-card-body {
+  padding: 1rem 1.2rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rank-card--skeleton .sk-stars  { height: 12px; width: 55%; }
+.rank-card--skeleton .sk-name   { height: 20px; width: 75%; }
+.rank-card--skeleton .sk-meta   { height: 13px; width: 45%; }
+.rank-card--skeleton .sk-btn    { height: 38px; width: 100%; border-radius: 10px; margin-top: 4px; }
+
+/* Request/group skeleton item */
+.request-item--skeleton {
+  pointer-events: none;
+}
+.request-item--skeleton .sk-icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.request-item--skeleton .sk-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.request-item--skeleton .sk-title  { height: 16px; width: 65%; }
+.request-item--skeleton .sk-detail { height: 12px; width: 40%; }
