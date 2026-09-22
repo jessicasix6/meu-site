@@ -918,6 +918,13 @@ a {
   font-size: 0.9rem;
 }
 
+.ranking-loading {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  font-style: italic;
+  padding: 0.5rem 0;
+}
+
 /* hero */
 
 /* task-012: hero centralizado, com busca real como peça principal (era um
