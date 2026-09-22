@@ -64,14 +64,18 @@ Também verifique:
 
 Execute estas consultas de diagnóstico e registre os números no diário:
 
-**4a. Tráfego do repositório (GitHub):**
-  gh api /repos/jessicasix6/meu-site/traffic/views --jq '{total:.count, uniques:.uniques}'
-  gh api /repos/jessicasix6/meu-site/traffic/popular/referrers --jq '.[0:3]'
+**4a. Tráfego do repositório (GitHub — sempre disponível):**
+  Use a ferramenta github com action "list issues" para contar issues abertas, ou
+  execute via Bash (se disponível):
+    gh api /repos/jessicasix6/meu-site/traffic/views
+    gh api /repos/jessicasix6/meu-site/traffic/popular/referrers
+  Se o comando gh api não estiver disponível, pule e registre "API REST indisponível".
 
-**4b. Saúde da API em produção:**
-  Abra https://www.top3profissional.com.br/health e registre:
-  - uptimeSeconds (dividido por 3600 = horas no ar)
-  - quais integrações estão configuradas (gemini, minio, umami, braveSearch...)
+**4b. Execuções recentes do CI (substitui /health quando o site está bloqueado):**
+  gh run list --repo jessicasix6/meu-site --limit 5 --json status,conclusion,name,createdAt
+  Registre: quantas passaram, quantas falharam, quando foi a última.
+  Se o egress até www.top3profissional.com.br estiver liberado, também acesse
+  https://www.top3profissional.com.br/health e registre uptimeSeconds e integrações.
 
 **4c. Fila de issues abertas:**
   gh issue list --repo jessicasix6/meu-site --state open --json number,title,labels --limit 20
