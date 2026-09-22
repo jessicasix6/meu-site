@@ -25,6 +25,7 @@
   <link rel="dns-prefetch" href="https://wa.me" />
   <link rel="dns-prefetch" href="https://api.whatsapp.com" />
   <link rel="preconnect" href="https://wa.me" crossorigin />
+  <link rel="preload" as="script" href="assets/app.js" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a0c0d'/%3E%3Ctext x='2' y='24' font-family='Arial Black%2CArial%2Csans-serif' font-weight='900' font-size='20' fill='%2321e6c1'%3ET%3C/text%3E%3Ctext x='16' y='24' font-family='Arial Black%2CArial%2Csans-serif' font-weight='900' font-size='20' fill='%23ffffff'%3E3%3C/text%3E%3C/svg%3E" />
   <link rel="manifest" href="/manifest.json" />
   <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png" />
@@ -242,7 +243,7 @@
             <button type="button" class="hero-mode-btn mode-btn" data-mode="provider" role="tab" aria-selected="false">Presto serviço</button>
           </div>
           <div id="hero-requester-tools">
-            <form id="hero-search-form" class="hero-search-form" autocomplete="off">
+            <form id="hero-search-form" class="hero-search-form" role="search" autocomplete="off">
               <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input id="hero-search-input" type="search" placeholder="O que você está procurando?" aria-label="Buscar" enterkeyhint="search" spellcheck="false" />
               <button type="submit" class="cta-button hero-search-submit">Buscar agora</button>
