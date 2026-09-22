@@ -2150,6 +2150,17 @@ button.cta-secondary:hover {
   padding: 0.5rem 0.7rem;
   font-size: 0.85rem;
   font-family: var(--font-body);
+  transition: border-color 0.15s;
+}
+
+.carona-search-extra input:hover {
+  border-color: rgba(22, 230, 255, 0.55);
+}
+
+.carona-search-extra input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(22, 230, 255, 0.12);
 }
 
 .carona-search-extra button {
