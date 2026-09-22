@@ -595,23 +595,26 @@ if (minioBucketReady) minioBucketReady.catch(() => {});
 
 if (!minioClient) {
   fs.mkdirSync(path.join(UPLOADS_DIR, "providers"), { recursive: true });
+  fs.mkdirSync(path.join(UPLOADS_DIR, "requests"), { recursive: true });
   console.warn("MINIO_ENDPOINT não definida — fotos de perfil ficam salvas em disco local (uploads/), como antes.");
 }
 
 // Grava um arquivo enviado (foto original, versão melhorada, ou com fundo
 // novo) no backend configurado. Devolve sempre a mesma forma de URL
-// pública ("/uploads/providers/<id>/<arquivo>"), independente de onde o
+// pública ("/uploads/<kind>/<id>/<arquivo>"), independente de onde o
 // arquivo realmente está guardado — quem consome a resposta (front-end,
 // página pública do prestador) nunca precisa saber qual backend está ativo.
-async function storePhoto(buffer, dir, id, filename, mimetype) {
+// kind por padrão "providers" (uso original) — "requests" pra foto opcional
+// de pedido (task de anexo de imagem no formulário de solicitar).
+async function storePhoto(buffer, dir, id, filename, mimetype, kind = "providers") {
   if (minioClient) {
     await minioBucketReady;
-    const key = `providers/${id}/${filename}`;
+    const key = `${kind}/${id}/${filename}`;
     await minioClient.putObject(MINIO_BUCKET, key, buffer, buffer.length, { "Content-Type": mimetype });
   } else {
     fs.writeFileSync(path.join(dir, filename), buffer);
   }
-  return `/uploads/providers/${id}/${filename}`;
+  return `/uploads/${kind}/${id}/${filename}`;
 }
 
 const upload = multer({
@@ -633,6 +636,20 @@ function uploadProviderPhotos(req, res, next) {
           : err.code === "LIMIT_FILE_COUNT"
             ? "no máximo 6 fotos"
             : "não consegui processar as fotos enviadas";
+      return res.status(400).json({ error: message });
+    }
+    res.status(500).json({ error: "falha ao processar upload" });
+  });
+}
+
+// Mesma ideia acima, mas pra foto opcional de UM pedido (não é obrigatório
+// como as fotos de perfil — sem foto anexada, req.file simplesmente não
+// existe e o pedido segue sem imagem, sem erro nenhum).
+function uploadRequestPhoto(req, res, next) {
+  upload.single("photo")(req, res, (err) => {
+    if (!err) return next();
+    if (err instanceof multer.MulterError) {
+      const message = err.code === "LIMIT_FILE_SIZE" ? "a foto pode ter no máximo 8MB" : "não consegui processar a foto enviada";
       return res.status(400).json({ error: message });
     }
     res.status(500).json({ error: "falha ao processar upload" });
@@ -711,6 +728,23 @@ if (minioClient) {
     try {
       await minioBucketReady;
       const key = `providers/${req.params.id}/${req.params.filename}`;
+      const stream = await minioClient.getObject(MINIO_BUCKET, key);
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", "private, max-age=3600");
+      stream.on("error", () => res.status(404).end());
+      stream.pipe(res);
+    } catch (err) {
+      res.status(404).end();
+    }
+  });
+  // Mesma coisa, pra foto opcional de pedido (ver storePhoto/uploadRequestPhoto).
+  app.get("/uploads/requests/:id/:filename", async (req, res) => {
+    const ext = path.extname(req.params.filename).toLowerCase();
+    const contentType = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : ext === ".jpg" ? "image/jpeg" : null;
+    if (!contentType) return res.status(404).end();
+    try {
+      await minioBucketReady;
+      const key = `requests/${req.params.id}/${req.params.filename}`;
       const stream = await minioClient.getObject(MINIO_BUCKET, key);
       res.setHeader("Content-Type", contentType);
       res.setHeader("Cache-Control", "private, max-age=3600");
@@ -1924,7 +1958,7 @@ app.get("/api/requests", (req, res) => {
 // ownerUserId só é gravado quando quem publica está logada (POST
 // /api/requests, abaixo) — sem sessão de navegador pra amarrar, o post
 // fica sem dono (ver docs/visao-produto.md pilar 4.13).
-function createRequest({ type, title, requester, when, price, whatsapp, location, lat, lng, ownerUserId }) {
+async function createRequest({ type, title, requester, when, price, whatsapp, location, lat, lng, ownerUserId, photoFile }) {
   if (!type || typeof type !== "string" || !type.trim()) {
     return { ok: false, error: "diga o tipo do que você precisa (ex: corrida, imóvel, produto...)" };
   }
@@ -1978,8 +2012,9 @@ function createRequest({ type, title, requester, when, price, whatsapp, location
     if (Number.isFinite(n) && Math.abs(n) <= 180) lngNum = n;
   }
 
+  const id = `r${nextRequestId++}`;
   const request = {
-    id: `r${nextRequestId++}`,
+    id,
     type: normalizedType,
     title: title.trim(),
     requester: (requester && requester.trim()) || "Você",
@@ -1992,14 +2027,28 @@ function createRequest({ type, title, requester, when, price, whatsapp, location
     price: priceNum,
     status: "aberto",
     ownerUserId: ownerUserId || null,
+    photoUrl: null,
     createdAt: new Date().toISOString(),
   };
+  // Foto é opcional e não deve travar a publicação do pedido — se salvar
+  // falhar (disco cheio, MinIO fora do ar), o pedido ainda vai pra frente
+  // sem imagem, igual location/lat/lng inválidos acima.
+  if (photoFile && matchesImageSignature(photoFile.buffer, photoFile.mimetype)) {
+    try {
+      const dir = path.join(UPLOADS_DIR, "requests", id);
+      fs.mkdirSync(dir, { recursive: true });
+      const ext = photoFile.mimetype === "image/png" ? "png" : photoFile.mimetype === "image/webp" ? "webp" : "jpg";
+      request.photoUrl = await storePhoto(photoFile.buffer, dir, id, `foto.${ext}`, photoFile.mimetype, "requests");
+    } catch (err) {
+      console.warn("[requests] falha ao salvar foto do pedido:", err.message);
+    }
+  }
   REQUESTS.unshift(request);
   return { ok: true, request };
 }
 
-app.post("/api/requests", (req, res) => {
-  const result = createRequest({ ...req.body, ownerUserId: getCurrentUser(req)?.id || null });
+app.post("/api/requests", uploadRequestPhoto, async (req, res) => {
+  const result = await createRequest({ ...req.body, ownerUserId: getCurrentUser(req)?.id || null, photoFile: req.file });
   if (!result.ok) {
     return res.status(400).json({ error: result.error });
   }
