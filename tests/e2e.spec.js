@@ -3378,6 +3378,47 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
     expect(pequenos, `alvos de toque pequenos demais: ${pequenos.join(" | ")}`).toEqual([]);
   });
 
+  test("campos de formulário (publicar pedido, criar perfil, corrida) têm 44px no celular", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/");
+
+    // Achado real: os campos de texto dos formulários (publicar pedido, criar
+    // perfil, corrida/carona) ficavam entre 37-42px — abaixo do padrão do
+    // resto do site. Checkbox/radio ficam de fora de propósito: são
+    // pequenos por design, a área de toque é o <label> em volta deles.
+    const pequenos = await page.evaluate(() =>
+      [...document.querySelectorAll("input, select, textarea")]
+        .filter((el) => {
+          if (!el.offsetParent) return false;
+          if (el.type === "checkbox" || el.type === "radio" || el.type === "file") return false;
+          const r = el.getBoundingClientRect();
+          return r.height > 0 && r.height < 44;
+        })
+        .map((el) => `${el.tagName}#${el.id || el.className || "?"}: ${Math.round(el.getBoundingClientRect().height)}px`)
+    );
+    expect(pequenos, `campos pequenos demais pra tocar: ${pequenos.join(" | ")}`).toEqual([]);
+  });
+
+  test("ordenar por e 'Ver todos' do filtro de serviço têm 44px no celular", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/");
+
+    // #ranking-sort tinha uma regra própria por ID (min-height: 40px) que,
+    // por especificidade, vencia a regra de 44px do mobile aplicada aos
+    // outros seletores da mesma barra de filtro — mesmo problema pode
+    // voltar se alguém adicionar uma nova regra por ID sem perceber.
+    await page.locator("#hero-search-input").fill("eletricista");
+    await page.locator(".hero-search-submit").click();
+    await expect(page.locator("#ranking-sort")).toBeVisible();
+    const caixaSort = await page.locator("#ranking-sort").boundingBox();
+    expect(Math.round(caixaSort.height), "#ranking-sort pequeno demais pra tocar").toBeGreaterThanOrEqual(44);
+
+    // O link "Ver todos" que aparece ao filtrar por serviço é criado via
+    // innerHTML no JS, sem classe — passava batido pela regra de CSS.
+    const caixaLink = await page.locator("#ranking-clear-filter").boundingBox();
+    expect(Math.round(caixaLink.height), "#ranking-clear-filter pequeno demais pra tocar").toBeGreaterThanOrEqual(44);
+  });
+
   test("controles do painel seguem o design system (select escuro, seta própria, foco visível)", async ({ page }) => {
     await page.goto("/");
     await page.locator('[data-hero-category="produto"]').click();
@@ -3502,7 +3543,7 @@ test.describe("Top3Profissional - PWA", () => {
     await page.evaluate(() => navigator.serviceWorker.ready);
 
     const cachedPaths = await page.evaluate(async () => {
-      const cache = await caches.open("top3-shell-v1");
+      const cache = await caches.open("top3-shell-v2");
       const keys = await cache.keys();
       return keys.map((k) => new URL(k.url).pathname);
     });

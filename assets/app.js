@@ -257,6 +257,32 @@ function starRow(rating) {
   return out;
 }
 
+function rankingSkeletonHtml() {
+  const card = `
+    <li class="rank-card rank-card--skeleton" aria-hidden="true">
+      <div class="rank-card-photo"><span class="skeleton-block sk-photo"></span></div>
+      <div class="rank-card-body">
+        <span class="skeleton-block sk-stars"></span>
+        <span class="skeleton-block sk-name"></span>
+        <span class="skeleton-block sk-meta"></span>
+        <span class="skeleton-block sk-btn"></span>
+      </div>
+    </li>`;
+  return card + card + card;
+}
+
+function listSkeletonHtml(count = 3) {
+  const item = `
+    <li class="request-item request-item--skeleton" aria-hidden="true">
+      <span class="skeleton-block sk-icon"></span>
+      <div class="sk-lines">
+        <span class="skeleton-block sk-title"></span>
+        <span class="skeleton-block sk-detail"></span>
+      </div>
+    </li>`;
+  return Array(count).fill(item).join("");
+}
+
 // A espera pela geolocalização pode ser lenta (até 8s) — se a pessoa trocar
 // de filtro de novo antes disso resolver, essa chamada antiga não pode
 // sobrescrever uma mais recente quando finalmente responder.
@@ -269,6 +295,7 @@ let currentRankingService = "";
 async function loadRanking(sortBy, service) {
   if (service !== undefined) currentRankingService = service;
   const callId = ++loadRankingCallId;
+  rankingList.innerHTML = rankingSkeletonHtml();
   try {
     const effectiveSortBy = sortBy || rankingSort.value;
     let url = `/api/ranking?sortBy=${encodeURIComponent(effectiveSortBy)}`;
@@ -336,10 +363,10 @@ async function loadRanking(sortBy, service) {
       const nextSlotLine = p.nextSlot && p.isAvailable
         ? `<p class="rank-next-slot">${escapeHtml(p.nextSlot)}</p>` : "";
       const ctaProfile = p.slug
-        ? `<a href="/prestador/${encodeURIComponent(p.slug)}" class="rank-view-profile" target="_blank" rel="noopener">Ver perfil</a>`
+        ? `<a href="/prestador/${encodeURIComponent(p.slug)}" class="rank-view-profile" target="_blank" rel="noopener noreferrer">Ver perfil</a>`
         : `<button type="button" class="rank-view-profile" disabled>Ver perfil</button>`;
       const ctaContact = p.slug
-        ? `<a href="/prestador/${encodeURIComponent(p.slug)}" class="rank-cta" target="_blank" rel="noopener">Chamar / Agendar</a>`
+        ? `<a href="/prestador/${encodeURIComponent(p.slug)}" class="rank-cta" target="_blank" rel="noopener noreferrer">Chamar / Agendar</a>`
         : `<button type="button" class="rank-cta" data-name="${escapeHtml(p.name)}">Chamar / Agendar</button>`;
       const photoEl = p.photoUrl
         ? `<img src="${escapeHtml(p.photoUrl)}" alt="Foto de ${escapeHtml(p.name)}" loading="lazy" class="rank-card-img">`
@@ -479,6 +506,7 @@ requestsFilterType.addEventListener("change", applyRequestsFilter);
 requestsFilterKeyword.addEventListener("input", applyRequestsFilter);
 
 async function loadRequests() {
+  requestsList.innerHTML = listSkeletonHtml();
   try {
     let url = "/api/requests";
     const params = new URLSearchParams();
@@ -498,7 +526,10 @@ async function loadRequests() {
     const qs = params.toString();
     if (qs) url += "?" + qs;
     const res = await fetch(url);
-    if (!res.ok) return;
+    if (!res.ok) {
+      requestsList.innerHTML = '<li class="requests-error">Não consegui carregar os pedidos agora.</li>';
+      return;
+    }
     const { requests } = await res.json();
     allRequests = requests;
     applyRequestsFilter();
@@ -741,11 +772,13 @@ function renderResult(query, state, text) {
   const actionButton =
     state === "ok"
       ? '<button type="button" class="result-action-btn" id="result-solicitar-btn">Ir para o formulário de pedido</button>'
+      : state === "error"
+      ? '<button type="button" class="result-action-btn result-action-btn--retry" id="result-retry-btn">Tentar novamente</button>'
       : "";
   results.innerHTML = `
     <p class="result-query">Resultados para "${escapeHtml(query)}"</p>
     <div class="result-answer ${state === "error" ? "result-answer--error" : ""}">
-      ${state === "loading" ? '<span class="result-loading">buscando…</span>' : formatMessage(text)}
+      ${state === "loading" ? '<span class="result-loading" aria-label="Buscando, aguarde">buscando<span class="result-loading-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span></span>' : formatMessage(text)}
     </div>
     ${actionButton}
   `;
@@ -762,6 +795,7 @@ function goToPublish() {
 
 results.addEventListener("click", (event) => {
   if (event.target.closest("#result-solicitar-btn")) goToPublish();
+  if (event.target.closest("#result-retry-btn") && lastSearchQuery) performSearch(lastSearchQuery);
 });
 
 // Módulo de corridas (pilar 4.5) — mini-app "de onde → pra onde" de
@@ -1093,13 +1127,23 @@ function renderGroupsList(groups) {
   groupsList.innerHTML = groups.map((g) => (g.category === "carona" ? renderCaronaGroupCard(g) : renderGenericGroupCard(g))).join("");
 }
 
+let loadGroupsCallId = 0;
+
 async function loadGroups() {
+  const callId = ++loadGroupsCallId;
+  groupsList.innerHTML = listSkeletonHtml();
   try {
     const res = await fetch(buildGroupsQueryUrl());
-    if (!res.ok) return;
+    if (callId !== loadGroupsCallId) return;
+    if (!res.ok) {
+      groupsList.innerHTML = '<li class="groups-empty">Não consegui carregar os grupos agora.</li>';
+      return;
+    }
     const { groups } = await res.json();
+    if (callId !== loadGroupsCallId) return;
     renderGroupsList(groups);
   } catch (err) {
+    if (callId !== loadGroupsCallId) return;
     groupsList.innerHTML = '<li class="groups-empty">Não consegui carregar os grupos agora.</li>';
   }
 }
@@ -2060,7 +2104,7 @@ providerForm.addEventListener("submit", async (event) => {
     providerResult.hidden = false;
     providerResult.innerHTML = `
       <p>${isEditing ? "Seu perfil foi atualizado:" : "Seu perfil já está no ar — compartilhe o link:"}</p>
-      <a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(link)}</a>
+      <a href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(link)}</a>
     `;
     // Atualiza o painel pessoal em memória (nome/serviço podem ter mudado)
     // sem precisar recarregar a página nem buscar de novo no servidor.
@@ -2112,6 +2156,7 @@ async function runSearch(message) {
       renderResult(message, "error", data.error || "Algo deu errado.");
     } else {
       renderResult(message, "ok", data.reply);
+      document.title = `${message} — Top3Profissional`;
     }
   } catch (err) {
     renderResult(message, "error", "Não consegui falar com o servidor.");
@@ -2700,7 +2745,7 @@ function renderUserPanel() {
           <li class="user-panel-item">
             <span>${escapeHtml(p.name)} <span class="user-panel-empty">· ${escapeHtml(p.service)}</span></span>
             <span class="user-panel-item-actions">
-              <a href="/prestador/${encodeURIComponent(p.slug)}" target="_blank" rel="noopener">Ver</a>
+              <a href="/prestador/${encodeURIComponent(p.slug)}" target="_blank" rel="noopener noreferrer">Ver</a>
               <button type="button" data-edit-slug="${escapeHtml(p.slug)}">Editar</button>
             </span>
           </li>`
@@ -3536,3 +3581,11 @@ async function loadHomeStats() {
 loadHighlights();
 loadActivityFeed();
 loadHomeStats();
+
+// SearchAction (schema.org): executa busca automaticamente se ?q= vier na URL.
+// Permite que o Google envie usuários direto pra uma consulta via Sitelinks
+// Searchbox — o GoogleBot indexa o potentialAction e monta o link de busca.
+const _qParam = new URLSearchParams(window.location.search).get("q");
+if (_qParam && _qParam.trim()) {
+  performSearch(_qParam.trim());
+}
