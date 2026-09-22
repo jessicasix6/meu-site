@@ -336,10 +336,10 @@ async function loadRanking(sortBy, service) {
       const nextSlotLine = p.nextSlot && p.isAvailable
         ? `<p class="rank-next-slot">${escapeHtml(p.nextSlot)}</p>` : "";
       const ctaProfile = p.slug
-        ? `<a href="/prestador/${encodeURIComponent(p.slug)}" class="rank-view-profile" target="_blank" rel="noopener">Ver perfil</a>`
+        ? `<a href="/prestador/${encodeURIComponent(p.slug)}" class="rank-view-profile" target="_blank" rel="noopener noreferrer">Ver perfil</a>`
         : `<button type="button" class="rank-view-profile" disabled>Ver perfil</button>`;
       const ctaContact = p.slug
-        ? `<a href="/prestador/${encodeURIComponent(p.slug)}" class="rank-cta" target="_blank" rel="noopener">Chamar / Agendar</a>`
+        ? `<a href="/prestador/${encodeURIComponent(p.slug)}" class="rank-cta" target="_blank" rel="noopener noreferrer">Chamar / Agendar</a>`
         : `<button type="button" class="rank-cta" data-name="${escapeHtml(p.name)}">Chamar / Agendar</button>`;
       const photoEl = p.photoUrl
         ? `<img src="${escapeHtml(p.photoUrl)}" alt="Foto de ${escapeHtml(p.name)}" loading="lazy" class="rank-card-img">`
@@ -2060,7 +2060,7 @@ providerForm.addEventListener("submit", async (event) => {
     providerResult.hidden = false;
     providerResult.innerHTML = `
       <p>${isEditing ? "Seu perfil foi atualizado:" : "Seu perfil já está no ar — compartilhe o link:"}</p>
-      <a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(link)}</a>
+      <a href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(link)}</a>
     `;
     // Atualiza o painel pessoal em memória (nome/serviço podem ter mudado)
     // sem precisar recarregar a página nem buscar de novo no servidor.
@@ -2700,7 +2700,7 @@ function renderUserPanel() {
           <li class="user-panel-item">
             <span>${escapeHtml(p.name)} <span class="user-panel-empty">· ${escapeHtml(p.service)}</span></span>
             <span class="user-panel-item-actions">
-              <a href="/prestador/${encodeURIComponent(p.slug)}" target="_blank" rel="noopener">Ver</a>
+              <a href="/prestador/${encodeURIComponent(p.slug)}" target="_blank" rel="noopener noreferrer">Ver</a>
               <button type="button" data-edit-slug="${escapeHtml(p.slug)}">Editar</button>
             </span>
           </li>`
