@@ -31,7 +31,15 @@
     "name": "Top3Profissional",
     "url": "https://www.top3profissional.com.br/",
     "description": "Descreva o que precisa numa frase — um profissional, uma corrida, um terreno, o que for — e um agente de IA busca no catálogo local e na web, respondendo com preço, distância e avaliação.",
-    "inLanguage": "pt-BR"
+    "inLanguage": "pt-BR",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "https://www.top3profissional.com.br/?q={search_term_string}"
+      },
+      "query-input": "required name=search_term_string"
+    }
   }
   </script>
 </head>
