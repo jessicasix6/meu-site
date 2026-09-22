@@ -83,19 +83,19 @@
             <form id="email-auth-form" class="email-auth-form" hidden style="display:none">
               <div class="post-field post-field--wide" data-auth-field="name" hidden>
                 <label for="auth-name">Seu nome</label>
-                <input id="auth-name" name="name" type="text" placeholder="ex: Juliana Martins" />
+                <input id="auth-name" name="name" type="text" placeholder="ex: Juliana Martins" autocomplete="name" />
               </div>
               <div class="post-field post-field--wide" data-auth-field="whatsapp" hidden>
                 <label for="auth-whatsapp">Seu WhatsApp</label>
-                <input id="auth-whatsapp" name="whatsapp" type="tel" placeholder="ex: (31) 99999-0000" />
+                <input id="auth-whatsapp" name="whatsapp" type="tel" placeholder="ex: (31) 99999-0000" autocomplete="tel" />
               </div>
               <div class="post-field post-field--wide">
                 <label for="auth-email">E-mail</label>
-                <input id="auth-email" name="email" type="email" placeholder="ex: voce@email.com" />
+                <input id="auth-email" name="email" type="email" placeholder="ex: voce@email.com" autocomplete="email" />
               </div>
               <div class="post-field post-field--wide">
                 <label for="auth-password">Senha</label>
-                <input id="auth-password" name="password" type="password" placeholder="mínimo 8 caracteres" />
+                <input id="auth-password" name="password" type="password" placeholder="mínimo 8 caracteres" autocomplete="current-password" />
               </div>
               <div class="post-field post-field--wide" data-auth-field="altcha" id="email-auth-altcha-slot" hidden></div>
               <button type="submit" class="post-submit" id="email-auth-submit">Entrar</button>
@@ -110,7 +110,7 @@
             <form id="profile-edit-form" class="post-form">
               <div class="post-field post-field--wide">
                 <label for="profile-whatsapp">Seu WhatsApp</label>
-                <input id="profile-whatsapp" name="whatsapp" type="tel" placeholder="ex: (31) 99999-0000" required />
+                <input id="profile-whatsapp" name="whatsapp" type="tel" placeholder="ex: (31) 99999-0000" autocomplete="tel" required />
               </div>
               <div class="post-field post-field--wide">
                 <label for="profile-tipo-uso">Como você usa o site</label>
@@ -213,7 +213,7 @@
       <div class="whatsapp-prompt-box">
         <p class="whatsapp-prompt-title">Informe seu WhatsApp</p>
         <p class="whatsapp-prompt-desc">Necessário para que motoristas e prestadores entrem em contato com você.</p>
-        <input id="whatsapp-prompt-input" type="tel" placeholder="(31) 99999-0000" class="whatsapp-prompt-input" maxlength="20" />
+        <input id="whatsapp-prompt-input" type="tel" placeholder="(31) 99999-0000" class="whatsapp-prompt-input" maxlength="20" autocomplete="tel" />
         <p id="whatsapp-prompt-error" class="post-status post-status--error" hidden></p>
         <div class="whatsapp-prompt-actions">
           <button type="button" id="whatsapp-prompt-save" class="cta-primary">Salvar</button>
@@ -388,7 +388,7 @@
         </div>
         <p id="ranking-filter-hint" class="location-hint" hidden></p>
         <p id="location-hint" class="location-hint" hidden></p>
-        <ol id="ranking-list" class="ranking-list"></ol>
+        <ol id="ranking-list" class="ranking-list" aria-live="polite" aria-atomic="false"></ol>
         <p class="search-hint">
           Não achou quem procurava?
           <a href="#publicar" id="ranking-publish-link">Publique um pedido</a> e deixe quem pode te atender ver.
@@ -818,7 +818,7 @@
               <button type="button" class="filter-chip price-sort-btn" data-sort="desc" title="Maior preço primeiro" aria-label="Maior preço primeiro">R$ ↓</button>
             </div>
           </div>
-          <ol id="requests-list" class="requests-list"></ol>
+          <ol id="requests-list" class="requests-list" aria-live="polite" aria-atomic="false"></ol>
         </div>
       </section>
 
