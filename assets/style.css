@@ -1023,6 +1023,11 @@ a {
   gap: 0.6rem;
   width: 100%;
   max-width: 640px;
+  /* #hero-requester-tools é width:100% mas não é flex — sem margin:auto
+     aqui, a barra de busca (que tem max-width menor que o pai) fica colada
+     na esquerda em vez de centralizada, mesmo com .hero-content centralizando
+     tudo em volta dela. */
+  margin: 0 auto;
   padding: 0.5rem 0.5rem 0.5rem 1.1rem;
   background: var(--glass-bg);
   backdrop-filter: blur(16px);
