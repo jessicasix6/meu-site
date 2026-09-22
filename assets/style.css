@@ -4186,7 +4186,9 @@ body {
   .panel-subtab,
   .section-see-all,
   .highlight-card-cta,
-  .panel-produto-cta {
+  .panel-produto-cta,
+  #ranking-sort,
+  .ride-form input {
     min-height: 44px;
   }
 
@@ -4209,9 +4211,21 @@ body {
   .search-hint a,
   .highlights-empty a,
   .activity-empty a,
-  .requests-empty a {
+  .requests-empty a,
+  .location-hint a {
     display: inline-flex;
     align-items: center;
+    min-height: 44px;
+  }
+
+  /* Campos de formulário (publicar pedido, criar perfil, grupo) — varredura
+     achou vários inputs/selects entre 37-42px, abaixo do alvo de toque
+     recomendado. Regra genérica por container em vez de listar cada campo,
+     pra não repetir o erro de lista fixa que já deixou passar campo novo.
+     Exclui checkbox/radio: min-height distorceria a caixinha quadrada. */
+  .post-field input:not([type="checkbox"]):not([type="radio"]),
+  .post-field select,
+  .post-field textarea {
     min-height: 44px;
   }
 
