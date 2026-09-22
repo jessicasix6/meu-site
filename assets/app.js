@@ -1254,7 +1254,7 @@ function renderGroupReviewPanel(detail) {
         .map((m) => {
           const stars =
             typeof m.mediaAvaliacao === "number"
-              ? `${m.mediaAvaliacao.toFixed(1)} ★ (${m.totalAvaliacoes} ${m.totalAvaliacoes === 1 ? "avaliação" : "avaliações"})`
+              ? `${m.mediaAvaliacao.toFixed(1)} ⭐ (${m.totalAvaliacoes} ${m.totalAvaliacoes === 1 ? "avaliação" : "avaliações"})`
               : "sem avaliação ainda";
           return `
         <li class="user-panel-item">
