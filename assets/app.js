@@ -336,44 +336,47 @@ async function loadRanking(sortBy, service) {
       const ctaContact = p.slug
         ? `<a href="/prestador/${encodeURIComponent(p.slug)}" class="rank-cta" target="_blank" rel="noopener">Chamar / Agendar</a>`
         : `<button type="button" class="rank-cta" data-name="${escapeHtml(p.name)}">Chamar / Agendar</button>`;
-      const avatarInner = p.photoUrl
-        ? `<div class="rank-avatar rank-avatar--photo"><img src="${escapeHtml(p.photoUrl)}" alt="Foto de ${escapeHtml(p.name)}" loading="lazy"></div>`
-        : `<div class="rank-avatar">${escapeHtml(initials(p.name))}</div>`;
+      const photoEl = p.photoUrl
+        ? `<img src="${escapeHtml(p.photoUrl)}" alt="Foto de ${escapeHtml(p.name)}" loading="lazy" class="rank-card-img">`
+        : `<div class="rank-card-initials-big">${escapeHtml(initials(p.name))}</div>`;
+      const availOverlay = p.isAvailable
+        ? `<span class="avail-badge avail-badge--on">● Disponível</span>`
+        : "";
       item.innerHTML = `
-        <div class="rank-card-header">
-          ${avatarInner}
-          <div class="rank-header-info">
-            <div class="rank-header-row">
-              <h3 class="rank-name">${escapeHtml(p.name)}</h3>
-              <span class="rank-pos">#${index + 1}</span>
-            </div>
-            <p class="rank-service">${escapeHtml(p.service)}</p>
-            <p class="rank-city">${escapeHtml(p.city)}</p>
+        <div class="rank-card-photo">
+          ${photoEl}
+          <div class="rank-card-photo-overlay">
+            <span class="rank-pos-badge">#${index + 1}</span>
+            ${availOverlay}
           </div>
         </div>
-        <div class="rank-stars">${ratingHtml}</div>
-        <div class="rank-meta">
-          ${distanceText}
-          ${priceText}
-        </div>
-        <div class="rank-avail-row">
-          ${availBadge}
+        <div class="rank-card-body">
+          <div class="rank-stars">${ratingHtml}</div>
+          <h3 class="rank-name">${escapeHtml(p.name)}</h3>
+          <p class="rank-service-city">${escapeHtml(p.service)}${p.city ? ` · ${escapeHtml(p.city)}` : ""}</p>
+          <div class="rank-meta">
+            ${distanceText}
+            ${priceText}
+          </div>
           ${nextSlotLine}
-        </div>
-        <div class="rank-cta-row">
-          ${ctaProfile}
-          ${ctaContact}
+          <div class="rank-cta-row">
+            ${ctaProfile}
+            ${ctaContact}
+          </div>
         </div>
       `;
-      // Fallback para iniciais se a imagem falhar ao carregar — sem inline JS.
+      // Fallback para iniciais se a imagem falhar ao carregar.
       if (p.photoUrl) {
-        const img = item.querySelector(".rank-avatar--photo img");
+        const img = item.querySelector(".rank-card-img");
         if (img) {
           img.addEventListener("error", () => {
-            const avatar = item.querySelector(".rank-avatar--photo");
-            if (avatar) {
-              avatar.className = "rank-avatar";
-              avatar.textContent = initials(p.name);
+            const photo = item.querySelector(".rank-card-photo");
+            if (photo) {
+              img.remove();
+              const placeholder = document.createElement("div");
+              placeholder.className = "rank-card-initials-big";
+              placeholder.textContent = initials(p.name);
+              photo.insertBefore(placeholder, photo.firstChild);
             }
           });
         }
