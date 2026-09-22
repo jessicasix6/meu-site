@@ -604,8 +604,12 @@ function renderRequests(requests) {
     item.className = `request-item request-item--${typeSlug} request-item--${r.status === "concluído" ? "concluido" : r.status}`;
     item.dataset.id = r.id;
     const distanceChip = typeof r.distanceKm === "number" ? `${r.distanceKm.toFixed(1)} km · ` : "";
+    const photoThumb = r.photoUrl
+      ? `<img src="${escapeHtml(r.photoUrl)}" alt="Foto anexada ao pedido" class="request-photo" loading="lazy" />`
+      : "";
     item.innerHTML = `
       <span class="request-icon request-icon--${typeSlug}">${REQUEST_ICONS[r.type] || REQUEST_ICON_DEFAULT}</span>
+      ${photoThumb}
       <span class="request-info">
         <span class="request-badge request-badge--${typeSlug}">${escapeHtml(REQUEST_LABELS[r.type] || r.type)}</span>
         <br />
@@ -1892,12 +1896,28 @@ postForm.addEventListener("submit", async (event) => {
   postStatus.textContent = "publicando…";
   postStatus.className = "post-status";
 
+  // Foto é opcional — só muda pra multipart/form-data quando alguém
+  // realmente anexa uma; sem isso, mantém o JSON de sempre (menos coisa
+  // pra quebrar no caminho mais comum, sem foto nenhuma).
+  const postPhotoInput = document.getElementById("post-photo");
+  const hasPhoto = postPhotoInput && postPhotoInput.files && postPhotoInput.files.length > 0;
+
   try {
-    const res = await fetch("/api/requests", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    let res;
+    if (hasPhoto) {
+      const body = new FormData();
+      Object.entries(payload).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) body.append(key, value);
+      });
+      body.append("photo", postPhotoInput.files[0]);
+      res = await fetch("/api/requests", { method: "POST", body });
+    } else {
+      res = await fetch("/api/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    }
     const result = await res.json();
 
     if (!res.ok) {
@@ -2791,6 +2811,10 @@ function renderLoggedInUser(user, providers, groups, requests) {
   `;
   emailAuthToggle.hidden = true;
   emailAuthPanel.hidden = true;
+  // "Criar conta" no header ficava visível mesmo logada — a função só
+  // escondia o "Entrar" (emailAuthToggle), nunca esse botão separado.
+  const criarContaHeaderBtn = document.getElementById("criar-conta-header-btn");
+  if (criarContaHeaderBtn) criarContaHeaderBtn.hidden = true;
   // signup-toggle removido (tarefa de simplificação do login)
   hideLoginSuggestionBanner();
   renderUserPanel();
