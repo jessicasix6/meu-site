@@ -57,7 +57,8 @@
   position: absolute;
   top: -100%;
   left: 0;
-  padding: 0.6rem 1.2rem;
+  min-height: 44px;
+  padding: 0.75rem 1.2rem;
   background: var(--accent);
   color: var(--accent-ink);
   font-weight: 700;
