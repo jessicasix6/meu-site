@@ -181,31 +181,58 @@ _Sinal de vida. Não fechar._"
 
 Comente na issue #98. Inclua SEMPRE o bloco --- FILA ---.
 
-Quando fez algo:
+**Formato do bloco --- FILA --- (numere cada item):**
+
+Quando há itens pendentes, liste em ordem numérica — risco baixo (PRs prontos para merge)
+primeiro, depois risco médio/alto (precisam de autorização):
+
+  --- FILA ---
+  Preciso da sua resposta para continuar:
+
+  1. Missão 3 — PR #NNN aguardando merge
+     O que já fiz: corrigi overflow no mobile (CI verde, pronto)
+     Risco: baixo
+
+  2. Missão 2 — Melhorar busca por sinônimos
+     O que quero fazer: "elétrico" → encontra "eletricista"; "pedreiro" → "construção"
+     Por que vale: X buscas sem resultado nos últimos Y dias
+     Risco: médio (muda lógica de busca)
+
+  3. Missão 5 — Adicionar alerta quando smoke test falha
+     O que quero fazer: postar comentário no diário com ❌ e screenshot quando smoke falhar
+     Por que vale: hoje falha silenciosamente, você não sabe até olhar
+     Risco: médio (mexe no workflow do GitHub Actions)
+
+  Para autorizar: responda "autorizo 1", "autorizo 2 e 3", "autorizo tudo"
+  Para ajustar: "autorizo 2 mas quero X em vez de Y"
+  Para cancelar: "cancela 3"
+  --- FIM FILA ---
+
+Quando não há nada pendente:
+
+  ### HH:MM — sem novidade
+  Site saudável. CI verde. Nada pra fazer agora.
+
+  --- FILA VAZIA ---
+
+Quando fez algo nesta execução:
 
   ### HH:MM
-  **Fiz:** corri CI verde no #NNN e dei merge / corrigi overflow no mobile / abri sugestão #NNN
+  **Fiz:** <lista do que foi feito>
   **Missões:** Missão 3 (+1 critério), Missão 1 (estável)
   **CI:** 174 passando, 0 falhando
 
   --- FILA ---
-  Missão 2 — Encontrar melhor o que o TOP3 já possui
-    Proposta: adicionar sinônimos na busca para "eletricista" → "elétrico", "instalador elétrico"
-    Risco: médio (muda lógica de busca)
-    Para autorizar: escreva "Missão 2 autorizada" aqui no diário
-
-  PRs aguardando merge:
-    Missão 3 — PR #122: fix hero mobile risco baixo (CI verde)
-    Para aprovar: "ok #122" ou "Missão 3 merge aprovado"
+  ... (itens numerados como acima, se houver)
   --- FIM FILA ---
 
-Quando não fez nada:
+**Lendo a resposta da Jéssica:**
+Antes de cada execução (PASSO 1 acima), leia o diário e procure por respostas como
+"autorizo 1", "autorizo 2 e 3", "autorizo tudo", "cancela 2".
+- "autorizo N" → implemente o item N da última fila postada
+- "autorizo tudo" → implemente todos os itens da fila
+- "autorizo N mas quero X" → implemente N com a variação pedida
+- "cancela N" → remova o item N da fila sem implementar
 
-  ### HH:MM — sem novidade
-  Site saudável. CI verde. Nada pra fazer.
-
-  --- FILA VAZIA ---
-
-O bloco --- FILA --- aparece em TODO comentário do diário.
-Quando a fila está vazia: escreva --- FILA VAZIA ---.
-Quando tem itens: liste por missão com risco e como autorizar.
+O número se refere à posição na última --- FILA --- que você postou no diário.
+Registre no diário qual autorização você recebeu e o que vai fazer.
