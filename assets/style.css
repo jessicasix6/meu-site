@@ -87,6 +87,19 @@ a {
   color: inherit;
 }
 
+/* Remove os spin buttons nativos de inputs numéricos — eles quebram
+   o visual escuro do design system (aparecem com fundo claro no Chrome
+   até o color-scheme:dark ser aplicado). Usuários ainda podem digitar
+   ou usar ↑↓ do teclado para incrementar/decrementar. */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 .container {
   max-width: 1080px;
   margin: 0 auto;
