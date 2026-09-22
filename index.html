@@ -664,7 +664,7 @@
           </div>
           <div class="post-field post-field--wide">
             <label>Disponibilidade (horários em que você atende)</label>
-            <div class="provider-availability-list" id="provider-availability-list">
+            <div class="provider-availability-list" id="provider-availability-list" aria-describedby="availability-hint">
               <div class="provider-avail-row" data-day="segunda">
                 <span class="provider-avail-day">Seg</span>
                 <input type="time" class="provider-avail-inicio" aria-label="Segunda, início" />
@@ -708,7 +708,7 @@
                 <input type="time" class="provider-avail-fim" aria-label="Domingo, fim" />
               </div>
             </div>
-            <p class="post-field-hint">Deixe em branco os dias que não atende.</p>
+            <p class="post-field-hint" id="availability-hint">Deixe em branco os dias que não atende.</p>
           </div>
           <div class="post-field post-field--wide post-field--checkbox">
             <label for="provider-new-background">
