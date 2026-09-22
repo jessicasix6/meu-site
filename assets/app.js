@@ -751,7 +751,7 @@ function renderResult(query, state, text) {
   results.innerHTML = `
     <p class="result-query">Resultados para "${escapeHtml(query)}"</p>
     <div class="result-answer ${state === "error" ? "result-answer--error" : ""}">
-      ${state === "loading" ? '<span class="result-loading">buscando…</span>' : formatMessage(text)}
+      ${state === "loading" ? '<span class="result-loading" aria-label="Buscando, aguarde">buscando<span class="result-loading-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span></span>' : formatMessage(text)}
     </div>
     ${actionButton}
   `;
