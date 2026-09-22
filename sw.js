@@ -2,9 +2,10 @@
 // CSS, JS, fontes, ícones). Nunca cacheia /api/, /webhook/ ou /health: esses
 // dados são sempre dinâmicos, cachear resposta velha seria pior que não ter
 // cache nenhum (ex: mostrar pedido já aceito como "aberto").
-const CACHE_NAME = "top3-shell-v1";
+const CACHE_NAME = "top3-shell-v2";
 const SHELL_ASSETS = [
   "/",
+  "/offline.html",
   "/assets/style.css",
   "/assets/app.js",
   "/assets/fonts/inter-latin.woff2",
@@ -61,7 +62,14 @@ self.addEventListener("fetch", (event) => {
           }
           return res;
         })
-        .catch(() => caches.match(event.request).then((cached) => cached || new Response("", { status: 503 })))
+        .catch(async () => {
+          const cached = await caches.match(event.request);
+          if (cached) return cached;
+          if (event.request.mode === "navigate") {
+            return caches.match("/offline.html") || new Response("", { status: 503 });
+          }
+          return new Response("", { status: 503 });
+        })
     );
     return;
   }

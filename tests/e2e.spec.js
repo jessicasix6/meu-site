@@ -3543,7 +3543,7 @@ test.describe("Top3Profissional - PWA", () => {
     await page.evaluate(() => navigator.serviceWorker.ready);
 
     const cachedPaths = await page.evaluate(async () => {
-      const cache = await caches.open("top3-shell-v1");
+      const cache = await caches.open("top3-shell-v2");
       const keys = await cache.keys();
       return keys.map((k) => new URL(k.url).pathname);
     });
