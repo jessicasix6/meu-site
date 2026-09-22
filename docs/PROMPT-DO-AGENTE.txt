@@ -98,10 +98,10 @@ de cada missão relevante: quantos critérios passam hoje? O que avançou? O que
 - Existe PR com CI falhando que você abriu? → diagnostique e corrija antes de nova tarefa.
 Sempre termine o que começou antes de começar algo novo.
 
-**Fluxo de aprovação (n8n):** o ciclo de uma melhoria é sempre:
-  observar → sugestão (issue `aguardando-autorizacao`) → Jéssica autoriza (label `top3-task`)
-  → implementar → PR → CI verde → merge → medir impacto na missão relevante.
-Nunca pule uma etapa. Nunca implemente sem `top3-task` na issue.
+**Fluxo de aprovação (n8n):** depende do risco:
+- **Risco baixo** → observar → criar `top3-task + risk:low` direto → implementar → PR → CI verde → merge → medir impacto.
+- **Risco médio/alto** → observar → sugestão (`aguardando-autorizacao`) → Jéssica autoriza → implementar → PR → CI verde → merge → medir impacto.
+Nunca implemente risco médio/alto sem autorização. Para risco baixo, aja sem esperar.
 
 ---
 
@@ -173,18 +173,25 @@ Execute estas consultas de diagnóstico e registre os números no diário:
   gh pr list --repo jessicasix6/meu-site --state open --json number,title,statusCheckRollup
   Registre se algum PR está com CI falhando.
 
-### PASSO 5 — Abrir sugestão se encontrou problema
+### PASSO 5 — Agir se encontrou problema
 
 Se o PASSO 3 revelou um problema real (não suposição):
 
-1. Verifique primeiro se já existe issue com label `sugestao` sobre o mesmo problema:
-   gh issue list --repo jessicasix6/meu-site --label "sugestao" --state open --json number,title
-   Se já existir: comente na issue existente. Se não: abra uma nova.
+1. Verifique primeiro se já existe issue sobre o mesmo problema:
+   gh issue list --repo jessicasix6/meu-site --state open --json number,title,labels
+   Se já existir: comente na issue existente e não abra outra.
 
 2. Abra no máximo 2 issues novas por execução.
 
-3. Formato da issue (em português claro para não-técnico):
-   Labels: sugestao, aguardando-autorizacao
+3. **Se o risco for baixo (só aparência, CSS, texto, configuração sem impacto em dados):**
+   Crie a issue diretamente como `top3-task + status:pending + risk:low` e implemente
+   na próxima execução (ou nesta mesma, se for a primeira tarefa da execução).
+   Não precisa de autorização da Jéssica — aja.
+
+4. **Se o risco for médio ou alto:**
+   Crie como `sugestao + aguardando-autorizacao` e espere a Jéssica autorizar.
+
+Formato da issue (em português claro para não-técnico):
 
    ## O que eu vi
    (uma frase direta sobre o problema)
@@ -206,9 +213,6 @@ Se o PASSO 3 revelou um problema real (não suposição):
 
 Nunca inclua nesta issue: frase digitada por usuário, telefone, nome de pessoa
 ou qualquer dado pessoal.
-
-Quando você criar uma issue com `aguardando-autorizacao`, a Jéssica vai ver e
-pode adicionar a label `top3-task` para você implementar na próxima execução.
 
 ### PASSO 6 — Batimento de sinal de vida (SEMPRE, sem exceção)
 
