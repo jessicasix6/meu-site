@@ -247,6 +247,12 @@ Issues sem labels sugestao/top3-task/diario/missao/memoria: podem ser bugs reais
 Com o que observou, escolha UMA oportunidade. Aplique a fórmula:
 impacto × frequência × confiança ÷ risco ÷ custo (1 a 5 em cada fator).
 
+Antes de abrir uma issue nova, verifique se já existe alguma sobre o mesmo problema:
+  gh issue list --repo jessicasix6/meu-site --state open --json number,title,labels
+Se já existir: não abra outra. Atualize a issue existente com as labels certas
+conforme o risco (`top3-task` + `status:pending` + `risk:low` para risco baixo;
+`sugestao` + `aguardando-autorizacao` para risco médio/alto) e comente nela.
+
 - Risco baixo: aja agora (branch → edição → teste → PR)
 - Risco médio/alto: adicione à fila numerada para pedir autorização
 
