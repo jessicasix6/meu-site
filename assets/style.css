@@ -53,6 +53,25 @@
   box-sizing: border-box;
 }
 
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 0;
+  padding: 0.6rem 1.2rem;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-decoration: none;
+  z-index: 10000;
+  border-radius: 0 0 8px 0;
+  transition: top 0.15s ease;
+}
+.skip-link:focus-visible {
+  top: 0;
+  outline: none;
+}
+
 /* Garante que o atributo hidden sempre esconda, mesmo em elementos cuja
    própria classe define display (flex/grid/block) — sem isso, campos com
    "hidden" alternado por JS (ex: campos condicionais de formulário) ficam
