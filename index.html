@@ -197,8 +197,8 @@
       <div class="whatsapp-prompt-box">
         <p class="whatsapp-prompt-title">Informe seu WhatsApp</p>
         <p class="whatsapp-prompt-desc">Necessário para que motoristas e prestadores entrem em contato com você.</p>
-        <input id="whatsapp-prompt-input" type="tel" placeholder="(31) 99999-0000" class="whatsapp-prompt-input" maxlength="20" />
-        <p id="whatsapp-prompt-error" class="post-status post-status--error" hidden></p>
+        <input id="whatsapp-prompt-input" type="tel" placeholder="(31) 99999-0000" class="whatsapp-prompt-input" maxlength="20" aria-label="Seu WhatsApp" />
+        <p id="whatsapp-prompt-error" class="post-status post-status--error" aria-live="polite" hidden></p>
         <div class="whatsapp-prompt-actions">
           <button type="button" id="whatsapp-prompt-save" class="cta-primary">Salvar</button>
           <button type="button" id="whatsapp-prompt-skip" class="cta-secondary">Agora não</button>
@@ -486,7 +486,7 @@
             </div>
             <div class="post-field post-field--checkbox">
               <button type="button" id="carona-use-location" class="cta-secondary"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg> Usar minha localização atual</button>
-              <span id="carona-location-status" class="post-status"></span>
+              <span id="carona-location-status" class="post-status" aria-live="polite"></span>
               <input id="carona-lat" name="lat" type="hidden" />
               <input id="carona-lng" name="lng" type="hidden" />
             </div>
@@ -591,7 +591,7 @@
           </div>
           <div class="post-field post-field--checkbox" id="post-location-geo" hidden>
             <button type="button" id="post-use-location" class="cta-secondary"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg> Usar minha localização</button>
-            <span id="post-location-status" class="post-status"></span>
+            <span id="post-location-status" class="post-status" aria-live="polite"></span>
             <input id="post-lat" name="lat" type="hidden" />
             <input id="post-lng" name="lng" type="hidden" />
           </div>
