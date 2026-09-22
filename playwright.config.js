@@ -12,6 +12,7 @@ const BASE_URL = `http://localhost:${TEST_PORT}`;
 
 module.exports = defineConfig({
   testDir: "./tests",
+  testIgnore: ["**/smoke-producao.spec.js"],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
@@ -58,6 +59,12 @@ module.exports = defineConfig({
       // anterior (data/users.json) em vez de começar do zero, e ainda
       // sujaria esse arquivo com e-mails de teste.
       DISABLE_USER_PERSISTENCE: "1",
+      // Os testes do pilar 4.13 verificam o comportamento com Google login
+      // AUSENTE — eles esperam googleClientId null e /health.googleLoginConfigured
+      // false. Sem zerar aqui, o .env local (que tem GOOGLE_CLIENT_ID real)
+      // vaza pro servidor de teste e os testes falham em qualquer máquina
+      // que tenha Google configurado.
+      GOOGLE_CLIENT_ID: "",
     },
     // Sempre falso, mesmo localmente: já aconteceu mais de uma vez nesta
     // máquina de um processo de teste anterior ficar preso na porta (uma
