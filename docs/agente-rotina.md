@@ -1,8 +1,9 @@
-# Rotina do agente — Camada 1 (observar e sugerir)
+# Rotina do agente — Camada 1+2 (observar, sugerir e implementar com autorização)
 
 Este é o texto que a Jéssica cola na rotina agendada da conta dela no Claude Code.
-Ele vale para a **Camada 1**, em que o agente **não altera nada** — só observa a
-produção, abre sugestões e escreve o diário.
+Combina a **Camada 1** (observar + sugerir) com a **Camada 2** (implementar o que
+foi autorizado via label `top3-task`). Cada execução verifica se há tarefa na fila;
+se não houver, faz a observação do site e relata métricas.
 
 As camadas seguintes (memória, implementar com aprovação, autonomia) só entram
 depois, e cada uma tem pré-requisito próprio. Ver `.claude/plans/` e o CLAUDE.md.
