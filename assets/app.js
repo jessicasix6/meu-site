@@ -741,6 +741,8 @@ function renderResult(query, state, text) {
   const actionButton =
     state === "ok"
       ? '<button type="button" class="result-action-btn" id="result-solicitar-btn">Ir para o formulário de pedido</button>'
+      : state === "error"
+      ? '<button type="button" class="result-action-btn result-action-btn--retry" id="result-retry-btn">Tentar novamente</button>'
       : "";
   results.innerHTML = `
     <p class="result-query">Resultados para "${escapeHtml(query)}"</p>
@@ -762,6 +764,7 @@ function goToPublish() {
 
 results.addEventListener("click", (event) => {
   if (event.target.closest("#result-solicitar-btn")) goToPublish();
+  if (event.target.closest("#result-retry-btn") && lastSearchQuery) performSearch(lastSearchQuery);
 });
 
 // Módulo de corridas (pilar 4.5) — mini-app "de onde → pra onde" de
