@@ -1,0 +1,56 @@
+name: Smoke test — produção
+
+on:
+  schedule:
+    - cron: "0 */2 * * *"   # a cada 2 horas
+  workflow_dispatch:          # disparo manual quando quiser
+
+jobs:
+  smoke:
+    name: Smoke test produção
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      - name: Rodar smoke tests contra produção
+        id: smoke
+        run: npx playwright test --config playwright.smoke.config.js
+        continue-on-error: true
+
+      - name: Postar resultado no diário (#98)
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DATA=$(date -u '+%Y-%m-%d %H:%M UTC')
+          if [ "${{ steps.smoke.outcome }}" = "success" ]; then
+            STATUS="✅ todos os testes passaram"
+            EMOJI="✅"
+          else
+            STATUS="❌ um ou mais testes falharam — veja o log"
+            EMOJI="❌"
+          fi
+          URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          BODY="### ${EMOJI} Smoke produção — ${DATA}
+          **Resultado:** ${STATUS}
+          **Log completo:** [Ver execução](${URL})"
+          gh issue comment 98 --repo jessicasix6/meu-site --body "$BODY"
+
+      - name: Upload screenshots se falhar
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-screenshots
+          path: test-results/
+          retention-days: 7
