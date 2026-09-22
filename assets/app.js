@@ -2125,6 +2125,7 @@ async function runSearch(message) {
       renderResult(message, "error", data.error || "Algo deu errado.");
     } else {
       renderResult(message, "ok", data.reply);
+      document.title = `${message} — Top3Profissional`;
     }
   } catch (err) {
     renderResult(message, "error", "Não consegui falar com o servidor.");
