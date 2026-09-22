@@ -4170,6 +4170,7 @@ body {
 @media (max-width: 768px) {
   .hero-mode-btn,
   .hero-search-submit,
+  #hero-search-input,
   .example-chip,
   .highlight-card-action,
   .cta-button,
