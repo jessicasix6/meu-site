@@ -4257,7 +4257,8 @@ body {
   .search-hint a,
   .highlights-empty a,
   .activity-empty a,
-  .requests-empty a {
+  .requests-empty a,
+  .footer-nav-link {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
