@@ -1765,7 +1765,9 @@ setInterval(() => {
       path.join(__dirname, "dados-oportunidades.json"),
       JSON.stringify({ gerado_em: new Date().toISOString(), buscas: SEARCH_UNRECOGNIZED }, null, 2)
     );
-  } catch {}
+  } catch (err) {
+    console.error("[oportunidades] falha ao persistir dados-oportunidades.json:", err.message);
+  }
 }, 15 * 60 * 1000);
 
 // TODO: fallback de IA (Groq, gratuito, sem cartão) — ativar só se o

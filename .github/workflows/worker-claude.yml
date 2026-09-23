@@ -24,6 +24,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -41,9 +43,19 @@ jobs:
           mkdir -p ~/.ssh
           printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
+          scp_exit=0
           sshpass -p "$VPS_PASSWORD" scp -o StrictHostKeyChecking=yes \
             "$VPS_USER@$VPS_HOST:/root/meu-site/dados-oportunidades.json" \
-            dados-oportunidades.json 2>/dev/null || echo "⚠ Arquivo ainda não existe no VPS (normal na primeira vez)"
+            dados-oportunidades.json 2>/tmp/scp_err || scp_exit=$?
+          if [ $scp_exit -ne 0 ]; then
+            err=$(cat /tmp/scp_err)
+            if echo "$err" | grep -qi "No such file"; then
+              echo "⚠ Arquivo ainda não existe no VPS (normal na primeira vez)"
+            else
+              echo "❌ Falha no SCP: $err" >&2
+              exit $scp_exit
+            fi
+          fi
           if [ -f dados-oportunidades.json ]; then
             git config user.email "worker@top3profissional.com.br"
             git config user.name "TOP3 Worker"
