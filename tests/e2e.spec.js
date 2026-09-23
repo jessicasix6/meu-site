@@ -2326,6 +2326,38 @@ test.describe("Top3Profissional - busca por palavra-chave, sem IA (task-005)", (
     expect(pedicure.service).toBe("manicure");
   });
 
+  // Missão 6 (#192) — diarista, pintor e pedreiro: 3 profissões de alta
+  // frequência no Brasil que retornavam 0 resultados antes desta mudança.
+  test("reconhece 'diarista' e variações como serviço diarista", async ({ request }) => {
+    const diarista = await request.get("/api/search?q=" + encodeURIComponent("preciso de diarista")).then((r) => r.json());
+    expect(diarista.type).toBe("service");
+    expect(diarista.service).toBe("diarista");
+    const faxineira = await request.get("/api/search?q=" + encodeURIComponent("faxineira para sábado")).then((r) => r.json());
+    expect(faxineira.type).toBe("service");
+    expect(faxineira.service).toBe("diarista");
+    const faxina = await request.get("/api/search?q=" + encodeURIComponent("faxina semanal")).then((r) => r.json());
+    expect(faxina.type).toBe("service");
+    expect(faxina.service).toBe("diarista");
+  });
+
+  test("reconhece 'pintor' e variações como serviço pintor", async ({ request }) => {
+    const pintor = await request.get("/api/search?q=" + encodeURIComponent("pintor de parede")).then((r) => r.json());
+    expect(pintor.type).toBe("service");
+    expect(pintor.service).toBe("pintor");
+    const pintar = await request.get("/api/search?q=" + encodeURIComponent("quero pintar meu apartamento")).then((r) => r.json());
+    expect(pintar.type).toBe("service");
+    expect(pintar.service).toBe("pintor");
+  });
+
+  test("reconhece 'pedreiro' e variações como serviço pedreiro", async ({ request }) => {
+    const pedreiro = await request.get("/api/search?q=" + encodeURIComponent("preciso de pedreiro")).then((r) => r.json());
+    expect(pedreiro.type).toBe("service");
+    expect(pedreiro.service).toBe("pedreiro");
+    const reforma = await request.get("/api/search?q=" + encodeURIComponent("reforma pequena")).then((r) => r.json());
+    expect(reforma.type).toBe("service");
+    expect(reforma.service).toBe("pedreiro");
+  });
+
   test("reconhece categoria de grupo por sinônimo (ex: 'mudança' -> frete) e filtra por cidade", async ({ request }) => {
     const cidade = `Contagem Busca ${Date.now()}`;
     await request.post("/api/groups", {
