@@ -1963,6 +1963,12 @@ button.cta-secondary:focus-visible {
   cursor: pointer;
 }
 
+.post-field input:not([type="file"]):hover,
+.post-field select:hover,
+.post-field textarea:hover {
+  border-color: rgba(22, 230, 255, 0.55);
+}
+
 .post-field select option {
   background: #06141d;
   color: #f4fbff;
