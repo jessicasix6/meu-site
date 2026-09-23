@@ -1754,9 +1754,26 @@ const SEARCH_UNRECOGNIZED = [];
 const SEARCH_UNRECOGNIZED_MAX_ENTRIES = 500;
 
 function recordUnrecognizedSearch(query) {
-  SEARCH_UNRECOGNIZED.push({ query, at: new Date().toISOString() });
+  // Normaliza antes de exportar: o arquivo vai para um repo público
+  const normalized = String(query).toLowerCase().trim().slice(0, 80);
+  SEARCH_UNRECOGNIZED.push({ query: normalized, at: new Date().toISOString() });
   if (SEARCH_UNRECOGNIZED.length > SEARCH_UNRECOGNIZED_MAX_ENTRIES) SEARCH_UNRECOGNIZED.shift();
 }
+
+// Persiste em disco a cada 15 min pra o worker ler via cron
+setInterval(() => {
+  try {
+    const exportPath = path.join(__dirname, "dados-oportunidades.json");
+    const tempPath = `${exportPath}.tmp`;
+    fs.writeFileSync(
+      tempPath,
+      JSON.stringify({ gerado_em: new Date().toISOString(), buscas: SEARCH_UNRECOGNIZED }, null, 2)
+    );
+    fs.renameSync(tempPath, exportPath);
+  } catch (err) {
+    console.error("[oportunidades] falha ao persistir dados-oportunidades.json:", err.message);
+  }
+}, 15 * 60 * 1000);
 
 // TODO: fallback de IA (Groq, gratuito, sem cartão) — ativar só se o
 // dicionário de sinônimos não for suficiente na prática. Desativado por
