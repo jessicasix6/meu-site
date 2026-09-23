@@ -1758,6 +1758,16 @@ function recordUnrecognizedSearch(query) {
   if (SEARCH_UNRECOGNIZED.length > SEARCH_UNRECOGNIZED_MAX_ENTRIES) SEARCH_UNRECOGNIZED.shift();
 }
 
+// Persiste em disco a cada 15 min pra o worker ler via cron
+setInterval(() => {
+  try {
+    fs.writeFileSync(
+      path.join(__dirname, "dados-oportunidades.json"),
+      JSON.stringify({ gerado_em: new Date().toISOString(), buscas: SEARCH_UNRECOGNIZED }, null, 2)
+    );
+  } catch {}
+}, 15 * 60 * 1000);
+
 // TODO: fallback de IA (Groq, gratuito, sem cartão) — ativar só se o
 // dicionário de sinônimos não for suficiente na prática. Desativado por
 // padrão (SEARCH_AI_FALLBACK_ENABLED sempre false nesta v1) — nenhuma

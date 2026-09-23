@@ -1,11 +1,11 @@
 name: worker-claude
 # Worker TOP3 rodando via GitHub Actions (tem acesso ao repo)
-# Executa a cada 1 hora
+# Executa a cada 6 horas
 
 on:
   schedule:
-    # A cada 1 hora
-    - cron: "0 * * * *"
+    # A cada 6 horas
+    - cron: "0 */6 * * *"
   workflow_dispatch:
     inputs:
       forca_execucao:
@@ -14,7 +14,7 @@ on:
         default: false
 
 permissions:
-  contents: read
+  contents: write
   issues: write
   pull-requests: write
 
@@ -30,6 +30,23 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Exportar dados do VPS (Missão 6)
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PASSWORD: ${{ secrets.VPS_PASSWORD }}
+        run: |
+          sudo apt-get install -y sshpass 2>/dev/null | tail -1
+          sshpass -p "$VPS_PASSWORD" scp -o StrictHostKeyChecking=no \
+            "$VPS_USER@$VPS_HOST:/root/meu-site/dados-oportunidades.json" \
+            dados-oportunidades.json 2>/dev/null || echo "⚠ Arquivo ainda não existe no VPS (normal na primeira vez)"
+          if [ -f dados-oportunidades.json ]; then
+            git config user.email "worker@top3profissional.com.br"
+            git config user.name "TOP3 Worker"
+            git add dados-oportunidades.json
+            git diff --staged --quiet || git commit -m "dados: atualiza oportunidades $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push
+          fi
       - name: Run TOP3 Worker
         env:
           GH_TOKEN: ${{ github.token }}
@@ -57,9 +74,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Adiciona comentário no diário com resultado
           TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
           gh issue comment 98 \
             --repo ${{ github.repository }} \
             --body "🤖 Worker executado em $TIMESTAMP (GitHub Actions)"
-
