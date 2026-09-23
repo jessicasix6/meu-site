@@ -19,6 +19,9 @@ const SERVICO_SYNONYMS = {
   eletricista: ["eletricista", "elétrica", "elétrico", "fiação", "instalação elétrica", "instalador"],
   cabeleireiro: ["cabeleireiro", "cabeleireira", "salão de beleza", "corte de cabelo", "cabelo"],
   encanador: ["encanador", "encanamento", "hidráulica", "vazamento", "cano", "desentupimento", "desentupir", "desentupidor", "entupido"],
+  diarista: ["diarista", "faxineira", "faxineiro", "limpeza doméstica", "faxina", "doméstica"],
+  pintor: ["pintor", "pintura", "pintar", "pintura de parede", "pintura residencial"],
+  pedreiro: ["pedreiro", "reforma", "construção", "reboco", "assentamento", "azulejista"],
 };
 
 // "elétrico"/"instalador" (acima) são termos genéricos o suficiente pra
