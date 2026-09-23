@@ -29,7 +29,8 @@ test.describe("Smoke — produção", () => {
 
   test("navegação principal está presente", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await expect(page.locator(".logo")).toBeVisible();
+    // .logo aparece duas vezes de propósito (header e rodapé) — escopar ao header
+    await expect(page.locator(".site-header .logo")).toBeVisible();
     await expect(page.locator(".site-header")).toBeVisible();
   });
 
@@ -58,9 +59,10 @@ test.describe("Smoke — produção", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.locator("#hero-search-input").fill("eletricista");
     await page.locator(".hero-search-submit").click();
-    // Aguarda ranking ou mensagem de vazio — qualquer um é sinal de que a busca chegou ao servidor
+    // Aguarda ranking ou mensagem de vazio — qualquer um é sinal de que a busca chegou ao servidor.
+    // Pode haver múltiplos .rank-card quando a busca retorna vários resultados, então usa .first().
     await expect(
-      page.locator(".rank-card, .rank-empty, .result-answer")
+      page.locator(".rank-card, .rank-empty, .result-answer").first()
     ).toBeVisible({ timeout: 20_000 });
   });
 
