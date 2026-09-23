@@ -5,6 +5,10 @@ on:
     - cron: "0 */2 * * *"   # a cada 2 horas
   workflow_dispatch:          # disparo manual quando quiser
 
+permissions:
+  contents: read
+  issues: write   # necessário para comentar o resultado na issue #98 (diário)
+
 jobs:
   smoke:
     name: Smoke test produção
