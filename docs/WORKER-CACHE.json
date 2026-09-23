@@ -1,30 +1,21 @@
 {
   "versao": "1.0",
-  "ultima_execucao": "2026-09-23T05:30:00Z",
+  "ultima_execucao": "2026-09-23T03:23:32Z",
   "dados_em_cache": {
-    "issues_abertas_total": 9,
-    "prs_abertas_total": 1,
-    "ci_status": "verde em main (16ddc78)"
+    "issues_abertas_total": 8,
+    "prs_abertas_total": 0,
+    "ci_status": "verde em main (e627c35)"
   },
   "decisoes_recentes": {
-    "producao_bloqueada": "egress_policy deste ambiente — nao confirma nem descarta problema no site, pendencia registrada desde 17/09",
+    "producao_bloqueada": "egress_policy deste ambiente (CONNECT tunnel 403, reconfirmado nesta execução) — nao confirma nem descarta problema no site, pendencia registrada desde 17/09",
     "fila_top3_task": "vazia — nenhuma issue top3-task + status:pending"
   },
-  "prs_abertas": [
-    {
-      "numero": 126,
-      "titulo": "fix: smoke test de producao — permissao pra comentar no diario + seletores",
-      "ci": "verde",
-      "toca_workflows": true,
-      "automergivel": false,
-      "aguarda": "revisao_manual_jessica"
-    }
-  ],
+  "prs_abertas": [],
   "memoria_sessao": {
     "componente_mobile": "alvos de toque 44px corrigidos (filtros, botoes principais, cards, footer) — ver #100, #127, #133",
     "busca_vazia": "convite com categoria pre-marcada — ver #99",
     "auth": "tokens OK",
-    "smoke_test_124": "causa raiz: falta permissions.issues:write no workflow — fix pronto no PR #126, aguardando merge manual por tocar .github/workflows/",
-    "pr_160_fechado": "duplicava este arquivo na raiz do repo com conteudo desatualizado — fechado em 23/09"
+    "smoke_test_124": "RESOLVIDO — PR #126 merged, workflow rodou com sucesso em 23/09 02:32 UTC e comentou no diario #98, issue fechada",
+    "pr_162_fechado": "branch claude/magical-hopper-69ru60 ja tinha o conteudo mergeado via #161 (squash); commit extra empilhado depois do merge gerou diff/conflito falso contra main — fechado em 23/09, conteudo recriado neste PR a partir de main atual"
   }
 }
