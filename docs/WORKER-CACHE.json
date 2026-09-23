@@ -1,10 +1,10 @@
 {
   "versao": "1.0",
-  "ultima_execucao": "2026-09-23T08:21:24Z",
+  "ultima_execucao": "2026-09-23T09:22:15Z",
   "dados_em_cache": {
     "issues_abertas_total": 8,
     "prs_abertas_total": 0,
-    "ci_status": "verde em main (83c6052)"
+    "ci_status": "verde em main (938d937)"
   },
   "decisoes_recentes": {
     "producao_bloqueada": "egress_policy deste ambiente (CONNECT tunnel 403, reconfirmado nesta execução) — nao confirma nem descarta problema no site, pendencia registrada desde 17/09",
@@ -16,7 +16,7 @@
     "busca_vazia": "convite com categoria pre-marcada — ver #99",
     "auth": "tokens OK",
     "smoke_test_124": "RESOLVIDO — PR #126 merged, workflow rodou com sucesso em 23/09 02:32 UTC e comentou no diario #98, issue fechada",
-    "pr_163_mergeado": "cache do worker mergeado direto (docs-only, risco baixo) — substituiu o registro desatualizado do #161, que ainda listava #126 como aberto",
-    "execucao_0821": "sem mudanca de estado desde 07:22 — 0 PRs/issues novas, 0 autorizacoes novas, producao seguiu bloqueada (reconfirmado), Deploy/Verify/CI verdes em 83c6052"
+    "pr_166_mergeado": "cache do worker mergeado direto (docs-only, risco baixo) — main em 938d937, CI/Deploy/Verify verdes, smoke test de producao passou as 08:56 UTC",
+    "execucao_0922": "sem mudanca de estado desde 08:21/08:56 — 0 PRs/issues novas, 0 autorizacoes novas, producao seguiu bloqueada (reconfirmado), Deploy/Verify/CI/Smoke verdes em 938d937"
   }
 }
