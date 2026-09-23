@@ -1,0 +1,44 @@
+{
+  "ultima_execucao": "2026-09-23T02:30:00Z",
+  "decisoes_reutilizaveis": {
+    "producao_bloqueada": "egress_policy — nao confirma problema do site",
+    "fila_top3_task": "vazia em todas as 3 ultimas execucoes (16:22, 15:49, 15:23)"
+  },
+  "estado_git": {
+    "branch_designada": "claude/magical-hopper-1k1u00",
+    "branch_atual": "claude/magical-hopper-1k1u00",
+    "commits_a_fazer": 0
+  },
+  "prs_abertas": [
+    {
+      "numero": 119,
+      "titulo": "docs: worker com missoes, biblioteca de acoes...",
+      "ci": "verde",
+      "risco": "nao_classificado",
+      "criada_por": "jessicasix6",
+      "automergivel": false
+    },
+    {
+      "numero": 120,
+      "titulo": "fix: campo de busca do hero — zona morta ~21px no celular",
+      "draft": true,
+      "ci": "verde",
+      "automergivel": false
+    },
+    {
+      "numero": 126,
+      "titulo": "fix: smoke test de producao — permissao pra comentar no diario + seletores",
+      "ci": "verde",
+      "toca_workflows": true,
+      "aguarda": "revisao_manual_jessica",
+      "automergivel": false
+    }
+  ],
+  "tarefas_pendentes": 0,
+  "observacoes": [
+    "smoke-producao.yml: 0 execucoes do cron desde merge (14:25 UTC) ate 16:22 UTC",
+    "PR#126 corrige seletores de smoke test + adiciona permissoes — nao mergavel por tocar workflows",
+    "missoes #113-118 nao verificaveis (site bloqueado por egress)",
+    "testes nao rodados (nenhuma tarefa implementada)"
+  ]
+}
