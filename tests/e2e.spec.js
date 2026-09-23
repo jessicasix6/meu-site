@@ -3649,3 +3649,34 @@ test.describe("Top3Profissional - PWA", () => {
     expect(conteudo).toContain("hero-search-input");
   });
 });
+
+test.describe("Top3Profissional - regressão (PR #169)", () => {
+  test("regra CSS .post-field input:hover/select:hover/textarea:hover existe e define border-color", async ({
+    page,
+  }) => {
+    // PR #169 adicionou regras CSS explícitas para hover em .post-field:
+    // .post-field input:not([type="file"]):hover,
+    // .post-field select:hover,
+    // .post-field textarea:hover { border-color: rgba(22, 230, 255, 0.55); }
+    //
+    // Validar que a stylesheet contém essa regra, confirmando que o fix está presente.
+
+    const response = await page.request.get("/assets/style.css");
+    const cssContent = await response.text();
+
+    // Validar que a regra de hover para .post-field foi adicionada
+    expect(
+      cssContent,
+      ".post-field inputs/selects/textareas deveriam ter regra :hover explícita (PR #169)"
+    ).toContain(".post-field input:not([type=\"file\"]):hover");
+
+    expect(cssContent, "regra :hover do .post-field select deveria existir").toContain(".post-field select:hover");
+
+    expect(cssContent, "regra :hover do .post-field textarea deveria existir").toContain(
+      ".post-field textarea:hover"
+    );
+
+    // Validar que a cor de hover é a esperada
+    expect(cssContent, "cor de hover deveria ser rgba(22, 230, 255, 0.55)").toContain("rgba(22, 230, 255, 0.55)");
+  });
+});
