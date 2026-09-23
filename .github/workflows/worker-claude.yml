@@ -30,17 +30,6 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install gh CLI
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gh
-
-      - name: Authenticate with GitHub
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          echo $GH_TOKEN | gh auth login --with-token
-
       - name: Run TOP3 Worker
         env:
           GH_TOKEN: ${{ github.token }}
