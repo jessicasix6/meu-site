@@ -1,10 +1,10 @@
 {
   "versao": "1.0",
-  "ultima_execucao": "2026-09-23T03:23:32Z",
+  "ultima_execucao": "2026-09-23T05:23:21Z",
   "dados_em_cache": {
     "issues_abertas_total": 8,
     "prs_abertas_total": 0,
-    "ci_status": "verde em main (e627c35)"
+    "ci_status": "verde em main (2455af7)"
   },
   "decisoes_recentes": {
     "producao_bloqueada": "egress_policy deste ambiente (CONNECT tunnel 403, reconfirmado nesta execução) — nao confirma nem descarta problema no site, pendencia registrada desde 17/09",
@@ -16,6 +16,6 @@
     "busca_vazia": "convite com categoria pre-marcada — ver #99",
     "auth": "tokens OK",
     "smoke_test_124": "RESOLVIDO — PR #126 merged, workflow rodou com sucesso em 23/09 02:32 UTC e comentou no diario #98, issue fechada",
-    "pr_162_fechado": "branch claude/magical-hopper-69ru60 ja tinha o conteudo mergeado via #161 (squash); commit extra empilhado depois do merge gerou diff/conflito falso contra main — fechado em 23/09, conteudo recriado neste PR a partir de main atual"
+    "pr_163_mergeado": "cache do worker mergeado direto (docs-only, risco baixo) — substituiu o registro desatualizado do #161, que ainda listava #126 como aberto"
   }
 }
