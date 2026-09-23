@@ -24,7 +24,7 @@
     "componente_mobile": "alvos de toque 44px corrigidos (filtros, botoes principais, cards, footer) — ver #100, #127, #133",
     "busca_vazia": "convite com categoria pre-marcada — ver #99",
     "auth": "tokens OK",
-    "smoke_test_124": "causa raiz: falta permissions.issues:write no workflow — fix pronto no PR #126, aguardando merge manual por tocar .github/workflows/",
+    "smoke_test_124": "✅ RESOLVIDO — PR #126 merged, smoke test rodou com sucesso em 23/09 02:32 UTC, comentou no diário #98",
     "pr_160_fechado": "duplicava este arquivo na raiz do repo com conteudo desatualizado — fechado em 23/09"
   }
 }
