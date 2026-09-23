@@ -1,10 +1,10 @@
 {
   "versao": "1.0",
-  "ultima_execucao": "2026-09-23T09:22:15Z",
+  "ultima_execucao": "2026-09-23T10:22:31Z",
   "dados_em_cache": {
     "issues_abertas_total": 8,
     "prs_abertas_total": 0,
-    "ci_status": "verde em main (938d937)"
+    "ci_status": "verde em main (90efd61)"
   },
   "decisoes_recentes": {
     "producao_bloqueada": "egress_policy deste ambiente (CONNECT tunnel 403, reconfirmado nesta execução) — nao confirma nem descarta problema no site, pendencia registrada desde 17/09",
@@ -16,7 +16,8 @@
     "busca_vazia": "convite com categoria pre-marcada — ver #99",
     "auth": "tokens OK",
     "smoke_test_124": "RESOLVIDO — PR #126 merged, workflow rodou com sucesso em 23/09 02:32 UTC e comentou no diario #98, issue fechada",
-    "pr_166_mergeado": "cache do worker mergeado direto (docs-only, risco baixo) — main em 938d937, CI/Deploy/Verify verdes, smoke test de producao passou as 08:56 UTC",
-    "execucao_0922": "sem mudanca de estado desde 08:21/08:56 — 0 PRs/issues novas, 0 autorizacoes novas, producao seguiu bloqueada (reconfirmado), Deploy/Verify/CI/Smoke verdes em 938d937"
+    "pr_167_mergeado": "cache do worker mergeado direto (docs-only, risco baixo) — main em 90efd61, CI/Deploy/Verify verdes",
+    "falso_positivo_requests_filter_type": "select #requests-filter-type (provider view) NAO tem class=filter-select mas ja recebe tema escuro completo via seletor .requests-filter select em style.css (linha ~2419) — appearance:none, seta custom, option colors, hover/focus. Nao mexer nisso de novo sem checar o CSS primeiro.",
+    "execucao_0923_1022": "sem mudanca de estado desde 09:22/09:25 (PR #167 ja mergeado) — 0 PRs/issues novas, 0 autorizacoes novas, producao seguiu bloqueada (reconfirmado), CI/Deploy/Verify/Smoke verdes em 90efd61/938d937"
   }
 }
