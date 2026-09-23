@@ -1,22 +1,30 @@
 {
   "versao": "1.0",
-  "ultima_execucao": "2026-09-22T00:00:00Z",
+  "ultima_execucao": "2026-09-23T05:30:00Z",
   "dados_em_cache": {
-    "issues_abertas_total": 0,
-    "prs_abertas_total": 0,
-    "ci_status": "unknown"
+    "issues_abertas_total": 9,
+    "prs_abertas_total": 1,
+    "ci_status": "verde em main (16ddc78)"
   },
   "decisoes_recentes": {
-    "problema_1": {
-      "tipo": "CSS",
-      "solucao": "...",
-      "confianca": 0.8,
-      "data": "2026-09-22T10:30:00Z"
-    }
+    "producao_bloqueada": "egress_policy deste ambiente — nao confirma nem descarta problema no site, pendencia registrada desde 17/09",
+    "fila_top3_task": "vazia — nenhuma issue top3-task + status:pending"
   },
+  "prs_abertas": [
+    {
+      "numero": 126,
+      "titulo": "fix: smoke test de producao — permissao pra comentar no diario + seletores",
+      "ci": "verde",
+      "toca_workflows": true,
+      "automergivel": false,
+      "aguarda": "revisao_manual_jessica"
+    }
+  ],
   "memoria_sessao": {
-    "componente_mobile": "quebra em 375px - corrigido em PR #XYZ",
-    "busca_vazia": "mensagem genérica - melhorar em próxima",
-    "auth": "tokens OK"
+    "componente_mobile": "alvos de toque 44px corrigidos (filtros, botoes principais, cards, footer) — ver #100, #127, #133",
+    "busca_vazia": "convite com categoria pre-marcada — ver #99",
+    "auth": "tokens OK",
+    "smoke_test_124": "causa raiz: falta permissions.issues:write no workflow — fix pronto no PR #126, aguardando merge manual por tocar .github/workflows/",
+    "pr_160_fechado": "duplicava este arquivo na raiz do repo com conteudo desatualizado — fechado em 23/09"
   }
 }
