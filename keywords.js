@@ -21,6 +21,16 @@ const SERVICO_SYNONYMS = {
   encanador: ["encanador", "encanamento", "hidráulica", "vazamento", "cano"],
 };
 
+// "elétrico"/"instalador" (acima) são termos genéricos o suficiente pra
+// colidir com busca de coisas que não são o profissional eletricista —
+// "carro elétrico" e "instalador de ar condicionado" são os casos reais
+// encontrados. Cada frase aqui, se presente na busca, cancela o match do
+// serviço mesmo que um sinônimo tenha batido (ver parseServiceFromQuery em
+// server.js).
+const SERVICO_SYNONYM_EXCLUSIONS = {
+  eletricista: ["carro elétrico", "carro eletrico", "ar condicionado", "ar-condicionado"],
+};
+
 const GROUP_CATEGORY_SYNONYMS = {
   carona: ["carona", "carro compartilhado", "rachar carona"],
   frete: ["frete", "mudança", "transporte de carga", "caminhão", "carreto"],
@@ -45,4 +55,4 @@ const CITY_SYNONYMS = {
   uberlandia: ["uberlândia", "uberlandia"],
 };
 
-module.exports = { SERVICO_SYNONYMS, GROUP_CATEGORY_SYNONYMS, CITY_SYNONYMS };
+module.exports = { SERVICO_SYNONYMS, SERVICO_SYNONYM_EXCLUSIONS, GROUP_CATEGORY_SYNONYMS, CITY_SYNONYMS };

@@ -17,7 +17,7 @@ const sharp = require("sharp");
 const ort = require("onnxruntime-node");
 const { BackgroundRemover } = require("@tugrul/rembg");
 const { registerWhatsAppRoutes, isConfigured: isWhatsAppConfigured } = require("./whatsapp");
-const { SERVICO_SYNONYMS, GROUP_CATEGORY_SYNONYMS, CITY_SYNONYMS } = require("./keywords");
+const { SERVICO_SYNONYMS, SERVICO_SYNONYM_EXCLUSIONS, GROUP_CATEGORY_SYNONYMS, CITY_SYNONYMS } = require("./keywords");
 
 const PROVIDERS = [
   { name: "Ana Souza", service: "manicure", city: "Belo Horizonte", time: "amanhã às 14h", rating: 4.9, reviewCount: 24, distanceKm: 1.2, price: 45, fastReply: true, lat: -19.9245, lng: -43.9352 },
@@ -1713,7 +1713,10 @@ function parseCityFromQuery(normalizedQuery) {
 // pela busca, não só pelo link direto).
 function parseServiceFromQuery(normalizedQuery) {
   for (const [service, synonyms] of Object.entries(SERVICO_SYNONYMS)) {
-    if (synonyms.some((s) => normalizedQuery.includes(normalizeSearchText(s)))) return service;
+    if (!synonyms.some((s) => normalizedQuery.includes(normalizeSearchText(s)))) continue;
+    const exclusions = SERVICO_SYNONYM_EXCLUSIONS[service] || [];
+    if (exclusions.some((e) => normalizedQuery.includes(normalizeSearchText(e)))) continue;
+    return service;
   }
   const knownServices = [...new Set([...PROVIDERS, ...PROVIDER_PROFILES].map((p) => p.service.toLowerCase()))];
   return knownServices.find((s) => normalizedQuery.includes(normalizeSearchText(s))) || null;

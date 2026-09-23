@@ -2276,6 +2276,19 @@ test.describe("Top3Profissional - busca por palavra-chave, sem IA (task-005)", (
     expect(porOcupacao.service).toBe("eletricista");
   });
 
+  // "elétrico" e "instalador" sozinhos são genéricos demais: sem essa
+  // exclusão, "carro elétrico" e "instalador de ar condicionado" também
+  // batiam no sinônimo de eletricista por serem substring da busca.
+  test("não confunde 'carro elétrico' nem 'instalador de ar condicionado' com o serviço eletricista", async ({ request }) => {
+    const carro = await request.get("/api/search?q=" + encodeURIComponent("quanto custa um carro elétrico")).then((r) => r.json());
+    expect(carro.type).not.toBe("service");
+
+    const arCondicionado = await request
+      .get("/api/search?q=" + encodeURIComponent("preciso de um instalador de ar condicionado"))
+      .then((r) => r.json());
+    expect(arCondicionado.type).not.toBe("service");
+  });
+
   test("reconhece categoria de grupo por sinônimo (ex: 'mudança' -> frete) e filtra por cidade", async ({ request }) => {
     const cidade = `Contagem Busca ${Date.now()}`;
     await request.post("/api/groups", {
