@@ -1,0 +1,22 @@
+{
+  "versao": "1.0",
+  "ultima_execucao": "2026-09-22T00:00:00Z",
+  "dados_em_cache": {
+    "issues_abertas_total": 0,
+    "prs_abertas_total": 0,
+    "ci_status": "unknown"
+  },
+  "decisoes_recentes": {
+    "problema_1": {
+      "tipo": "CSS",
+      "solucao": "...",
+      "confianca": 0.8,
+      "data": "2026-09-22T10:30:00Z"
+    }
+  },
+  "memoria_sessao": {
+    "componente_mobile": "quebra em 375px - corrigido em PR #XYZ",
+    "busca_vazia": "mensagem genérica - melhorar em próxima",
+    "auth": "tokens OK"
+  }
+}
