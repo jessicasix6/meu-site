@@ -1,12 +1,13 @@
 {
   "versao": "1.0",
-  "ultima_execucao": "2026-09-23T17:49:00Z",
+  "ultima_execucao": "2026-09-23T18:25:00Z",
   "dados_em_cache": {
-    "issues_abertas_total": 8,
+    "issues_abertas_total": 9,
     "prs_abertas_total": 0,
-    "ci_status": "verde em main (c43ee50, PR #183 mergeado — Missão 5 concluída, #178/#179/#180/#181 fechadas/consolidadas)"
+    "ci_status": "verde em main (f2c7b23, PR #185 mergeado direto pela Jéssica — novo workflow worker-claude.yml)"
   },
   "decisoes_recentes": {
+    "worker_claude_yml_1a_run_falhou": "PR #185 (mergeado direto pela Jéssica, fora do worker) criou .github/workflows/worker-claude.yml, um worker hourly via GitHub Actions. 1ª run (workflow_dispatch, 18:17 UTC) falhou no step 'Authenticate with GitHub' — `gh auth login --with-token` dá exit 1 porque GH_TOKEN já está no ambiente (gh se autentica sozinho, login explícito é redundante e o próprio gh recusa). Efeito: step que lista PRs/issues/autorizações foi pulado, mas o diário #98 recebeu comentário de 'sucesso' genérico mesmo assim (if: always() no último step, sem distinguir sucesso/falha real). Não corrigi (é workflow de CI novo, ainda em construção pela Jéssica) — abri issue #187 (sugestao+aguardando-autorizacao) com causa raiz e correção sugerida (remover o step de login redundante; step final reportar sucesso/falha real). Segredos VPS_HOST/VPS_USER/VPS_PASSWORD/ANTHROPIC_API_KEY estão declarados no job mas não chegaram a ser usados (falhou antes) — não é vazamento, só observação de que estão expostos ao job sem necessidade atual.",
     "producao_bloqueada": "egress_policy deste ambiente (CONNECT tunnel 403/timeout, reconfirmado nesta execução) — não confirma nem descarta problema no site, pendência registrada desde 17/09",
     "fila_top3_task": "vazia — nenhuma issue top3-task + status:pending"
   },
