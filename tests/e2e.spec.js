@@ -2897,6 +2897,29 @@ test.describe("Top3Profissional - correções de UX no formulário de Publicar (
     await expect(page.locator(`.request-item[data-id="${tvRequest.id}"]`)).toHaveCount(0);
   });
 
+  test("pedidos: filtro sem resultado mostra ação de limpar filtro, não só 'nenhum pedido'", async ({ request, page }) => {
+    const tv = await request.post("/api/requests", {
+      data: { type: "produto", title: `TV filtro vazio ${uniqueSuffix()}`, price: 900, whatsapp: "31999990022" },
+    });
+    expect(tv.status()).toBe(201);
+    const { request: tvRequest } = await tv.json();
+
+    await page.goto("/");
+    await page.getByRole("tab", { name: /presto serviço/i }).click();
+    await expect(page.locator(`.request-item[data-id="${tvRequest.id}"]`)).toBeVisible();
+
+    // Filtro que não bate com nada cadastrado — mensagem tem que diferenciar
+    // isso de "não existe nenhum pedido" e oferecer o que fazer a seguir.
+    await page.locator("#requests-filter-keyword").fill(`termo-sem-match-${uniqueSuffix()}`);
+    await expect(page.locator(".requests-empty")).toContainText("Nenhum pedido com esses filtros");
+    const clearLink = page.locator("#requests-clear-filters");
+    await expect(clearLink).toBeVisible();
+
+    await clearLink.click();
+    await expect(page.locator("#requests-filter-keyword")).toHaveValue("");
+    await expect(page.locator(`.request-item[data-id="${tvRequest.id}"]`)).toBeVisible();
+  });
+
   test("item 4: menu do topo removido — seções 'corridas' e 'publicar' permanecem na página e são adjacentes", async ({
     page,
   }) => {

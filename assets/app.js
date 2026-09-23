@@ -626,10 +626,32 @@ function requestActionArea(r) {
   `;
 }
 
+// Igual ao #99 no painel de produtos (Missão 4, #116): filtro demais não é
+// a mesma coisa que não ter pedido publicado, e um beco sem saída sem essa
+// distinção não sugere nenhuma ação — só filtro tem uma ação de verdade
+// pra oferecer aqui (limpar), então "sem pedido nenhum" fica só informativo.
+function requestsTemFiltro() {
+  return (
+    Boolean(requestsFilterType.value) ||
+    Boolean(requestsFilterKeyword.value.trim()) ||
+    Boolean(requestsFilterState && requestsFilterState.value) ||
+    Boolean(requestsFilterCity && requestsFilterCity.value) ||
+    Boolean(requestsPriceSort) ||
+    requestsUseGps
+  );
+}
+
+function renderRequestsVazio() {
+  if (requestsTemFiltro()) {
+    return '<li class="requests-empty">Nenhum pedido com esses filtros. <a href="#" id="requests-clear-filters">Limpar filtros</a></li>';
+  }
+  return '<li class="requests-empty">Nenhum pedido em aberto por aqui ainda.</li>';
+}
+
 function renderRequests(requests) {
   requestsList.innerHTML = "";
   if (requests.length === 0) {
-    requestsList.innerHTML = '<li class="requests-empty">Nenhum pedido encontrado.</li>';
+    requestsList.innerHTML = renderRequestsVazio();
     return;
   }
   requests.forEach((r) => {
@@ -674,6 +696,20 @@ async function postRequestAction(url, body) {
 }
 
 requestsList.addEventListener("click", async (event) => {
+  if (event.target.closest("#requests-clear-filters")) {
+    event.preventDefault();
+    requestsFilterType.value = "";
+    requestsFilterKeyword.value = "";
+    if (requestsFilterState) requestsFilterState.value = "";
+    if (requestsFilterCity) requestsFilterCity.innerHTML = '<option value="">Todas as cidades</option>';
+    requestsPriceSort = "";
+    requestsUseGps = false;
+    document.querySelectorAll("#requests-filter-bar .price-sort-btn").forEach((b) => b.classList.remove("active"));
+    requestsUseLocationBtn && requestsUseLocationBtn.classList.remove("active");
+    loadRequests();
+    return;
+  }
+
   const acceptBtn = event.target.closest(".accept-btn");
   const completeBtn = event.target.closest(".complete-btn");
   if (!acceptBtn && !completeBtn) return;
