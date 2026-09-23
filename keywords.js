@@ -16,7 +16,7 @@
 
 const SERVICO_SYNONYMS = {
   manicure: ["manicure", "unha", "unhas", "esmalteria", "esmaltação"],
-  eletricista: ["eletricista", "elétrica", "fiação", "instalação elétrica"],
+  eletricista: ["eletricista", "elétrica", "elétrico", "fiação", "instalação elétrica", "instalador"],
   cabeleireiro: ["cabeleireiro", "cabeleireira", "salão de beleza", "corte de cabelo", "cabelo"],
   encanador: ["encanador", "encanamento", "hidráulica", "vazamento", "cano"],
 };
