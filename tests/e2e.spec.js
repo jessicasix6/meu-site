@@ -3649,3 +3649,37 @@ test.describe("Top3Profissional - PWA", () => {
     expect(conteudo).toContain("hero-search-input");
   });
 });
+
+
+test.describe("Top3Profissional - regressão (PR #108)", () => {
+  test("formulário de pedido tem campo de foto opcional", async ({ page }) => {
+    // PR #108: adicionou campo de upload de foto opcional ao formulário de pedido (#post-photo).
+    // Campo deve estar presente, ser do tipo file, mas NÃO obrigatório (diferente do perfil de prestador).
+    // A foto aparece como miniatura no card do pedido.
+    await page.goto("/");
+
+    // Validar que existe um input de tipo file pra foto do pedido
+    const fotoInput = page.locator("#post-photo");
+    await expect(fotoInput).toBeAttached();
+    
+    // Campo deve ser do tipo file
+    await expect(fotoInput).toHaveAttribute("type", "file");
+    
+    // Campo NÃO deve ser obrigatório
+    await expect(fotoInput).not.toHaveAttribute("required");
+    
+    // Validar que aceita apenas imagens
+    await expect(fotoInput).toHaveAttribute("accept", /image/);
+  });
+
+  test("botão 'Criar conta' existe no header antes de login", async ({ page }) => {
+    // PR #108: corrigiu o bug onde "Criar conta" (criar-conta-header-btn) ficava visível após login.
+    // Antes do fix, o botão continuava aparecendo mesmo após autenticação.
+    // Validar que o botão existe no HTML (quando não autenticado).
+    await page.goto("/");
+
+    const criarContaBtn = page.locator("#criar-conta-header-btn");
+    await expect(criarContaBtn).toBeVisible();
+    await expect(criarContaBtn).toHaveText("Criar conta");
+  });
+});
