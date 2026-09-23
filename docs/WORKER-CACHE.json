@@ -1,23 +1,16 @@
 {
   "versao": "1.0",
-  "ultima_execucao": "2026-09-23T13:24:50Z",
+  "ultima_execucao": "2026-09-23T13:42:28Z",
   "dados_em_cache": {
     "issues_abertas_total": 8,
-    "prs_abertas_total": 1,
-    "ci_status": "verde em main (9283aa9) — PR #172 aberto (risk:low), aguardando CI"
+    "prs_abertas_total": 0,
+    "ci_status": "verde em main (d7b8ed2) — PR #172 e #173 ja mergeados"
   },
   "decisoes_recentes": {
     "producao_bloqueada": "egress_policy deste ambiente (CONNECT tunnel 403 e ECONNRESET em npm ci por dependencia nativa, reconfirmado nesta execucao) — nao confirma nem descarta problema no site, pendencia registrada desde 17/09",
     "fila_top3_task": "vazia — nenhuma issue top3-task + status:pending"
   },
-  "prs_abertas": [
-    {
-      "numero": 172,
-      "titulo": "fix(busca): reconhecer 'eletrico' e 'instalador' como sinonimo de eletricista",
-      "risco": "risk:low",
-      "status": "aberto, CI pendente no momento do registro"
-    }
-  ],
+  "prs_abertas": [],
   "memoria_sessao": {
     "componente_mobile": "alvos de toque 44px corrigidos (filtros, botoes principais, cards, footer) — ver #100, #127, #133",
     "busca_vazia": "convite com categoria pre-marcada — ver #99",
@@ -25,7 +18,9 @@
     "falso_positivo_requests_filter_type": "select #requests-filter-type (provider view) NAO tem class=filter-select mas ja recebe tema escuro completo via seletor .requests-filter select em style.css (linha ~2419) — appearance:none, seta custom, option colors, hover/focus. Nao mexer nisso de novo sem checar o CSS primeiro.",
     "post_field_sem_hover": "RESOLVIDO — .post-field input/select/textarea (perfil, criar post, criar grupo, carona) so tinha :focus, sem :hover explicito, diferente de .filter-select que ja tinha os dois. PR #169 mergeado (3411dd3) adiciona .post-field input:not([type=file]):hover/select:hover/textarea:hover com a mesma cor de .filter-select:hover (rgba(22,230,255,.55)). CSS puro, aditivo.",
     "ambiente_sem_npm_ci": "confirmado de novo nesta execucao — npm ci falha aqui com ECONNRESET no postinstall do onnxruntime-node (dependencia nativa do @tugrul/rembg). Nao da pra rodar Playwright localmente neste ambiente; validar sempre via CI do GitHub Actions, que tem rede liberada. Logica pura (sem dependencia) da validada isolada com `node -e` importando o modulo direto.",
-    "sinonimos_eletricista_incompletos": "RESOLVIDO (PR #172) — Missao 3 (#115) cita 'eletricista'/'eletrico'/'instalador' como termos de teste, mas so 'eletrica' e 'instalacao eletrica' estavam em SERVICO_SYNONYMS (keywords.js). 'eletrico' e 'instalador' cairiam no fallback de texto livre em vez de achar os eletricistas cadastrados. Adicionados os dois sinonimos + teste de regressao em tests/e2e.spec.js via /api/search. Mudanca puramente aditiva em dados, risk:low.",
-    "execucao_0923_1324": "PASSO 0: sem autorizacao nova nos ultimos comentarios do diario #98. PASSO 1: nenhum PR em progresso antes desta execucao (lista open vazia, #171 ja mergeado). PASSO 2: nenhuma tarefa top3-task+status:pending. PASSO 3: nada novo (issues/PRs) desde 12:22. PASSO 4: revisitei Missao 3 (#115) e testei a logica de parseServiceFromQuery/SERVICO_SYNONYMS contra os termos citados na propria definicao da missao ('eletricista', 'eletrico', 'instalador') — achei e corrigi o gap (PR #172). Missoes 5 e 6 seguem bloqueadas por egress_policy."
+    "sinonimos_eletricista_incompletos": "RESOLVIDO e MERGEADO (PR #172, d7b8ed2) — Missao 3 (#115) cita 'eletricista'/'eletrico'/'instalador' como termos de teste, mas so 'eletrica' e 'instalacao eletrica' estavam em SERVICO_SYNONYMS (keywords.js). 'eletrico' e 'instalador' cairiam no fallback de texto livre em vez de achar os eletricistas cadastrados. Adicionados os dois sinonimos + teste de regressao em tests/e2e.spec.js via /api/search.",
+    "exclusao_de_sinonimo_generico_por_termo_nao_por_servico": "LIÇÃO (do processo de revisão do PR #172, CodeRabbit) — 'elétrico'/'instalador' sao genericos demais como substring: colidiam com 'carro eletrico' e 'instalador de ar condicionado'. Primeira correcao (exclusao por SERVICO, ex.: qualquer 'ar condicionado' cancela TODO match de eletricista) causou uma segunda falha: cancelava tambem sinonimos especificos legitimos como 'instalacao eletrica' ('preciso de instalacao eletrica para o ar condicionado' parava de achar eletricista). Correcao final: SERVICO_SYNONYM_EXCLUSIONS indexado pelo SINONIMO especifico que colidiu (nao pelo servico) — server.js so cancela aquele sinonimo generico, outro sinonimo mais especifico do mesmo servico continua valendo. Regra geral pra proxima vez que adicionar sinonimo generico com exclusao: escopar a exclusao no termo, nunca no servico inteiro.",
+    "merge_com_ruleset_unstable_apos_ci_verde": "observado nesta execucao — apos CI 'test' completar com sucesso, a primeira tentativa de merge (mcp__github__merge_pull_request) falhou com 405 'Required status check test is expected' mesmo com check_runs mostrando success. mergeable_state estava 'behind' (branch atras de main, porque um PR de cache irmao mergeou nesse meio-tempo). Causa provavel: ruleset exige branch atualizada com a base antes de aceitar o status check. Solucao: merge main -> branch da PR (sem conflito), push, aguardar novo CI rodar na branch atualizada, so entao o merge foi aceito. Lição: se o merge falhar com esse erro mesmo com CI verde, checar mergeable_state — se for 'behind', atualizar a branch primeiro em vez de tentar de novo no mesmo commit.",
+    "execucao_0923_1324_a_1443": "PASSO 0: sem autorizacao nova nos ultimos comentarios do diario #98. PASSO 1: nenhum PR em progresso antes desta execucao (lista open vazia, #171 ja mergeado). PASSO 2: nenhuma tarefa top3-task+status:pending. PASSO 3: nada novo (issues/PRs) desde 12:22. PASSO 4: revisitei Missao 3 (#115) e testei a logica de parseServiceFromQuery/SERVICO_SYNONYMS contra os termos citados na propria definicao da missao ('eletricista', 'eletrico', 'instalador') — achei e corrigi o gap (PR #172, risk:low). CodeRabbit encontrou dois falsos positivos/negativos reais durante a revisao (carro eletrico/ar condicionado colidindo; depois exclusao cancelando sinonimo legitimo) — ambos corrigidos e testados antes do merge, CI verde, PR #172 e #173 mergeados. Missoes 5 e 6 seguem bloqueadas por egress_policy."
   }
 }
