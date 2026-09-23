@@ -2300,6 +2300,32 @@ test.describe("Top3Profissional - busca por palavra-chave, sem IA (task-005)", (
     expect(body.service).toBe("eletricista");
   });
 
+  // Missão 3 (#115) — sinônimos de encanador: "desentupimento" é termo muito
+  // frequente em BH mas não batia em nenhum sinônimo, caía no fallback de
+  // texto livre e retornava 0 resultados em vez de mostrar encanadores.
+  test("reconhece 'desentupimento' e variações como serviço encanador", async ({ request }) => {
+    const desentupimento = await request.get("/api/search?q=" + encodeURIComponent("preciso de desentupimento")).then((r) => r.json());
+    expect(desentupimento.type).toBe("service");
+    expect(desentupimento.service).toBe("encanador");
+
+    const desentupir = await request.get("/api/search?q=" + encodeURIComponent("como desentupir pia")).then((r) => r.json());
+    expect(desentupir.type).toBe("service");
+    expect(desentupir.service).toBe("encanador");
+
+    const entupido = await request.get("/api/search?q=" + encodeURIComponent("cano entupido")).then((r) => r.json());
+    expect(entupido.type).toBe("service");
+    expect(entupido.service).toBe("encanador");
+  });
+
+  // Missão 3 (#115) — sinônimos de manicure: "pedicure" é serviço comumente
+  // prestado pelas mesmas profissionais, mas a busca por "pedicure" caía no
+  // fallback de texto livre e retornava 0 resultados.
+  test("reconhece 'pedicure' como serviço manicure", async ({ request }) => {
+    const pedicure = await request.get("/api/search?q=" + encodeURIComponent("quero fazer pedicure")).then((r) => r.json());
+    expect(pedicure.type).toBe("service");
+    expect(pedicure.service).toBe("manicure");
+  });
+
   test("reconhece categoria de grupo por sinônimo (ex: 'mudança' -> frete) e filtra por cidade", async ({ request }) => {
     const cidade = `Contagem Busca ${Date.now()}`;
     await request.post("/api/groups", {
