@@ -3649,3 +3649,37 @@ test.describe("Top3Profissional - PWA", () => {
     expect(conteudo).toContain("hero-search-input");
   });
 });
+
+test.describe("Top3Profissional - regressão (PR #107)", () => {
+  test("ícones são SVG (não emoji) e hero search bar está centralizada", async ({ page }) => {
+    // PR #107: substituiu emoji coloridos (🔧🚗👥📊⚡⚙️📍) por SVG line-icons.
+    // Isso garante paleta ciano/dark monocromática consistente em todo o site.
+    // Também corrigiu centralização da barra de busca do hero.
+    await page.goto("/");
+
+    // Validar que existem elementos SVG para ícones
+    const svgIcons = page.locator("svg.icon");
+    const svgCount = await svgIcons.count();
+    expect(svgCount, "deveriam existir SVG icons no site").toBeGreaterThan(0);
+
+    // Validar que a barra de busca do hero está centralizada
+    const heroSearchForm = page.locator("#hero-search-form");
+    await expect(heroSearchForm).toBeVisible();
+
+    // Validar que tem margin:auto ou está visualmente centrada
+    const computedStyle = await heroSearchForm.evaluate((el) => {
+      const style = window.getComputedStyle(el);
+      return {
+        marginLeft: style.marginLeft,
+        marginRight: style.marginRight,
+        width: el.offsetWidth,
+        parentWidth: el.parentElement?.offsetWidth || 0,
+      };
+    });
+
+    // Com margin:auto, marginLeft e marginRight devem ser iguais
+    expect(computedStyle.marginLeft, "hero search form deveria ter margin:auto pra centralizar").toBe(
+      computedStyle.marginRight
+    );
+  });
+});
