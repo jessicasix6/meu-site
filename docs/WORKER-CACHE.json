@@ -1,21 +1,16 @@
 {
   "versao": "1.0",
-  "ultima_execucao": "2026-09-23T17:00:00Z",
+  "ultima_execucao": "2026-09-23T17:49:00Z",
   "dados_em_cache": {
     "issues_abertas_total": 8,
-    "prs_abertas_total": 4,
-    "ci_status": "verde em main (1a93d59, PR #177 mergeado) — #178/#179/#180/#181 (retro-testes Missão 5) abertas, prontas, bloqueadas por instabilidade do runner do GitHub Actions (ver ci_infra_instavel_0923_1600)"
+    "prs_abertas_total": 0,
+    "ci_status": "verde em main (c43ee50, PR #183 mergeado — Missão 5 concluída, #178/#179/#180/#181 fechadas/consolidadas)"
   },
   "decisoes_recentes": {
-    "producao_bloqueada": "egress_policy deste ambiente (CONNECT tunnel 403 e ECONNRESET em npm ci por dependencia nativa, reconfirmado nesta execucao) — nao confirma nem descarta problema no site, pendencia registrada desde 17/09",
+    "producao_bloqueada": "egress_policy deste ambiente (CONNECT tunnel 403/timeout, reconfirmado nesta execução) — não confirma nem descarta problema no site, pendência registrada desde 17/09",
     "fila_top3_task": "vazia — nenhuma issue top3-task + status:pending"
   },
-  "prs_abertas": [
-    {"numero": 178, "titulo": "regressão PR #169 (.post-field hover)", "status": "pronta, behind main, CI não completou (infra)"},
-    {"numero": 179, "titulo": "regressão PR #108 (foto opcional + criar conta)", "status": "pronta, behind main, CI não rodou ainda nesta branch"},
-    {"numero": 180, "titulo": "regressão PR #107 (SVG icons + hero search)", "status": "pronta, behind main, CI não rodou ainda nesta branch"},
-    {"numero": 181, "titulo": "regressão PR #105 (vigia-agente)", "status": "pronta, teste placeholder substituído por checagem real do workflow, behind main, CI não rodou ainda nesta branch"}
-  ],
+  "prs_abertas": [],
   "memoria_sessao": {
     "componente_mobile": "alvos de toque 44px corrigidos (filtros, botoes principais, cards, footer) — ver #100, #127, #133",
     "busca_vazia": "convite com categoria pre-marcada — ver #99",
@@ -39,5 +34,6 @@
   "execucao_0923_1730": "PASSO 0: autorização já confirmada. PASSO 1 (Missão 5 retomar): Status das 4 PRs #178–#181 — CI verde em #179/#180/#181/#178 após rerun. Tentativa de merge em paralelo: GitHub reportou conflitos (3 PRs tocam tests/e2e.spec.js). Merge de #180 conseguiu passar. Merge de #179/#181/#178: conflitos persistentes. Solução: merge manual — branch merge-retro-tests com checkout main, aplicar diff #179, adicionar testes #107 e #105 manualmente, criar PR #183. Status: PR #183 criada (commit 62e0c69), aguardando CI.",
   "execucao_0923_1800": "PASSO 0: sem autorização nova. PASSO 1 (Missão 5 finalizar): continuação merge de #183. Testes consolidados: 5 testes de regressão (2×PR#108, 1×PR#107, 2×PR#105) em branch merge-retro-tests, PR #183 criada (commit 62e0c69), aguardando CI. Plano: merge #183 quando CI passar, fechar PRs antigas #178/#179/#180/#181. PASSO 2-4: ainda em progresso. RESUMO: Missão 1 ✅ completa (PR #177 mergeado). Missão 5 🔄 quase pronta (PR #183 em CI). Missão 6 ⏸️ bloqueada por egress_policy.",
   "execucao_0923_1830": "PASSO 0: sem autorização nova. PASSO 1 (Missão 5 — PR #183): CI de #183 não havia disparado na 1ª tentativa de criação. Resolvido: update_pull_request_branch falhou com 'merge conflict between base and head'. Resolvido manualmente: git merge origin/main em merge-retro-tests, resolvido conflicts (tests/e2e.spec.js), checkout --ours, push (commit 91b1871). CI disparou (run #391), passou ✅. Novo conflict: main avançou com PR #178 mergeada. Novo merge de main com PR #169 tests adicionados à lista. Resolvido manualmente usando Edit, mantendo ordem: #169→#108→#107→#105. Push (commit ef6a012). CI disparou novamente (run #396, em progresso). Aguardando conclusão. Plano: merge #183 se CI verde, fechar PRs antigas #178/#179/#180/#181, atualizar #95/#98. RESUMO: Missão 1 ✅ completa. Missão 5 🔄 em CI final (run 396). Missão 6 ⏸️ bloqueada.",
-  "execucao_0923_1835": "PASSO 0: sem autorização nova. PASSO 1 (Missão 5 em final): CI run #396 em progresso às 17:33:44. Aguardando resultado (~2 min estimado). Se passar: merge #183 → fechar #178/#179/#180/#181 → atualizar #95/#98. RESUMO: Missão 1 ✅ completa (PR #177 mergeado, hover.post-field+.requests-filter). Missão 5 🔄 testes consolidados 6 (PR #169, #108, #107, #105 — 1+2+1+2 respectivamente), aguardando merge. Missão 6 ⏸️ bloqueada."
+  "execucao_0923_1835": "PASSO 0: sem autorização nova. PASSO 1 (Missão 5 em final): CI run #396 em progresso às 17:33:44. Aguardando resultado (~2 min estimado). Se passar: merge #183 → fechar #178/#179/#180/#181 → atualizar #95/#98. RESUMO: Missão 1 ✅ completa (PR #177 mergeado, hover.post-field+.requests-filter). Missão 5 🔄 testes consolidados 6 (PR #169, #108, #107, #105 — 1+2+1+2 respectivamente), aguardando merge. Missão 6 ⏸️ bloqueada.",
+  "execucao_0923_1749": "PASSO 0: conferidos os últimos comentários do #98 (páginas finais, ids 5799776466 e 5799806911, ambas 17:36-17:38 UTC) — nenhum \"autorizo\"/\"cancela\" novo, e confirma que PR #183 já foi mergeado e #178-#181 fechadas por uma execução anterior nesta mesma janela. PASSO 1: nada em progresso — 0 PRs abertas. PASSO 2: fila top3-task+status:pending vazia. PASSO 3: list_issues confirma totalCount=8 igual à última checagem, sem issue nova de terceiros; 0 PRs abertas. PASSO 4: procurei oportunidade nova de risco baixo com 2 varreduras estáticas locais (sem precisar de Claude decidir, direto no código) — (a) grep de seletores CSS com :focus mas sem :hover em nenhum lugar do style.css: só achou .hero-search-form (glow de :focus-within é decisão de design deliberada, comentário no próprio CSS cita task-009/011/012, não é um controle input/select/textarea) e .skip-link (link de acessibilidade escondido fora da tela até foco por teclado, não é par de sibling com hover assimétrico como os bugs anteriores — não é instância do padrão post_field_sem_hover); (b) grep de min-height/height 10-44px em seletores de botão/input/select/chip: todos os achados batem com os 40px documentados como padrão do próprio design system em CLAUDE.md (não é bug) ou são skeleton de loading sem função real (.rank-card--skeleton .sk-btn, não é um controle tocável de verdade). Nenhuma das duas varreduras achou uma inconsistência nova — resultado genuíno de \"nada encontrado\" desta vez, não falta de checagem. Egress reconfirmado bloqueado (curl para /health: connection reset, exit 56). PASSO 5: este registro. PASSO 6: sem mudança de missão — Missão 1 e 5 permanecem ✅ completas, Missão 6 ⏸️ bloqueada por egress, Missões 2-4 sem trabalho pendente identificado nesta execução. RESUMO: ciclo de manutenção sem código de produto alterado; único commit é este cache."
 }
