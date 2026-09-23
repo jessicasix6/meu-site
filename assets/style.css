@@ -2455,7 +2455,8 @@ button.cta-secondary:focus-visible {
   min-width: 200px;
 }
 
-.requests-filter select:hover {
+.requests-filter select:hover,
+.requests-filter input:hover {
   border-color: rgba(22, 230, 255, 0.55);
 }
 

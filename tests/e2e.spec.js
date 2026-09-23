@@ -2920,6 +2920,28 @@ test.describe("Top3Profissional - correções de UX no formulário de Publicar (
     await expect(page.locator(`.request-item[data-id="${tvRequest.id}"]`)).toBeVisible();
   });
 
+  test("input de palavra-chave dos pedidos ganha o mesmo destaque de borda no hover que o select ao lado", async ({ page }) => {
+    // Achado: .requests-filter select e .requests-filter input compartilham a
+    // mesma borda base, mas só o select tinha regra de :hover — o input
+    // ficava sem retorno visual ao passar o mouse, inconsistente com o
+    // vizinho na mesma barra de filtro (mesmo padrão do bug corrigido em
+    // .post-field, PR #169).
+    await page.goto("/");
+    await page.getByRole("tab", { name: /presto serviço/i }).click();
+
+    const keyword = page.locator("#requests-filter-keyword");
+    const type = page.locator("#requests-filter-type");
+
+    const keywordBefore = await keyword.evaluate((el) => getComputedStyle(el).borderColor);
+    await keyword.hover();
+    const keywordHover = await keyword.evaluate((el) => getComputedStyle(el).borderColor);
+    expect(keywordHover, "input de palavra-chave não muda de borda no hover").not.toBe(keywordBefore);
+
+    await type.hover();
+    const typeHover = await type.evaluate((el) => getComputedStyle(el).borderColor);
+    expect(keywordHover, "cor de hover do input diferente da do select na mesma barra").toBe(typeHover);
+  });
+
   test("item 4: menu do topo removido — seções 'corridas' e 'publicar' permanecem na página e são adjacentes", async ({
     page,
   }) => {
