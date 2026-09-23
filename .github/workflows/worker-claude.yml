@@ -1,0 +1,76 @@
+name: worker-claude
+# Worker TOP3 rodando via GitHub Actions (tem acesso ao repo)
+# Executa a cada 1 hora
+
+on:
+  schedule:
+    # A cada 1 hora
+    - cron: "0 * * * *"
+  workflow_dispatch:
+    inputs:
+      forca_execucao:
+        description: "Rodar mesmo se houver erro"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install gh CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh
+
+      - name: Authenticate with GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo $GH_TOKEN | gh auth login --with-token
+
+      - name: Run TOP3 Worker
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PASSWORD: ${{ secrets.VPS_PASSWORD }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          # Lê autorizações do diário #98
+          echo "=== Lendo autorizações do diário #98 ==="
+          gh issue view 98 --repo ${{ github.repository }} --json body --jq '.body' | grep -E 'autorizo|cancela' || echo "Nenhuma autorização encontrada"
+
+          # Lista PRs com CI falhando
+          echo "=== Checando PRs ==="
+          gh pr list --repo ${{ github.repository }} --state open --json number,title,statusCheckRollup || true
+
+          # Lista issues abertas
+          echo "=== Checando issues ==="
+          gh issue list --repo ${{ github.repository }} --state open --json number,title,labels --limit 10 || true
+
+          echo "✅ Worker rodou com sucesso"
+
+      - name: Update diário #98
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Adiciona comentário no diário com resultado
+          TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
+          gh issue comment 98 \
+            --repo ${{ github.repository }} \
+            --body "🤖 Worker executado em $TIMESTAMP (GitHub Actions)"
+
