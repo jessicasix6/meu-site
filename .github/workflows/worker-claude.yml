@@ -5,7 +5,7 @@ name: worker-claude
 on:
   schedule:
     # A cada 6 horas
-    - cron: "0 */6 * * *"
+    - cron: "17 */6 * * *"
   workflow_dispatch:
     inputs:
       forca_execucao:
@@ -35,9 +35,13 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_PASSWORD: ${{ secrets.VPS_PASSWORD }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
         run: |
           sudo apt-get install -y sshpass 2>/dev/null | tail -1
-          sshpass -p "$VPS_PASSWORD" scp -o StrictHostKeyChecking=no \
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          sshpass -p "$VPS_PASSWORD" scp -o StrictHostKeyChecking=yes \
             "$VPS_USER@$VPS_HOST:/root/meu-site/dados-oportunidades.json" \
             dados-oportunidades.json 2>/dev/null || echo "⚠ Arquivo ainda não existe no VPS (normal na primeira vez)"
           if [ -f dados-oportunidades.json ]; then
