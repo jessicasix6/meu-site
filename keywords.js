@@ -24,11 +24,16 @@ const SERVICO_SYNONYMS = {
 // "elétrico"/"instalador" (acima) são termos genéricos o suficiente pra
 // colidir com busca de coisas que não são o profissional eletricista —
 // "carro elétrico" e "instalador de ar condicionado" são os casos reais
-// encontrados. Cada frase aqui, se presente na busca, cancela o match do
-// serviço mesmo que um sinônimo tenha batido (ver parseServiceFromQuery em
-// server.js).
+// encontrados. A chave aqui é o SINÔNIMO especifico (não o serviço): se a
+// busca contém uma das frases, aquele sinônimo específico deixa de contar
+// como match, mas outro sinônimo do mesmo serviço (ex.: "instalação
+// elétrica") continua valendo — "preciso de instalação elétrica pro ar
+// condicionado" é um pedido de eletricista de verdade, a exclusão de
+// "instalador" não pode derrubar esse outro match (ver parseServiceFromQuery
+// em server.js).
 const SERVICO_SYNONYM_EXCLUSIONS = {
-  eletricista: ["carro elétrico", "carro eletrico", "ar condicionado", "ar-condicionado"],
+  "elétrico": ["carro elétrico", "carro eletrico"],
+  instalador: ["ar condicionado", "ar-condicionado"],
 };
 
 const GROUP_CATEGORY_SYNONYMS = {

@@ -2289,6 +2289,17 @@ test.describe("Top3Profissional - busca por palavra-chave, sem IA (task-005)", (
     expect(arCondicionado.type).not.toBe("service");
   });
 
+  // A exclusão de "ar condicionado" é só pro sinônimo "instalador" — não pode
+  // derrubar um pedido real de eletricista só porque a frase "ar
+  // condicionado" aparece perto de outro sinônimo mais específico.
+  test("não deixa a exclusão de 'ar condicionado' cancelar um pedido real de instalação elétrica", async ({ request }) => {
+    const body = await request
+      .get("/api/search?q=" + encodeURIComponent("preciso de instalação elétrica para o ar condicionado"))
+      .then((r) => r.json());
+    expect(body.type).toBe("service");
+    expect(body.service).toBe("eletricista");
+  });
+
   test("reconhece categoria de grupo por sinônimo (ex: 'mudança' -> frete) e filtra por cidade", async ({ request }) => {
     const cidade = `Contagem Busca ${Date.now()}`;
     await request.post("/api/groups", {

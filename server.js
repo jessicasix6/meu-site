@@ -1713,10 +1713,18 @@ function parseCityFromQuery(normalizedQuery) {
 // pela busca, não só pelo link direto).
 function parseServiceFromQuery(normalizedQuery) {
   for (const [service, synonyms] of Object.entries(SERVICO_SYNONYMS)) {
-    if (!synonyms.some((s) => normalizedQuery.includes(normalizeSearchText(s)))) continue;
-    const exclusions = SERVICO_SYNONYM_EXCLUSIONS[service] || [];
-    if (exclusions.some((e) => normalizedQuery.includes(normalizeSearchText(e)))) continue;
-    return service;
+    // Sinônimo válido pra esse serviço: bateu na busca E, se for um dos
+    // termos genéricos com exclusão (ex.: "instalador"), a busca não contém
+    // nenhuma das frases que tiram o contexto dele. Só precisa de UM
+    // sinônimo válido pra confirmar o serviço — "instalação elétrica"
+    // continua valendo mesmo se "instalador" tiver sido excluído na mesma
+    // busca.
+    const hasValidSynonym = synonyms.some((s) => {
+      if (!normalizedQuery.includes(normalizeSearchText(s))) return false;
+      const exclusions = SERVICO_SYNONYM_EXCLUSIONS[s] || [];
+      return !exclusions.some((e) => normalizedQuery.includes(normalizeSearchText(e)));
+    });
+    if (hasValidSynonym) return service;
   }
   const knownServices = [...new Set([...PROVIDERS, ...PROVIDER_PROFILES].map((p) => p.service.toLowerCase()))];
   return knownServices.find((s) => normalizedQuery.includes(normalizeSearchText(s))) || null;
