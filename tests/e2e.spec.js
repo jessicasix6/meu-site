@@ -3667,15 +3667,26 @@ test.describe("Top3Profissional - regressão (PR #105)", () => {
     expect(body.status, "/health deveria retornar { status: 'ok' }").toBe("ok");
   });
 
-  test("issue de batimento (#95) tem marcador de alerta vigia", async () => {
-    // PR #105: O vigia marca a issue #95 com um comentário especial <!-- alerta-vigia -->
-    // quando detecta que o worker morreu.
-    // Isso funciona porque o worker reescreve #95 a cada execução (batimento).
-    // 
-    // Não testamos acesso real à API de issues aqui (requer auth),
-    // mas validamos que o mecanismo está no lugar.
-    // Esse teste é mais um placeholder que prova que o mecanismo foi implementado.
-    
-    expect(true, "Mecanismo de vigia está implementado").toBe(true);
+  test("workflow vigia-agente monitora a issue #95 e usa o marcador de alerta esperado", async () => {
+    // PR #105: o vigia (.github/workflows/vigia-agente.yml) cobra presença do
+    // worker checando a issue de batimento a cada 30min. Em vez de um
+    // placeholder, valida diretamente o conteúdo do workflow: o marcador que
+    // o vigia procura pra não duplicar alerta, a issue de batimento (#95) que
+    // ele lê/reescreve, e o limite de minutos usado pra decidir se o worker
+    // morreu.
+    const conteudoWorkflow = require("fs").readFileSync(
+      ".github/workflows/vigia-agente.yml",
+      "utf-8"
+    );
+
+    expect(conteudoWorkflow, "vigia deveria usar o marcador <!-- alerta-vigia -->").toContain(
+      "<!-- alerta-vigia -->"
+    );
+    expect(conteudoWorkflow, "vigia deveria monitorar a issue de batimento #95").toContain(
+      "BATIMENTO=95"
+    );
+    expect(conteudoWorkflow, "vigia deveria ter um limite de minutos configurado").toContain(
+      "LIMITE_MIN=90"
+    );
   });
 });
