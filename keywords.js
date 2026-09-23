@@ -16,9 +16,24 @@
 
 const SERVICO_SYNONYMS = {
   manicure: ["manicure", "unha", "unhas", "esmalteria", "esmaltação"],
-  eletricista: ["eletricista", "elétrica", "fiação", "instalação elétrica"],
+  eletricista: ["eletricista", "elétrica", "elétrico", "fiação", "instalação elétrica", "instalador"],
   cabeleireiro: ["cabeleireiro", "cabeleireira", "salão de beleza", "corte de cabelo", "cabelo"],
   encanador: ["encanador", "encanamento", "hidráulica", "vazamento", "cano"],
+};
+
+// "elétrico"/"instalador" (acima) são termos genéricos o suficiente pra
+// colidir com busca de coisas que não são o profissional eletricista —
+// "carro elétrico" e "instalador de ar condicionado" são os casos reais
+// encontrados. A chave aqui é o SINÔNIMO especifico (não o serviço): se a
+// busca contém uma das frases, aquele sinônimo específico deixa de contar
+// como match, mas outro sinônimo do mesmo serviço (ex.: "instalação
+// elétrica") continua valendo — "preciso de instalação elétrica pro ar
+// condicionado" é um pedido de eletricista de verdade, a exclusão de
+// "instalador" não pode derrubar esse outro match (ver parseServiceFromQuery
+// em server.js).
+const SERVICO_SYNONYM_EXCLUSIONS = {
+  "elétrico": ["carro elétrico", "carro eletrico"],
+  instalador: ["ar condicionado", "ar-condicionado"],
 };
 
 const GROUP_CATEGORY_SYNONYMS = {
@@ -45,4 +60,4 @@ const CITY_SYNONYMS = {
   uberlandia: ["uberlândia", "uberlandia"],
 };
 
-module.exports = { SERVICO_SYNONYMS, GROUP_CATEGORY_SYNONYMS, CITY_SYNONYMS };
+module.exports = { SERVICO_SYNONYMS, SERVICO_SYNONYM_EXCLUSIONS, GROUP_CATEGORY_SYNONYMS, CITY_SYNONYMS };

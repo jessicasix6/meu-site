@@ -17,7 +17,7 @@ const sharp = require("sharp");
 const ort = require("onnxruntime-node");
 const { BackgroundRemover } = require("@tugrul/rembg");
 const { registerWhatsAppRoutes, isConfigured: isWhatsAppConfigured } = require("./whatsapp");
-const { SERVICO_SYNONYMS, GROUP_CATEGORY_SYNONYMS, CITY_SYNONYMS } = require("./keywords");
+const { SERVICO_SYNONYMS, SERVICO_SYNONYM_EXCLUSIONS, GROUP_CATEGORY_SYNONYMS, CITY_SYNONYMS } = require("./keywords");
 
 const PROVIDERS = [
   { name: "Ana Souza", service: "manicure", city: "Belo Horizonte", time: "amanhã às 14h", rating: 4.9, reviewCount: 24, distanceKm: 1.2, price: 45, fastReply: true, lat: -19.9245, lng: -43.9352 },
@@ -1713,7 +1713,18 @@ function parseCityFromQuery(normalizedQuery) {
 // pela busca, não só pelo link direto).
 function parseServiceFromQuery(normalizedQuery) {
   for (const [service, synonyms] of Object.entries(SERVICO_SYNONYMS)) {
-    if (synonyms.some((s) => normalizedQuery.includes(normalizeSearchText(s)))) return service;
+    // Sinônimo válido pra esse serviço: bateu na busca E, se for um dos
+    // termos genéricos com exclusão (ex.: "instalador"), a busca não contém
+    // nenhuma das frases que tiram o contexto dele. Só precisa de UM
+    // sinônimo válido pra confirmar o serviço — "instalação elétrica"
+    // continua valendo mesmo se "instalador" tiver sido excluído na mesma
+    // busca.
+    const hasValidSynonym = synonyms.some((s) => {
+      if (!normalizedQuery.includes(normalizeSearchText(s))) return false;
+      const exclusions = SERVICO_SYNONYM_EXCLUSIONS[s] || [];
+      return !exclusions.some((e) => normalizedQuery.includes(normalizeSearchText(e)));
+    });
+    if (hasValidSynonym) return service;
   }
   const knownServices = [...new Set([...PROVIDERS, ...PROVIDER_PROFILES].map((p) => p.service.toLowerCase()))];
   return knownServices.find((s) => normalizedQuery.includes(normalizeSearchText(s))) || null;

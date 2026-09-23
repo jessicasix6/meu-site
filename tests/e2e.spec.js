@@ -2262,6 +2262,44 @@ test.describe("Top3Profissional - busca por palavra-chave, sem IA (task-005)", (
     expect(body.service).toBe("manicure");
   });
 
+  // Missão 3 (#115) cita "elétrico" e "instalador" como termos reais de teste —
+  // nenhum dos dois batia em nenhum sinônimo de eletricista (só "elétrica" e
+  // "instalação elétrica" estavam cadastrados), então a busca caía no
+  // fallback de texto livre em vez de achar o serviço cadastrado.
+  test("reconhece variações de sinônimo de eletricista (ex: 'elétrico', 'instalador')", async ({ request }) => {
+    const porGenero = await request.get("/api/search?q=" + encodeURIComponent("preciso de um elétrico")).then((r) => r.json());
+    expect(porGenero.type).toBe("service");
+    expect(porGenero.service).toBe("eletricista");
+
+    const porOcupacao = await request.get("/api/search?q=" + encodeURIComponent("procuro um instalador")).then((r) => r.json());
+    expect(porOcupacao.type).toBe("service");
+    expect(porOcupacao.service).toBe("eletricista");
+  });
+
+  // "elétrico" e "instalador" sozinhos são genéricos demais: sem essa
+  // exclusão, "carro elétrico" e "instalador de ar condicionado" também
+  // batiam no sinônimo de eletricista por serem substring da busca.
+  test("não confunde 'carro elétrico' nem 'instalador de ar condicionado' com o serviço eletricista", async ({ request }) => {
+    const carro = await request.get("/api/search?q=" + encodeURIComponent("quanto custa um carro elétrico")).then((r) => r.json());
+    expect(carro.type).not.toBe("service");
+
+    const arCondicionado = await request
+      .get("/api/search?q=" + encodeURIComponent("preciso de um instalador de ar condicionado"))
+      .then((r) => r.json());
+    expect(arCondicionado.type).not.toBe("service");
+  });
+
+  // A exclusão de "ar condicionado" é só pro sinônimo "instalador" — não pode
+  // derrubar um pedido real de eletricista só porque a frase "ar
+  // condicionado" aparece perto de outro sinônimo mais específico.
+  test("não deixa a exclusão de 'ar condicionado' cancelar um pedido real de instalação elétrica", async ({ request }) => {
+    const body = await request
+      .get("/api/search?q=" + encodeURIComponent("preciso de instalação elétrica para o ar condicionado"))
+      .then((r) => r.json());
+    expect(body.type).toBe("service");
+    expect(body.service).toBe("eletricista");
+  });
+
   test("reconhece categoria de grupo por sinônimo (ex: 'mudança' -> frete) e filtra por cidade", async ({ request }) => {
     const cidade = `Contagem Busca ${Date.now()}`;
     await request.post("/api/groups", {
