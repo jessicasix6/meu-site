@@ -1,32 +1,23 @@
 {
   "versao": "1.0",
-  "ultima_execucao": "2026-09-23T11:24:09Z",
+  "ultima_execucao": "2026-09-23T12:22:10Z",
   "dados_em_cache": {
     "issues_abertas_total": 8,
-    "prs_abertas_total": 1,
-    "ci_status": "verde em main (b7e1d24) — PR #169 aguardando CI"
+    "prs_abertas_total": 0,
+    "ci_status": "verde em main (3411dd3) — PR #169 e #170 ja mergeados"
   },
   "decisoes_recentes": {
     "producao_bloqueada": "egress_policy deste ambiente (CONNECT tunnel 403 e ECONNRESET em npm ci por dependencia nativa, reconfirmado nesta execucao) — nao confirma nem descarta problema no site, pendencia registrada desde 17/09",
     "fila_top3_task": "vazia — nenhuma issue top3-task + status:pending"
   },
-  "prs_abertas": [
-    {
-      "numero": 169,
-      "titulo": "fix(ui): estado hover explicito nos campos de formulario (.post-field)",
-      "risco": "risk:low",
-      "status": "aberto, aguardando CI para merge automatico"
-    }
-  ],
+  "prs_abertas": [],
   "memoria_sessao": {
     "componente_mobile": "alvos de toque 44px corrigidos (filtros, botoes principais, cards, footer) — ver #100, #127, #133",
     "busca_vazia": "convite com categoria pre-marcada — ver #99",
     "auth": "tokens OK",
-    "smoke_test_124": "RESOLVIDO — PR #126 merged, workflow rodou com sucesso em 23/09 02:32 UTC e comentou no diario #98, issue fechada",
-    "pr_167_mergeado": "cache do worker mergeado direto (docs-only, risco baixo) — main em 90efd61, CI/Deploy/Verify verdes",
     "falso_positivo_requests_filter_type": "select #requests-filter-type (provider view) NAO tem class=filter-select mas ja recebe tema escuro completo via seletor .requests-filter select em style.css (linha ~2419) — appearance:none, seta custom, option colors, hover/focus. Nao mexer nisso de novo sem checar o CSS primeiro.",
-    "execucao_0923_1022": "sem mudanca de estado desde 09:22/09:25 (PR #167 ja mergeado) — 0 PRs/issues novas, 0 autorizacoes novas, producao seguiu bloqueada (reconfirmado), CI/Deploy/Verify/Smoke verdes em 90efd61/938d937",
-    "post_field_sem_hover": "RESOLVIDO nesta execucao — .post-field input/select/textarea (perfil, criar post, criar grupo, carona) so tinha :focus, sem :hover explicito, diferente de .filter-select que ja tinha os dois. PR #169 adiciona .post-field input:not([type=file]):hover/select:hover/textarea:hover com a mesma cor de .filter-select:hover (rgba(22,230,255,.55)). CSS puro, aditivo.",
-    "ambiente_sem_npm_ci": "confirmado de novo nesta execucao — npm ci falha aqui com ECONNRESET no postinstall do onnxruntime-node (dependencia nativa do @tugrul/rembg). Nao da pra rodar Playwright localmente neste ambiente; validar sempre via CI do GitHub Actions, que tem rede liberada."
+    "post_field_sem_hover": "RESOLVIDO — .post-field input/select/textarea (perfil, criar post, criar grupo, carona) so tinha :focus, sem :hover explicito, diferente de .filter-select que ja tinha os dois. PR #169 mergeado (3411dd3) adiciona .post-field input:not([type=file]):hover/select:hover/textarea:hover com a mesma cor de .filter-select:hover (rgba(22,230,255,.55)). CSS puro, aditivo.",
+    "ambiente_sem_npm_ci": "confirmado de novo nesta execucao — npm ci falha aqui com ECONNRESET no postinstall do onnxruntime-node (dependencia nativa do @tugrul/rembg). Nao da pra rodar Playwright localmente neste ambiente; validar sempre via CI do GitHub Actions, que tem rede liberada.",
+    "execucao_0923_1222": "sem mudanca de estado desde 11:24/11:30 (PR #169 e #170 ja mergeados, main em 3411dd3) — 0 PRs/issues novas, 0 autorizacoes novas. Auditoria de design system nos <select>/<input> do index.html (linhas ~123-819): todos ja cobertos por CSS com appearance:none, seta custom, option colors e hover/focus (.post-field select, .requests-filter select, .filter-select, #ranking-sort, .rate-form select) — nenhuma inconsistencia nova encontrada. Producao seguiu bloqueada por egress_policy (reconfirmado)."
   }
 }
