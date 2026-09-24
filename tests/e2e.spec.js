@@ -4217,3 +4217,87 @@ test.describe("Top3Profissional - home Neon Dark: categorias, filtros, busca rec
     expect(dir).toBe("column");
   });
 });
+
+test.describe("Top3Profissional - login social (Facebook / Instagram via Supabase)", () => {
+  // O SDK do Supabase vem de CDN e o Supabase de verdade não é chamado em teste:
+  // os dois são substituídos por fakes que respondem como o real responderia.
+  async function comSupabaseFalso(page, { providers, authorize }) {
+    await page.route("**/api/auth/config", (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          googleClientId: null,
+          altchaConfigured: false,
+          umamiScriptUrl: null,
+          umamiWebsiteId: null,
+          supabaseUrl: "https://fake-supabase.test",
+          supabaseAnonKey: "anon-teste",
+          ...(providers ? { socialProviders: providers } : {}),
+        }),
+      })
+    );
+    await page.route("**/cdn.jsdelivr.net/npm/@supabase/supabase-js@2/**", (route) =>
+      route.fulfill({
+        contentType: "application/javascript",
+        body: `window.supabase = { createClient: () => ({ auth: {
+          getSession: async () => ({ data: { session: null } }),
+          signInWithOAuth: async (o) => { (window.__oauth = window.__oauth || []).push(o.provider);
+            return { data: { url: "https://fake-supabase.test/auth/v1/authorize?provider=" + o.provider }, error: null }; },
+        } }) };`,
+      })
+    );
+    await page.route("https://fake-supabase.test/**", (route) => route.fulfill(authorize));
+  }
+
+  const CORS = { "access-control-allow-origin": "*" };
+
+  test("/api/auth/config lista os provedores sociais (padrão: facebook e instagram)", async ({ request }) => {
+    const cfg = await (await request.get("/api/auth/config")).json();
+    expect(cfg.socialProviders).toEqual(["facebook", "instagram"]);
+  });
+
+  test("só os provedores ativos mostram botão; sem lista, os dois aparecem", async ({ page }) => {
+    await comSupabaseFalso(page, { providers: ["facebook"], authorize: { status: 302, headers: { location: "/", ...CORS } } });
+    await page.goto("/");
+    await page.locator("#email-auth-toggle").click();
+    await expect(page.locator("#facebook-login-btn")).toBeVisible();
+    await expect(page.locator("#instagram-login-btn")).toBeHidden();
+
+    const page2 = await page.context().newPage();
+    await comSupabaseFalso(page2, { providers: null, authorize: { status: 302, headers: { location: "/", ...CORS } } });
+    await page2.goto("/");
+    await page2.locator("#email-auth-toggle").click();
+    await expect(page2.locator("#facebook-login-btn")).toBeVisible();
+    await expect(page2.locator("#instagram-login-btn")).toBeVisible();
+  });
+
+  test("provedor ativo: o clique segue para a URL de autorização do Supabase", async ({ page, baseURL }) => {
+    await comSupabaseFalso(page, { providers: null, authorize: { status: 302, headers: { location: `${baseURL}/#voltou`, ...CORS } } });
+    await page.goto("/");
+    await page.locator("#email-auth-toggle").click();
+    await page.locator("#facebook-login-btn").click();
+    await expect(page).toHaveURL(/#voltou$/);
+  });
+
+  test("provedor desativado (400): mostra aviso amigável, fica no site e o botão volta a funcionar", async ({ page }) => {
+    await comSupabaseFalso(page, {
+      providers: null,
+      authorize: { status: 400, contentType: "application/json", headers: CORS, body: JSON.stringify({ msg: "Unsupported provider" }) },
+    });
+    await page.goto("/");
+    await page.locator("#email-auth-toggle").click();
+    await page.locator("#instagram-login-btn").click();
+    await expect(page.locator("#email-auth-status")).toContainText("Instagram não está disponível");
+    await expect(page.locator("#email-auth-status")).toHaveClass(/post-status--error/);
+    await expect(page.locator("#instagram-login-btn")).toBeEnabled();
+    expect(new URL(page.url()).origin).toBe(new URL(await page.evaluate(() => window.location.origin)).origin);
+  });
+
+  test("volta do provedor com erro (pessoa cancelou): abre o login com o motivo e limpa a URL", async ({ page }) => {
+    await comSupabaseFalso(page, { providers: null, authorize: { status: 302, headers: { location: "/", ...CORS } } });
+    await page.goto("/#error=access_denied&error_code=provider_denied&error_description=User+denied+access");
+    await expect(page.locator("#email-auth-panel")).toBeVisible();
+    await expect(page.locator("#email-auth-status")).toContainText("cancelou");
+    await expect.poll(() => page.evaluate(() => window.location.hash)).toBe("");
+  });
+});

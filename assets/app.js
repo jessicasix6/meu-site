@@ -3202,9 +3202,14 @@ fetch("/api/auth/config")
     }
 
     // Supabase social login (Facebook / Instagram) — só ativa se o servidor
-    // tiver SUPABASE_URL e SUPABASE_ANON_KEY configurados.
-    if (config.supabaseUrl && config.supabaseAnonKey) {
+    // tiver SUPABASE_URL e SUPABASE_ANON_KEY configurados. Se o SDK do
+    // Supabase não carregar (CDN fora do ar, bloqueador), o Google e o resto
+    // do login continuam funcionando.
+    if (config.supabaseUrl && config.supabaseAnonKey && window.supabase) {
       const supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+
+      // Volta do provedor com erro (ex: pessoa cancelou): mostra o motivo em vez de nada.
+      showSocialReturnError();
 
       // Detecta retorno de OAuth (hash #access_token=... na URL)
       const { data: { session: oauthSession } } = await supabase.auth.getSession();
@@ -3222,30 +3227,15 @@ fetch("/api/auth/config")
             renderLoggedInUser(user, [], [], []);
             return;
           }
+        } else {
+          setSocialStatus("Não consegui confirmar seu login. Tente de novo ou use o Google.", "error");
         }
       }
 
-      // Mostra botões de Facebook e Instagram
-      const fbBtn = document.getElementById("facebook-login-btn");
-      const igBtn = document.getElementById("instagram-login-btn");
-      if (fbBtn) {
-        fbBtn.hidden = false;
-        fbBtn.addEventListener("click", () => {
-          supabase.auth.signInWithOAuth({
-            provider: "facebook",
-            options: { redirectTo: window.location.origin },
-          });
-        });
-      }
-      if (igBtn) {
-        igBtn.hidden = false;
-        igBtn.addEventListener("click", () => {
-          supabase.auth.signInWithOAuth({
-            provider: "instagram",
-            options: { redirectTo: window.location.origin },
-          });
-        });
-      }
+      // O servidor diz quais provedores estão ativos (padrão: os dois botões).
+      const enabled = Array.isArray(config.socialProviders) ? config.socialProviders : ["facebook", "instagram"];
+      setupSocialButton(supabase, "facebook", "Facebook", "facebook-login-btn", enabled);
+      setupSocialButton(supabase, "instagram", "Instagram", "instagram-login-btn", enabled);
     }
 
     if (!config.googleClientId) return;
@@ -3254,6 +3244,69 @@ fetch("/api/auth/config")
   })
   .catch(() => {})
   .finally(() => showLoginSuggestionBannerIfApplicable());
+
+// ── Login social (Facebook / Instagram via Supabase) ────────────────────────
+function setSocialStatus(text, kind) {
+  const el = document.getElementById("email-auth-status");
+  if (!el) return;
+  el.textContent = text;
+  el.className = `post-status${kind === "error" ? " post-status--error" : ""}`;
+}
+
+// O Supabase devolve o erro no hash (#error=...&error_description=...) ou na
+// query (?error=...) quando a pessoa cancela ou o provedor recusa.
+function showSocialReturnError() {
+  const raw = (window.location.hash || "").replace(/^#/, "") || (window.location.search || "").replace(/^\?/, "");
+  const params = new URLSearchParams(raw);
+  const error = params.get("error");
+  if (!error) return;
+  const desc = params.get("error_description") || "";
+  const cancelled = error === "access_denied" || /denied|cancel/i.test(desc);
+  const panel = document.getElementById("email-auth-panel");
+  if (panel) panel.hidden = false;
+  setSocialStatus(
+    cancelled ? "Você cancelou o login. Se quiser, tente de novo." : "Não consegui entrar com esse login. Tente de novo ou use o Google.",
+    "error"
+  );
+  history.replaceState(null, "", window.location.pathname);
+}
+
+function setupSocialButton(supabase, provider, label, buttonId, enabled) {
+  const btn = document.getElementById(buttonId);
+  if (!btn || !enabled.includes(provider)) return;
+  btn.hidden = false;
+  btn.addEventListener("click", async () => {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.setAttribute("aria-busy", "true");
+    setSocialStatus(`Abrindo o login com ${label}…`);
+    try {
+      // skipBrowserRedirect: pega a URL de autorização sem sair do site ainda —
+      // dá pra checar se o provedor está ativo antes de navegar.
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: window.location.origin, skipBrowserRedirect: true },
+      });
+      if (error || !data || !data.url) throw error || new Error("sem URL de login");
+      // Provedor desativado no Supabase responde 400 em JSON — sem esta checagem
+      // a pessoa cairia numa tela de erro crua fora do site. Sucesso é um
+      // redirecionamento (opaqueredirect); erro de rede/CORS deixa o navegador tentar.
+      let available = true;
+      try {
+        const probe = await fetch(data.url, { redirect: "manual" });
+        if (probe.type !== "opaqueredirect" && probe.status >= 400) available = false;
+      } catch (_) {
+        // sem resposta legível — segue e deixa o navegador tentar
+      }
+      if (!available) throw new Error("provedor desativado");
+      window.location.assign(data.url);
+    } catch (err) {
+      setSocialStatus(`O login com ${label} não está disponível agora. Use o Google ou tente de novo mais tarde.`, "error");
+      btn.disabled = false;
+      btn.removeAttribute("aria-busy");
+    }
+  });
+}
 
 // ── Banner de permissão de localização ─────────────────────────────────────
 // Pede permissão logo ao abrir o site (não só ao ordenar por distância).

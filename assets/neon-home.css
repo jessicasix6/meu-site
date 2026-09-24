@@ -1990,3 +1990,75 @@ button.feed-col-link:focus-visible {
 .activity-list:empty {
   display: none;
 }
+
+/* ── login social (Google / Facebook / Instagram) no tema Neon Dark ── */
+.social-login-panel {
+  gap: 0.6rem;
+  padding: 1rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), 0 0 22px rgba(0, 229, 255, 0.12);
+}
+
+.social-btn {
+  min-height: 44px;
+  max-width: 300px;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  background: #0b1220;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.social-btn:hover {
+  opacity: 1;
+  border-color: rgba(0, 229, 255, 0.55);
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.18);
+}
+
+.social-btn:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.14);
+}
+
+.social-btn:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.social-btn--facebook,
+.social-btn--facebook:hover {
+  background: #0b1220;
+  color: var(--text);
+}
+
+.social-btn--instagram,
+.social-btn--instagram:hover {
+  background: #0b1220;
+  color: var(--text);
+}
+
+.social-btn--facebook svg {
+  color: #1877f2;
+}
+
+.social-btn--instagram svg {
+  color: #e1306c;
+}
+
+.social-login-panel .post-status:empty {
+  display: none;
+}
+
+.social-login-panel .post-status {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  text-align: center;
+}

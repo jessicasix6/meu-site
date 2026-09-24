@@ -33,6 +33,9 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET") return;
+  // Outros domínios (ex: Supabase no login social) nunca passam pelo cache do
+  // app — o service worker só cuida do próprio esqueleto do site.
+  if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/webhook/") || url.pathname === "/health") {
     return;
   }
