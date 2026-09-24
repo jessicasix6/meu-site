@@ -892,6 +892,13 @@ input[type="number"] {
   color: var(--accent);
 }
 
+.complete-btn:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(22, 230, 255, 0.35);
+}
+
 .complete-btn:disabled {
   color: var(--text-faint);
   cursor: default;

@@ -3897,3 +3897,36 @@ test.describe("Top3Profissional - regressão (PR #105)", () => {
     );
   });
 });
+
+test.describe("Top3Profissional - regressão (Missão 1, .complete-btn:focus-visible)", () => {
+  test("regra CSS .complete-btn:focus-visible existe, igualando o sibling .accept-btn", async ({
+    page,
+  }) => {
+    // .accept-btn e .complete-btn são botões de ação irmãos no mesmo
+    // .request-action de um card de pedido. .accept-btn já tinha
+    // :hover e :focus-visible; .complete-btn só tinha :hover, deixando o
+    // botão sem indicação visível de foco por teclado. Validar que a
+    // regra de :focus-visible foi adicionada e usa a mesma cor de
+    // destaque do :hover (var(--accent)) e do :focus-visible do
+    // .accept-btn (rgba(22, 230, 255, 0.35)).
+
+    const response = await page.request.get("/assets/style.css");
+    const cssContent = await response.text();
+
+    expect(
+      cssContent,
+      ".complete-btn deveria ter regra :focus-visible explícita, igual ao sibling .accept-btn"
+    ).toContain(".complete-btn:focus-visible");
+
+    const focusBlockMatch = cssContent.match(/\.complete-btn:focus-visible\s*{([^}]*)}/);
+    expect(focusBlockMatch, "bloco :focus-visible do .complete-btn deveria existir").not.toBeNull();
+
+    const focusBlock = focusBlockMatch[1];
+    expect(focusBlock, "foco deveria usar a mesma cor de destaque do :hover").toContain(
+      "var(--accent)"
+    );
+    expect(focusBlock, "foco deveria ter o mesmo box-shadow do .accept-btn:focus-visible").toContain(
+      "rgba(22, 230, 255, 0.35)"
+    );
+  });
+});
