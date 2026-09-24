@@ -3930,3 +3930,40 @@ test.describe("Top3Profissional - regressão (Missão 1, .complete-btn:focus-vis
     );
   });
 });
+
+test.describe("Top3Profissional - regressão (Missão 6, tecnico-refrigeracao)", () => {
+  test("'ar condicionado' encontra técnico de refrigeração via SERVICO_SYNONYMS", async ({
+    page,
+  }) => {
+    const terms = [
+      "ar condicionado",
+      "ar-condicionado",
+      "técnico de refrigeração",
+      "instalação de ar condicionado",
+      "manutenção de ar condicionado",
+    ];
+    for (const term of terms) {
+      const res = await page.request.get(`/api/search?q=${encodeURIComponent(term)}`);
+      expect(res.ok(), `GET /api/search?q=${term} deveria retornar 2xx`).toBeTruthy();
+      const body = await res.json();
+      expect(
+        body.service,
+        `"${term}" deveria mapear para 'tecnico refrigeracao'`
+      ).toBe("tecnico refrigeracao");
+    }
+  });
+
+  test("'instalador de ar condicionado' mapeia para técnico de refrigeração, não eletricista", async ({
+    page,
+  }) => {
+    const res = await page.request.get(
+      `/api/search?q=${encodeURIComponent("instalador de ar condicionado")}`
+    );
+    expect(res.ok()).toBeTruthy();
+    const body = await res.json();
+    expect(
+      body.service,
+      "'instalador de ar condicionado' não deve ser tratado como eletricista (exclusão) — deve cair em técnico de refrigeração"
+    ).toBe("tecnico refrigeracao");
+  });
+});
