@@ -2358,6 +2358,36 @@ test.describe("Top3Profissional - busca por palavra-chave, sem IA (task-005)", (
     expect(reforma.service).toBe("pedreiro");
   });
 
+  // Missão 6 (#192, "próximas profissões") — marceneiro, chaveiro e
+  // jardineiro: mesma lacuna das profissões anteriores, buscas por essas
+  // profissões caíam no fallback de texto livre e retornavam 0 resultados.
+  test("reconhece 'marceneiro' e variações como serviço marceneiro", async ({ request }) => {
+    const marceneiro = await request.get("/api/search?q=" + encodeURIComponent("preciso de um marceneiro")).then((r) => r.json());
+    expect(marceneiro.type).toBe("service");
+    expect(marceneiro.service).toBe("marceneiro");
+    const moveisPlanejados = await request.get("/api/search?q=" + encodeURIComponent("quero móveis planejados pra cozinha")).then((r) => r.json());
+    expect(moveisPlanejados.type).toBe("service");
+    expect(moveisPlanejados.service).toBe("marceneiro");
+  });
+
+  test("reconhece 'chaveiro' e variações como serviço chaveiro", async ({ request }) => {
+    const chaveiro = await request.get("/api/search?q=" + encodeURIComponent("preciso de um chaveiro urgente")).then((r) => r.json());
+    expect(chaveiro.type).toBe("service");
+    expect(chaveiro.service).toBe("chaveiro");
+    const perdiChave = await request.get("/api/search?q=" + encodeURIComponent("perdi a chave de casa")).then((r) => r.json());
+    expect(perdiChave.type).toBe("service");
+    expect(perdiChave.service).toBe("chaveiro");
+  });
+
+  test("reconhece 'jardineiro' e variações como serviço jardineiro", async ({ request }) => {
+    const jardineiro = await request.get("/api/search?q=" + encodeURIComponent("preciso de um jardineiro")).then((r) => r.json());
+    expect(jardineiro.type).toBe("service");
+    expect(jardineiro.service).toBe("jardineiro");
+    const podaArvore = await request.get("/api/search?q=" + encodeURIComponent("poda de árvore no quintal")).then((r) => r.json());
+    expect(podaArvore.type).toBe("service");
+    expect(podaArvore.service).toBe("jardineiro");
+  });
+
   test("reconhece categoria de grupo por sinônimo (ex: 'mudança' -> frete) e filtra por cidade", async ({ request }) => {
     const cidade = `Contagem Busca ${Date.now()}`;
     await request.post("/api/groups", {

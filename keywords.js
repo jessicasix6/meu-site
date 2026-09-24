@@ -22,6 +22,9 @@ const SERVICO_SYNONYMS = {
   diarista: ["diarista", "faxineira", "faxineiro", "limpeza doméstica", "faxina", "doméstica"],
   pintor: ["pintor", "pintura", "pintar", "pintura de parede", "pintura residencial"],
   pedreiro: ["pedreiro", "reforma", "construção", "reboco", "assentamento", "azulejista"],
+  marceneiro: ["marceneiro", "marcenaria", "móveis planejados", "móveis sob medida", "armário planejado"],
+  chaveiro: ["chaveiro", "cópia de chave", "troca de fechadura", "perdi a chave", "arrombamento"],
+  jardineiro: ["jardineiro", "jardinagem", "poda de árvore", "paisagismo", "corte de grama"],
 };
 
 // "elétrico"/"instalador" (acima) são termos genéricos o suficiente pra
