@@ -552,7 +552,20 @@
     })
   );
 
-  window.matchMedia("(max-width: 960px)").addEventListener("change", render);
+  // No celular os selects mostram só o rótulo curto (como no guia visual); no desktop, o texto completo.
+  const SHORT = { "filter-tipo": ["Tipo", "Todos"], "filter-cat": ["Categoria", "Todas as categorias"], "filter-price": ["Preço", "Qualquer valor"] };
+  function applyLabels() {
+    const mobile = isMobile();
+    Object.entries(SHORT).forEach(([id, [short, long]]) => {
+      const opt = $(id).options[0];
+      if (opt) opt.textContent = mobile ? short : long;
+    });
+  }
+  applyLabels();
+  window.matchMedia("(max-width: 960px)").addEventListener("change", () => {
+    applyLabels();
+    render();
+  });
 
   syncControls();
   load();
