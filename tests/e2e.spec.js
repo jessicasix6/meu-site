@@ -2283,10 +2283,15 @@ test.describe("Top3Profissional - busca por palavra-chave, sem IA (task-005)", (
     const carro = await request.get("/api/search?q=" + encodeURIComponent("quanto custa um carro elétrico")).then((r) => r.json());
     expect(carro.type).not.toBe("service");
 
+    // "instalador" é excluído de eletricista quando "ar condicionado" aparece
+    // na frase (SERVICO_SYNONYM_EXCLUSIONS). Desde que "ar condicionado" foi
+    // adicionado como sinônimo de "tecnico refrigeracao", a busca retorna
+    // type:"service" com service:"tecnico refrigeracao" — correto. O que
+    // importa verificar é que NÃO retorna eletricista.
     const arCondicionado = await request
       .get("/api/search?q=" + encodeURIComponent("preciso de um instalador de ar condicionado"))
       .then((r) => r.json());
-    expect(arCondicionado.type).not.toBe("service");
+    expect(arCondicionado.service).not.toBe("eletricista");
   });
 
   // A exclusão de "ar condicionado" é só pro sinônimo "instalador" — não pode
@@ -3928,5 +3933,42 @@ test.describe("Top3Profissional - regressão (Missão 1, .complete-btn:focus-vis
     expect(focusBlock, "foco deveria ter o mesmo box-shadow do .accept-btn:focus-visible").toContain(
       "rgba(22, 230, 255, 0.35)"
     );
+  });
+});
+
+test.describe("Top3Profissional - regressão (Missão 6, tecnico-refrigeracao)", () => {
+  test("'ar condicionado' encontra técnico de refrigeração via SERVICO_SYNONYMS", async ({
+    page,
+  }) => {
+    const terms = [
+      "ar condicionado",
+      "ar-condicionado",
+      "técnico de refrigeração",
+      "instalação de ar condicionado",
+      "manutenção de ar condicionado",
+    ];
+    for (const term of terms) {
+      const res = await page.request.get(`/api/search?q=${encodeURIComponent(term)}`);
+      expect(res.ok(), `GET /api/search?q=${term} deveria retornar 2xx`).toBeTruthy();
+      const body = await res.json();
+      expect(
+        body.service,
+        `"${term}" deveria mapear para 'tecnico refrigeracao'`
+      ).toBe("tecnico refrigeracao");
+    }
+  });
+
+  test("'instalador de ar condicionado' mapeia para técnico de refrigeração, não eletricista", async ({
+    page,
+  }) => {
+    const res = await page.request.get(
+      `/api/search?q=${encodeURIComponent("instalador de ar condicionado")}`
+    );
+    expect(res.ok()).toBeTruthy();
+    const body = await res.json();
+    expect(
+      body.service,
+      "'instalador de ar condicionado' não deve ser tratado como eletricista (exclusão) — deve cair em técnico de refrigeração"
+    ).toBe("tecnico refrigeracao");
   });
 });
