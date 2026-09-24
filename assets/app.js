@@ -445,7 +445,7 @@ const providerView = document.getElementById("provider-view");
 // deixando a pessoa sem como voltar). Escondidos à parte aqui.
 const heroRequesterTools = document.getElementById("hero-requester-tools");
 const requestsList = document.getElementById("requests-list");
-// [data-mode] restringe aos botões "Solicito serviço"/"Presto serviço" —
+// [data-mode] restringe aos botões "Preciso de algo"/"Quero oferecer" —
 // .mode-btn sozinho pegaria também as tabs de categoria de grupo, tipo de
 // corrida e entrar/criar conta (task-003), que reusam a mesma classe visual
 // mas não têm nada a ver com esse toggle (sem o filtro, clicar numa dessas
@@ -455,7 +455,7 @@ let requestsLoaded = false;
 
 const SEARCH_PLACEHOLDER_BY_MODE = {
   requester: "Descreva o que você gostaria de solicitar...",
-  provider: "Buscar um serviço, ou toque em 'Solicito serviço' pra pedir algo",
+  provider: "Buscar um serviço, ou toque em 'Preciso de algo' pra pedir algo",
 };
 
 function setMode(mode) {
@@ -3475,98 +3475,6 @@ function formatRelativeTime(isoString) {
   return `há ${diffD}d`;
 }
 
-// Destaques da sua região (item 3) — mistura pedidos (REQUESTS) e grupos
-// abertos (GROUP_OPPORTUNITIES) reais, ordenados por mais recente. Sem
-// posts suficientes, mostra só os que existem (nunca completa com
-// exemplo fictício); sem nenhum, mostra o empty state com ação.
-async function loadHighlights() {
-  const list = document.getElementById("highlights-list");
-  const empty = document.getElementById("highlights-empty");
-  try {
-    const [requestsRes, groupsRes] = await Promise.all([fetch("/api/requests"), fetch("/api/groups")]);
-    const { requests } = requestsRes.ok ? await requestsRes.json() : { requests: [] };
-    const { groups } = groupsRes.ok ? await groupsRes.json() : { groups: [] };
-
-    const items = [
-      ...requests
-        .filter((r) => r.status === "aberto")
-        .map((r) => ({
-          id: `r-${r.id}`,
-          createdAt: r.createdAt,
-          label: r.type,
-          title: r.title,
-          where: r.location || "local não informado",
-          price: `R$ ${r.price}`,
-          actionText: "Ver opções",
-          onAction: () => {
-            setMode("provider");
-            highlightSection(document.getElementById("provider"));
-          },
-        })),
-      ...groups
-        .filter((g) => g.status === "aberto")
-        .map((g) => ({
-          id: `g-${g.id}`,
-          createdAt: g.createdAt,
-          label: g.categoryLabel || g.category,
-          title: g.title,
-          where: g.city,
-          price: g.estimatedIndividualPrice ? `R$ ${g.estimatedIndividualPrice}/pessoa` : `${g.currentMembers}/${g.targetMembers} pessoas`,
-          actionText: g.category === "carona" ? "Ver carona" : "Participar",
-          onAction: () => {
-            const categoryBtn = document.querySelector(`.group-category-btn[data-category="${g.category}"]`);
-            if (categoryBtn) categoryBtn.click();
-            highlightSection(document.getElementById("grupos"));
-          },
-        })),
-    ]
-      // Posts de exemplo do catálogo inicial (server.js) não têm createdAt
-      // (só posts criados de verdade pela API ganham isso) — sem tratar
-      // isso, new Date(undefined) vira NaN e a subtração do comparador
-      // devolve NaN pra esses itens, deixando a ordenação instável
-      // (achado do CodeRabbit, PR #78). undefined sempre vai pro fim, sem
-      // interferir na ordenação por data real dos demais.
-      .sort((a, b) => {
-        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : -Infinity;
-        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : -Infinity;
-        return timeB - timeA;
-      })
-      .slice(0, 5);
-
-    if (items.length === 0) {
-      list.innerHTML = "";
-      empty.hidden = false;
-      return;
-    }
-    empty.hidden = true;
-    list.innerHTML = items
-      .map(
-        (item, index) => {
-          const typeKey = (item.label || "").toLowerCase().replace(/\s+/g, "").normalize("NFD").replace(/[̀-ͯ]/g, "");
-          return `
-      <li class="highlight-card">
-        <div class="highlight-card-header highlight-card-header--${typeKey}">
-          <span class="highlight-card-badge highlight-card-badge--${typeKey}">${escapeHtml(item.label)}</span>
-        </div>
-        <div class="highlight-card-body">
-          <strong class="highlight-card-title">${escapeHtml(item.title)}</strong>
-          <span class="highlight-card-where">${escapeHtml(item.where)}</span>
-          <span class="highlight-card-price highlight-price">${escapeHtml(item.price)}</span>
-          <button type="button" class="highlight-card-action highlight-action" data-highlight-index="${index}">${escapeHtml(item.actionText)} →</button>
-        </div>
-      </li>`;
-        }
-      )
-      .join("");
-    list.querySelectorAll(".highlight-card-action").forEach((btn) => {
-      btn.addEventListener("click", () => items[Number(btn.dataset.highlightIndex)].onAction());
-    });
-  } catch (err) {
-    list.innerHTML = "";
-    empty.hidden = false;
-  }
-}
-
 // TOP3 SYSTEM — Atividade recente (item 4).
 async function loadActivityFeed() {
   const list = document.getElementById("activity-list");
@@ -3614,7 +3522,6 @@ async function loadHomeStats() {
   }
 }
 
-loadHighlights();
 loadActivityFeed();
 loadHomeStats();
 

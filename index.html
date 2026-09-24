@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Top3Profissional — encontre profissionais, corridas e serviços na sua cidade</title>
   <meta name="description" content="Descreva o que precisa numa frase — um profissional, uma corrida, um terreno, o que for — e um agente de IA busca no catálogo local e na web, respondendo com preço, distância e avaliação. Sem formulário, sem catálogo infinito." />
-  <meta name="theme-color" content="#0a0c0d" />
+  <meta name="theme-color" content="#060b12" />
   <meta name="color-scheme" content="dark" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Top3Profissional — encontre um profissional agora" />
@@ -36,6 +36,8 @@
   <link rel="preload" href="assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="assets/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="assets/style.css" />
+  <link rel="stylesheet" href="assets/neon-tokens.css" />
+  <link rel="stylesheet" href="assets/neon-home.css" />
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -61,17 +63,27 @@
   <div class="site-top">
     <header class="site-header">
       <div class="container nav-inner">
-        <a href="#top" class="logo">
-          TOP<span class="logo-accent">3</span>
-          <span class="logo-subtitle">Inteligência em resultados</span>
-        </a>
+        <a href="#top" class="logo">TOP<span class="logo-accent">3</span></a>
+        <nav class="site-nav" aria-label="Seções do site">
+          <a href="#top" class="site-nav-link is-active" aria-current="true">Explorar</a>
+          <a href="#como-funciona" class="site-nav-link">Como funciona</a>
+          <a href="#top3" class="site-nav-link">Top 3 da semana</a>
+        </nav>
         <span id="online-indicator" class="online-indicator" hidden>
           <span class="online-dot" aria-hidden="true"></span>
           Online
         </span>
+        <div class="nav-tools">
+          <a href="#top3" id="nav-location-pill" class="loc-pill" title="Trocar cidade e ver perto de você">
+            <svg class="icon" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5" fill="#060b12" stroke="none"/></svg>
+            <span id="nav-location-label">Belo Horizonte - MG</span>
+            <svg class="icon icon-chev" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>
+          </a>
+          <a href="#atividade" class="nav-bell" aria-label="Atividade recente" title="Atividade recente"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/></svg></a>
+        </div>
         <div class="google-signin-wrap">
           <div id="google-signin-slot" class="google-signin-slot"></div>
-          <button type="button" id="criar-conta-header-btn" class="cta-button cta-button--sm">Criar conta</button>
+          <button type="button" id="criar-conta-header-btn" class="cta-button cta-button--sm">Cadastrar</button>
           <button type="button" id="email-auth-toggle" class="cta-secondary email-auth-toggle">Entrar</button>
           <div id="email-auth-panel" class="user-panel social-login-panel" hidden>
             <p class="social-login-title">Entre na sua conta</p>
@@ -234,57 +246,178 @@
         <button type="button" id="login-suggestion-dismiss" aria-label="Dispensar sugestão">✕</button>
       </div>
     </div>
-    <section id="top" class="hero hero--centered">
+    <section id="top" class="hero hero--neon">
+      <div class="hero-photo" role="img" aria-label="Skyline de Belo Horizonte ao entardecer"></div>
       <div class="container hero-layout">
         <div class="hero-content">
-          <span class="hero-badge">✦ Profissionais verificados perto de você</span>
-          <h1 class="hero-title">Encontre o profissional <span class="hero-title-accent">certo</span> agora</h1>
-          <p class="subtitle">Serviços, caronas, grupos e muito mais — conectamos quem precisa a quem entrega.</p>
-          <div class="hero-mode-tabs" role="tablist" aria-label="Tipo de uso">
-            <button type="button" class="hero-mode-btn mode-btn is-active" data-mode="requester" role="tab" aria-selected="true">Solicito serviço</button>
-            <button type="button" class="hero-mode-btn mode-btn" data-mode="provider" role="tab" aria-selected="false">Presto serviço</button>
-          </div>
-          <div id="hero-requester-tools">
-            <form id="hero-search-form" class="hero-search-form" role="search" autocomplete="off">
-              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input id="hero-search-input" type="search" placeholder="O que você está procurando?" aria-label="Buscar" enterkeyhint="search" spellcheck="false" />
-              <button type="submit" class="cta-button hero-search-submit">Buscar agora</button>
-            </form>
-            <div class="hero-category-chips">
-              <button type="button" class="example-chip" data-hero-category="servico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94Z"/></svg> Serviços</button>
-              <button type="button" class="example-chip" data-hero-category="viagem"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11 6.5 6.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11"/><rect x="3" y="11" width="18" height="6" rx="2"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/></svg> Viagem</button>
-              <button type="button" class="example-chip" data-hero-category="grupo"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Grupo</button>
-              <button type="button" class="example-chip" data-hero-category="produto"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> Produtos</button>
-            </div>
-            <div id="category-quick-panel" hidden>
-              <div class="category-panel-bar">
-                <h2 id="category-panel-title" class="category-panel-title"></h2>
-                <button type="button" class="category-panel-close" aria-label="Fechar painel">✕</button>
-              </div>
-              <div id="category-panel-content">
-                <div id="category-panel-head"></div>
-                <div id="category-panel-body"></div>
-              </div>
-            </div>
+          <h1 class="hero-title">Poste o que precisa.<br /><span class="hero-title-accent">Ofereça o que tem.</span></h1>
+          <p class="subtitle">Serviços, produtos, corridas, imóveis, eventos e lojas — o TOP3 conecta os dois lados com busca simples e resultado direto em Belo Horizonte.</p>
+          <div class="hero-mode-tabs" role="tablist" aria-label="O que você quer fazer">
+            <button type="button" class="hero-mode-btn mode-btn is-active" data-mode="requester" role="tab" aria-selected="true"><span class="btn-lead"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Preciso de algo</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+            <button type="button" class="hero-mode-btn mode-btn" data-mode="provider" role="tab" aria-selected="false"><span class="btn-lead"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 8v8M8 12h8"/></svg>Quero oferecer</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
           </div>
         </div>
+        <aside class="hero-aside" aria-hidden="true">
+          <p class="hero-script">Conectando<br />pessoas em<br />Belo Horizonte</p>
+          <ul class="hero-proof">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="2.6"/><path d="M7 19c0-2.8 2.2-5 5-5s5 2.2 5 5"/><circle cx="5.5" cy="10.5" r="2"/><path d="M1.5 18c0-2.2 1.6-3.8 4-3.8"/><circle cx="18.5" cy="10.5" r="2"/><path d="M22.5 18c0-2.2-1.6-3.8-4-3.8"/></svg></li>
+            <li>Pessoas reais<br />Negócios locais<br />Resultados de verdade</li>
+          </ul>
+        </aside>
+      </div>
+      <div class="container hero-tools">
+    <div id="hero-requester-tools">
+     <div id="hero-search-panel" class="hero-search-panel" hidden>
+      <form id="hero-search-form" class="hero-search-form" role="search" autocomplete="off">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="hero-search-input" type="search" placeholder="O que você está procurando?" aria-label="Buscar" enterkeyhint="search" spellcheck="false" />
+        <button type="submit" class="cta-button hero-search-submit">Buscar agora</button>
+      </form>
+      <div class="hero-category-chips">
+        <button type="button" class="example-chip" data-hero-category="servico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94Z"/></svg> Serviços</button>
+        <button type="button" class="example-chip" data-hero-category="viagem"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11 6.5 6.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11"/><rect x="3" y="11" width="18" height="6" rx="2"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/></svg> Viagem</button>
+        <button type="button" class="example-chip" data-hero-category="grupo"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Grupo</button>
+        <button type="button" class="example-chip" data-hero-category="produto"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> Produtos</button>
+      </div>
+      <div id="category-quick-panel" hidden>
+        <div class="category-panel-bar">
+          <h2 id="category-panel-title" class="category-panel-title"></h2>
+          <button type="button" class="category-panel-close" aria-label="Fechar painel">✕</button>
+        </div>
+        <div id="category-panel-content">
+          <div id="category-panel-head"></div>
+          <div id="category-panel-body"></div>
+        </div>
+      </div>
+     </div>
+    </div>
       </div>
     </section>
 
     <div id="requester-view">
-    <section id="destaques" class="highlights-section">
+    <section id="explorar" class="explore-section" aria-label="Explorar oportunidades">
       <div class="container">
-        <div class="section-header-row">
-          <div>
-            <p class="eyebrow">O que estão buscando agora</p>
-            <h2 class="section-title">Destaques da sua região</h2>
-          </div>
-          <a href="#publicar" class="section-see-all">Ver todos →</a>
+        <div class="cat-row" id="cat-row" role="tablist" aria-label="Categorias">
+          <button type="button" class="cat-chip is-active" data-cat="todos" role="tab" aria-selected="true"><span class="cat-ico"><svg viewBox="0 0 20 20" aria-hidden="true"><defs><linearGradient id="cat-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#00e5ff"/><stop offset="1" stop-color="#0066ff"/></linearGradient></defs><rect x="1" y="1" width="8" height="8" rx="2" fill="url(#cat-grad)"/><rect x="11" y="1" width="8" height="8" rx="2" fill="url(#cat-grad)"/><rect x="1" y="11" width="8" height="8" rx="2" fill="url(#cat-grad)"/><rect x="11" y="11" width="8" height="8" rx="2" fill="url(#cat-grad)"/></svg></span><span class="cat-name">Todos</span></button>
+          <button type="button" class="cat-chip" data-cat="servicos" role="tab" aria-selected="false"><span class="cat-ico" aria-hidden="true">🔧</span><span class="cat-name">Serviços</span></button>
+          <button type="button" class="cat-chip" data-cat="produtos" role="tab" aria-selected="false"><span class="cat-ico" aria-hidden="true">📦</span><span class="cat-name">Produtos</span></button>
+          <button type="button" class="cat-chip" data-cat="lojas" role="tab" aria-selected="false"><span class="cat-ico" aria-hidden="true">🏪</span><span class="cat-name">Lojas</span></button>
+          <button type="button" class="cat-chip" data-cat="corridas" role="tab" aria-selected="false"><span class="cat-ico" aria-hidden="true">🚗</span><span class="cat-name">Corridas</span></button>
+          <button type="button" class="cat-chip" data-cat="imoveis" role="tab" aria-selected="false"><span class="cat-ico" aria-hidden="true">🏠</span><span class="cat-name">Imóveis</span></button>
+          <button type="button" class="cat-chip" data-cat="eventos" role="tab" aria-selected="false"><span class="cat-ico" aria-hidden="true">🎉</span><span class="cat-name">Eventos</span></button>
         </div>
-        <ul id="highlights-list" class="highlights-list" aria-live="polite"></ul>
-        <p id="highlights-empty" class="highlights-empty" hidden>
-          Ainda não tem nada publicado por aqui — <a href="#publicar">seja a primeira pessoa a publicar</a>.
-        </p>
+
+        <div class="sub-row" id="sub-row" aria-label="Subcategorias"></div>
+
+        <form class="filter-bar" id="filter-bar" onsubmit="return false" aria-label="Filtros">
+          <label class="filter-cell f-tipo">
+            <span class="filter-label"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>Tipo</span>
+            <select id="filter-tipo" class="fx-select"><option value="todos">Todos</option><option value="pedidos">Pedidos</option><option value="ofertas">Ofertas</option></select>
+          </label>
+          <span class="filter-div" aria-hidden="true"></span>
+          <label class="filter-cell f-cat">
+            <span class="filter-label"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>Categoria</span>
+            <select id="filter-cat" class="fx-select"><option value="todos">Todas as categorias</option><option value="servicos">Serviços</option><option value="produtos">Produtos</option><option value="lojas">Lojas</option><option value="corridas">Corridas</option><option value="imoveis">Imóveis</option><option value="eventos">Eventos</option></select>
+          </label>
+          <span class="filter-div" aria-hidden="true"></span>
+          <label class="filter-cell f-sub">
+            <span class="filter-label"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r=".8"/><circle cx="4" cy="12" r=".8"/><circle cx="4" cy="18" r=".8"/></svg>Subcategoria</span>
+            <select id="filter-sub" class="fx-select"><option value="">Todas</option></select>
+          </label>
+          <span class="filter-div" aria-hidden="true"></span>
+          <label class="filter-cell f-dist">
+            <span class="filter-label"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>Distância</span>
+            <select id="filter-dist" class="fx-select"><option value="10">Até 10 km</option><option value="5">Até 5 km</option><option value="20">Até 20 km</option><option value="0">Qualquer</option></select>
+          </label>
+          <span class="filter-div" aria-hidden="true"></span>
+          <label class="filter-cell f-price">
+            <span class="filter-label"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg>Faixa de preço</span>
+            <select id="filter-price" class="fx-select"><option value="">Qualquer valor</option><option value="0-50">Até R$ 50</option><option value="50-200">R$ 50–200</option><option value="200-500">R$ 200–500</option><option value="500-">Acima R$ 500</option></select>
+          </label>
+          <button type="button" id="filter-more-btn" class="filter-more" aria-expanded="false" aria-controls="filter-more-panel"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg><span>Mais filtros</span></button>
+        </form>
+
+        <div id="filter-more-panel" class="filter-more-panel" hidden>
+          <label class="filter-cell">
+            <span class="filter-label">Ordenar por</span>
+            <select id="filter-sort" class="fx-select"><option value="recentes">Mais recentes</option><option value="menor-preco">Menor preço</option><option value="maior-preco">Maior preço</option><option value="perto">Mais perto</option><option value="avaliacao">Melhor avaliação</option></select>
+          </label>
+          <button type="button" id="filter-clear-btn" class="filter-clear">Limpar filtros</button>
+        </div>
+
+        <div class="feed-tabs" role="tablist" aria-label="Pedidos ou ofertas">
+          <button type="button" class="feed-tab is-active" id="feed-tab-pedidos" data-feed-tab="pedidos" role="tab" aria-selected="true">Pedidos</button>
+          <button type="button" class="feed-tab" id="feed-tab-ofertas" data-feed-tab="ofertas" role="tab" aria-selected="false">Ofertas</button>
+          <a href="#destaques" class="feed-col-link" id="feed-tabs-all">Ver todos →</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="destaques" class="highlights-section feed-section">
+      <div class="container feed-grid">
+        <div class="feed-col">
+          <div class="feed-col-head">
+            <span class="feed-col-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+            <h2 class="feed-col-title">Pedidos</h2>
+            <span class="feed-col-sub">Pessoas que precisam de algo</span>
+            <button type="button" class="feed-col-link" id="feed-more-pedidos" data-feed-more="pedidos" aria-expanded="false">Ver todos →</button>
+          </div>
+          <ul id="highlights-list" class="highlights-list feed-list" aria-live="polite"></ul>
+          <p id="highlights-empty" class="highlights-empty feed-empty" hidden>
+            Ainda não tem nada publicado por aqui — <a href="#publicar">seja a primeira pessoa a publicar</a>.
+          </p>
+        </div>
+        <div class="feed-col">
+          <div class="feed-col-head">
+            <span class="feed-col-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.4" fill="currentColor" stroke="none"/></svg></span>
+            <h2 class="feed-col-title">Ofertas</h2>
+            <span class="feed-col-sub">Pessoas oferecendo algo</span>
+            <button type="button" class="feed-col-link" id="feed-more-ofertas" data-feed-more="ofertas" aria-expanded="false">Ver todos →</button>
+          </div>
+          <ul id="feed-ofertas" class="feed-list" aria-live="polite"></ul>
+          <p id="feed-ofertas-empty" class="feed-empty" hidden>
+            Nada por aqui com esses filtros — <a href="#criar-perfil">crie o seu perfil</a> e apareça nas ofertas.
+          </p>
+        </div>
+        <aside class="feed-top3" aria-labelledby="feed-top3-title">
+          <div class="feed-top3-head">
+            <h2 id="feed-top3-title" class="feed-top3-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3"/></svg>Top 3 da semana</h2>
+            <a href="#top3" class="feed-col-link">Ver todos →</a>
+          </div>
+          <p class="feed-top3-sub">Os profissionais mais bem avaliados perto de você.</p>
+          <div id="feed-top3-list" aria-live="polite"></div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="como-funciona" class="how-strip">
+      <div class="container">
+        <div class="how-strip-box">
+          <span class="how-strip-gear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg></span>
+          <div class="how-strip-main">
+            <h2 class="how-strip-title">Como funciona — dois lados, uma conexão</h2>
+            <div class="steps">
+              <article class="step">
+                <span class="step-number">1</span>
+                <div><h3>Poste o que precisa ou o que tem</h3><p>Serviço, produto, corrida e muito mais.</p></div>
+              </article>
+              <article class="step">
+                <span class="step-number">2</span>
+                <div><h3>Conecte-se com pessoas reais</h3><p>Negocie e encontre o melhor resultado.</p></div>
+              </article>
+              <article class="step">
+                <span class="step-number">3</span>
+                <div><h3>Resolva e avalie</h3><p>Construindo uma cidade mais conectada.</p></div>
+              </article>
+            </div>
+          </div>
+          <nav class="bnav" id="bnav" aria-label="Navegação principal">
+            <a href="#top" class="bni is-active" data-bni="explorar" aria-current="page"><svg class="icon" viewBox="0 0 24 24" fill="currentColor" fill-opacity=".18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg><span>Explorar</span></a>
+            <a href="#publicar" class="bni" data-bni="postar"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg><span>Postar</span></a>
+            <a href="#atividade" class="bni" data-bni="mensagens"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-5.4A8 8 0 1 1 21 12z"/><circle cx="9" cy="12" r=".7" fill="currentColor"/><circle cx="12.5" cy="12" r=".7" fill="currentColor"/><circle cx="16" cy="12" r=".7" fill="currentColor"/></svg><span>Mensagens</span></a>
+            <a href="#criar-perfil" class="bni" data-bni="perfil" id="bni-perfil"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg><span>Meu perfil</span></a>
+          </nav>
+        </div>
       </div>
     </section>
 
@@ -295,30 +428,6 @@
           <h2 class="section-title"><span class="panel-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span> Atividade recente</h2>
           <ul id="activity-list" class="activity-list" aria-live="polite"></ul>
           <p id="activity-empty" class="activity-empty" hidden>Nenhuma atividade recente ainda.</p>
-        </div>
-      </section>
-
-      <section id="como-funciona" class="how-section">
-        <div class="container">
-          <p class="eyebrow">Simples. Rápido. Eficiente.</p>
-          <h2 class="section-title"><span class="panel-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg></span> Como funciona</h2>
-          <div class="steps">
-            <article class="step">
-              <span class="step-number">01</span>
-              <h3>Escreva naturalmente</h3>
-              <p>"Quero um pedreiro amanhã cedo"</p>
-            </article>
-            <article class="step">
-              <span class="step-number">02</span>
-              <h3>O TOP3 entende e organiza</h3>
-              <p>Busca, filtra e junta as melhores possibilidades.</p>
-            </article>
-            <article class="step">
-              <span class="step-number">03</span>
-              <h3>Você escolhe e age</h3>
-              <p>Entrar, participar, publicar interesse ou oferecer um serviço.</p>
-            </article>
-          </div>
         </div>
       </section>
 
@@ -876,6 +985,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script type="module" src="/vendor/altcha/altcha.min.js"></script>
   <script src="assets/app.js"></script>
+  <script src="assets/home-feed.js"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

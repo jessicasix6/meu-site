@@ -1,0 +1,27 @@
+/* Tokens do guia visual "Tema Neon Dark" — compartilhados por home e páginas de prestador. */
+
+:root {
+  --bg: #060b12;
+  --bg-raised: #0b1220;
+  --bg-card: #0f1a28;
+  --glass-bg: rgba(13, 22, 33, 0.8);
+  --border: #1b2b42;
+  --border-strong: #2a3b54;
+  --accent: #00e5ff;
+  --accent-2: #2ee6ff;
+  --accent-ink: #03131c;
+  --blue: #0066ff;
+  --success: #00c853;
+  --gold: #ffc83d;
+  --text-soft: #c7d2e7;
+  --text-dim: #8ca0b7;
+  --text-faint: #5b6b81;
+  --grad-cta: linear-gradient(90deg, #00e5ff, #12b8ff);
+  --glow-cyan: 0 0 24px rgba(0, 229, 255, 0.4);
+  --wide: 1320px;
+}
+
+body {
+  background: var(--bg);
+}
+

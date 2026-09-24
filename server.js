@@ -1618,8 +1618,13 @@ app.get("/api/ranking", (req, res) => {
   else if (sortPrice === "desc") sorted = withDistance.slice().sort((a, b) => (b.price || 0) - (a.price || 0));
   else sorted = withDistance.sort(SORTERS[sortBy]);
 
+  // "limit" (opcional, 1–12, padrão 3) — a home usa 6 pra listar as ofertas
+  // ao lado do Top 3. Sem o parâmetro, a resposta continua sendo exatamente o
+  // top 3 de sempre.
+  const parsedLimit = Number.parseInt(req.query.limit, 10);
+  const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 12) : 3;
   const top3 = sorted
-    .slice(0, 3)
+    .slice(0, limit)
     .map(({ name, service, city, rating, reviewCount, distanceKm, price, slug, nextSlot, isAvailable, time, photoUrl }) => ({
       name, service, city, rating,
       reviewCount: typeof reviewCount === "number" ? reviewCount : null,
@@ -3515,6 +3520,7 @@ app.get("/prestador/:slug", (req, res) => {
 <title>${escapeHtmlServer(provider.name)} — Top3Profissional</title>
 <meta name="description" content="${escapeHtmlServer(provider.bio)}" />
 <link rel="stylesheet" href="/assets/style.css" />
+<link rel="stylesheet" href="/assets/neon-tokens.css" />
 </head>
 <body>
 <div class="provider-page">
