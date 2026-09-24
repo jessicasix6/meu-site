@@ -25,6 +25,7 @@ const SERVICO_SYNONYMS = {
   marceneiro: ["marceneiro", "marcenaria", "móveis planejados", "móveis sob medida", "armário planejado"],
   chaveiro: ["chaveiro", "cópia de chave", "troca de fechadura", "perdi a chave", "arrombamento"],
   jardineiro: ["jardineiro", "jardinagem", "poda de árvore", "paisagismo", "corte de grama"],
+  "tecnico refrigeracao": ["técnico de refrigeração", "ar condicionado", "ar-condicionado", "instalação de ar condicionado", "manutenção de ar condicionado", "conserto de ar condicionado"],
 };
 
 // "elétrico"/"instalador" (acima) são termos genéricos o suficiente pra
