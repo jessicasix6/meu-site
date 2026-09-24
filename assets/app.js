@@ -445,7 +445,7 @@ const providerView = document.getElementById("provider-view");
 // deixando a pessoa sem como voltar). Escondidos à parte aqui.
 const heroRequesterTools = document.getElementById("hero-requester-tools");
 const requestsList = document.getElementById("requests-list");
-// [data-mode] restringe aos botões "Solicito serviço"/"Presto serviço" —
+// [data-mode] restringe aos botões "Preciso de algo"/"Quero oferecer" —
 // .mode-btn sozinho pegaria também as tabs de categoria de grupo, tipo de
 // corrida e entrar/criar conta (task-003), que reusam a mesma classe visual
 // mas não têm nada a ver com esse toggle (sem o filtro, clicar numa dessas
@@ -455,7 +455,7 @@ let requestsLoaded = false;
 
 const SEARCH_PLACEHOLDER_BY_MODE = {
   requester: "Descreva o que você gostaria de solicitar...",
-  provider: "Buscar um serviço, ou toque em 'Solicito serviço' pra pedir algo",
+  provider: "Buscar um serviço, ou toque em 'Preciso de algo' pra pedir algo",
 };
 
 function setMode(mode) {
@@ -3475,6 +3475,129 @@ function formatRelativeTime(isoString) {
   return `há ${diffD}d`;
 }
 
+// Feed da home (Pedidos | Ofertas | Top 3) — ícones e miniatura de cada card.
+const FEED_ICONS = {
+  pin: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
+  car: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11 6.5 6.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11"/><rect x="3" y="11" width="18" height="6" rx="2"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/></svg>',
+  box: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.89 1.45l8 4A2 2 0 0 1 22 7.24v9.53a2 2 0 0 1-1.11 1.79l-8 4a2 2 0 0 1-1.78 0l-8-4a2 2 0 0 1-1.11-1.79V7.24a2 2 0 0 1 1.11-1.79l8-4a2 2 0 0 1 1.78 0Z"/><path d="M2.32 6.16 12 11l9.68-4.84"/><line x1="12" y1="22.76" x2="12" y2="11"/></svg>',
+  wrench: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94Z"/></svg>',
+  users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  bag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>',
+};
+const FEED_ICON_BY_TYPE = {
+  corrida: FEED_ICONS.car,
+  viagem: FEED_ICONS.car,
+  entrega: FEED_ICONS.box,
+  frete: FEED_ICONS.box,
+  profissional: FEED_ICONS.wrench,
+  servico: FEED_ICONS.wrench,
+  grupo: FEED_ICONS.users,
+  compra: FEED_ICONS.users,
+  curso: FEED_ICONS.users,
+  produto: FEED_ICONS.bag,
+};
+
+function feedTypeKey(label) {
+  return (label || "").toLowerCase().replace(/\s+/g, "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+// Miniatura do card: a foto de verdade quando existe (pedido com foto,
+// perfil com foto); senão um bloco com ícone do tipo — nunca uma foto de
+// exemplo inventada.
+function feedThumbHtml(typeKey, photoUrl, fallbackText) {
+  const klass = ["corrida", "viagem", "entrega", "frete", "profissional", "servico", "grupo", "compra", "curso", "produto", "outro", "imovel"].includes(typeKey)
+    ? typeKey
+    : "default";
+  if (photoUrl) {
+    return `<div class="feed-thumb feed-thumb--${klass}"><img src="${escapeHtml(photoUrl)}" alt="" loading="lazy" width="96" height="92" /></div>`;
+  }
+  const inner = fallbackText
+    ? `<span class="feed-thumb-initials">${escapeHtml(fallbackText)}</span>`
+    : FEED_ICON_BY_TYPE[typeKey] || FEED_ICONS.bag;
+  return `<div class="feed-thumb feed-thumb--${klass}" aria-hidden="true">${inner}</div>`;
+}
+
+function feedRatingText(rating) {
+  return Number.isFinite(rating) ? rating.toFixed(1).replace(".", ",") : null;
+}
+
+function feedProviderHref(p) {
+  return p.slug ? `/prestador/${encodeURIComponent(p.slug)}` : "#top3";
+}
+
+// Ofertas (profissionais cadastrados) + Top 3 da semana — mesma fonte do
+// ranking (/api/ranking), sem inventar nada: sem cadastro, empty state.
+async function loadFeedProviders() {
+  const list = document.getElementById("feed-ofertas");
+  const empty = document.getElementById("feed-ofertas-empty");
+  const top = document.getElementById("feed-top3-list");
+  if (!list || !top) return;
+  try {
+    const res = await fetch("/api/ranking?limit=6");
+    const { top3: providers } = res.ok ? await res.json() : { top3: [] };
+    if (!providers || providers.length === 0) {
+      list.innerHTML = "";
+      top.innerHTML = "";
+      empty.hidden = false;
+      return;
+    }
+    empty.hidden = true;
+    list.innerHTML = providers
+      .map((p) => {
+        const rating = feedRatingText(p.rating);
+        const where = [p.city, Number.isFinite(p.distanceKm) ? `${String(p.distanceKm).replace(".", ",")} km` : null].filter(Boolean).join(" • ");
+        return `
+      <li class="feed-card">
+        ${feedThumbHtml("servico", p.photoUrl, initials(p.name))}
+        <div class="feed-body">
+          <div class="feed-top">
+            <div class="feed-tags">
+              <span class="feed-tag feed-tag--oferta">Oferta</span>
+              <span class="feed-tag feed-tag--tipo">${escapeHtml(p.service)}</span>
+            </div>
+            ${p.nextSlot ? `<span class="feed-time feed-time--clip">${escapeHtml(p.nextSlot)}</span>` : ""}
+          </div>
+          <strong class="feed-title">${escapeHtml(p.name)}</strong>
+          <div class="feed-meta">
+            <div class="feed-who">
+              ${rating ? `<span class="feed-star">★ ${rating}</span>` : `<span>Novo no TOP3</span>`}
+              ${where ? `<span class="feed-where">${FEED_ICONS.pin}${escapeHtml(where)}</span>` : ""}
+              <a class="feed-action" href="${escapeHtml(feedProviderHref(p))}">Ver perfil →</a>
+            </div>
+            ${Number.isFinite(p.price) ? `<span class="feed-price">R$ ${escapeHtml(String(p.price))}</span>` : ""}
+          </div>
+        </div>
+      </li>`;
+      })
+      .join("");
+    top.innerHTML = providers
+      .slice(0, 3)
+      .map((p, i) => {
+        const rating = feedRatingText(p.rating);
+        const filled = Number.isFinite(p.rating) ? Math.round(p.rating) : 0;
+        const reviews = Number.isFinite(p.reviewCount) ? ` • ${p.reviewCount} aval.` : "";
+        return `
+      <a class="feed-rank-item" href="${escapeHtml(feedProviderHref(p))}">
+        <div class="feed-rank-thumb feed-thumb feed-thumb--servico">
+          ${p.photoUrl ? `<img src="${escapeHtml(p.photoUrl)}" alt="" loading="lazy" width="62" height="54" />` : `<span class="feed-thumb-initials" style="font-size:1.1rem">${escapeHtml(initials(p.name))}</span>`}
+          <span class="feed-rank-num feed-rank-num--${i + 1}">${i + 1}</span>
+        </div>
+        <div class="feed-rank-info">
+          <div class="feed-rank-name">${escapeHtml(p.name)}</div>
+          <div class="feed-rank-cat">${escapeHtml([p.service, p.city].filter(Boolean).join(" • "))}</div>
+          <div class="feed-rank-stars">${rating ? `<span>${"★".repeat(filled)}${"☆".repeat(5 - filled)}</span>${rating}${reviews}` : "Novo no TOP3"}</div>
+        </div>
+        <span class="feed-rank-arrow" aria-hidden="true">›</span>
+      </a>`;
+      })
+      .join("");
+  } catch (err) {
+    list.innerHTML = "";
+    top.innerHTML = "";
+    empty.hidden = false;
+  }
+}
+
 // Destaques da sua região (item 3) — mistura pedidos (REQUESTS) e grupos
 // abertos (GROUP_OPPORTUNITIES) reais, ordenados por mais recente. Sem
 // posts suficientes, mostra só os que existem (nunca completa com
@@ -3496,6 +3619,7 @@ async function loadHighlights() {
           label: r.type,
           title: r.title,
           where: r.location || "local não informado",
+          photoUrl: r.photoUrl || null,
           price: `R$ ${r.price}`,
           actionText: "Ver opções",
           onAction: () => {
@@ -3540,26 +3664,38 @@ async function loadHighlights() {
     }
     empty.hidden = true;
     list.innerHTML = items
-      .map(
-        (item, index) => {
-          const typeKey = (item.label || "").toLowerCase().replace(/\s+/g, "").normalize("NFD").replace(/[̀-ͯ]/g, "");
-          return `
-      <li class="highlight-card">
-        <div class="highlight-card-header highlight-card-header--${typeKey}">
-          <span class="highlight-card-badge highlight-card-badge--${typeKey}">${escapeHtml(item.label)}</span>
-        </div>
-        <div class="highlight-card-body">
-          <strong class="highlight-card-title">${escapeHtml(item.title)}</strong>
-          <span class="highlight-card-where">${escapeHtml(item.where)}</span>
-          <span class="highlight-card-price highlight-price">${escapeHtml(item.price)}</span>
-          <button type="button" class="highlight-card-action highlight-action" data-highlight-index="${index}">${escapeHtml(item.actionText)} →</button>
+      .map((item, index) => {
+        const typeKey = feedTypeKey(item.label);
+        const isGroup = item.id.startsWith("g-");
+        const timeLabel = item.createdAt ? formatRelativeTime(item.createdAt) : "";
+        return `
+      <li class="highlight-card feed-card" data-highlight-index="${index}">
+        ${feedThumbHtml(typeKey, item.photoUrl)}
+        <div class="feed-body">
+          <div class="feed-top">
+            <div class="feed-tags">
+              <span class="feed-tag ${isGroup ? "feed-tag--grupo" : "feed-tag--pedido"}">${isGroup ? "Grupo" : "Pedido"}</span>
+              <span class="feed-tag feed-tag--tipo">${escapeHtml(item.label)}</span>
+            </div>
+            ${timeLabel ? `<span class="feed-time">${escapeHtml(timeLabel)}</span>` : ""}
+          </div>
+          <strong class="feed-title highlight-card-title">${escapeHtml(item.title)}</strong>
+          <div class="feed-meta">
+            <div class="feed-who">
+              <span class="feed-where">${FEED_ICONS.pin}${escapeHtml(item.where)}</span>
+              <button type="button" class="highlight-card-action highlight-action" data-highlight-index="${index}">${escapeHtml(item.actionText)} →</button>
+            </div>
+            <span class="feed-price highlight-card-price highlight-price">${escapeHtml(item.price)}</span>
+          </div>
         </div>
       </li>`;
-        }
-      )
+      })
       .join("");
-    list.querySelectorAll(".highlight-card-action").forEach((btn) => {
-      btn.addEventListener("click", () => items[Number(btn.dataset.highlightIndex)].onAction());
+    list.querySelectorAll(".highlight-card").forEach((card) => {
+      card.addEventListener("click", (event) => {
+        if (event.target.closest("a")) return;
+        items[Number(card.dataset.highlightIndex)].onAction();
+      });
     });
   } catch (err) {
     list.innerHTML = "";
@@ -3615,6 +3751,7 @@ async function loadHomeStats() {
 }
 
 loadHighlights();
+loadFeedProviders();
 loadActivityFeed();
 loadHomeStats();
 

@@ -71,14 +71,14 @@ test.describe("Top3Profissional - fluxo básico", () => {
     await expect(page.locator("#requester-view #grupos")).toBeAttached();
   });
 
-  test("placeholder da busca muda conforme o modo ('Solicito serviço' vs 'Presto serviço')", async ({ page }) => {
+  test("placeholder da busca muda conforme o modo ('Preciso de algo' vs 'Quero oferecer')", async ({ page }) => {
     await page.goto("/");
     // Busca agora é só pelo hero — placeholder muda com o modo
     const searchInput = page.locator("#hero-search-input");
     await expect(searchInput).toHaveAttribute("placeholder", "O que você está procurando?");
 
     await page.locator('.mode-btn[data-mode="provider"]').click();
-    await expect(searchInput).toHaveAttribute("placeholder", /Solicito serviço/);
+    await expect(searchInput).toHaveAttribute("placeholder", /Preciso de algo/);
 
     await page.locator('.mode-btn[data-mode="requester"]').click();
     await expect(searchInput).toHaveAttribute("placeholder", "Descreva o que você gostaria de solicitar...");
@@ -181,7 +181,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
 
   test('alternar para "presto um serviço" mostra pedidos em aberto', async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("tab", { name: /presto serviço/i }).click();
+    await page.getByRole("tab", { name: /quero oferecer/i }).click();
     const requests = page.locator(".request-item");
     await expect(requests.first()).toBeVisible();
   });
@@ -247,7 +247,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
     expect(created.type).toBe("terreno");
 
     await page.goto("/");
-    await page.getByRole("tab", { name: /presto serviço/i }).click();
+    await page.getByRole("tab", { name: /quero oferecer/i }).click();
     await expect(page.locator(".request-badge", { hasText: "terreno" }).first()).toBeVisible();
   });
 
@@ -281,7 +281,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
     });
 
     await page.goto("/");
-    await page.getByRole("tab", { name: /presto serviço/i }).click();
+    await page.getByRole("tab", { name: /quero oferecer/i }).click();
     await expect(page.locator(".request-item").first()).toBeVisible();
 
     const html = await page.locator("#requests-list").innerHTML();
@@ -322,14 +322,14 @@ test.describe("Top3Profissional - fluxo básico", () => {
     const id = created.request.id;
 
     await page.goto("/");
-    await page.getByRole("tab", { name: /presto serviço/i }).click();
+    await page.getByRole("tab", { name: /quero oferecer/i }).click();
     const item = page.locator(`.request-item[data-id="${id}"]`);
     await expect(item).toContainText("Barreiro, Belo Horizonte");
     await expect(item).not.toContainText("31988887777");
 
     await request.post(`/api/requests/${id}/accept`, { data: { provider: "Prestador Teste" } });
     await page.reload();
-    await page.getByRole("tab", { name: /presto serviço/i }).click();
+    await page.getByRole("tab", { name: /quero oferecer/i }).click();
     await expect(item).toContainText("31988887777");
   });
 
@@ -417,7 +417,7 @@ test.describe("Top3Profissional - mobile", () => {
     // prévia do Playwright que fica instável nesse cenário específico
     // (viewport mobile + touch + página alta), não um bug real de
     // sobreposição visual.
-    await page.getByRole("tab", { name: /presto serviço/i }).click({ force: true });
+    await page.getByRole("tab", { name: /quero oferecer/i }).click({ force: true });
     await expect(page.locator(".request-item").first()).toBeVisible();
 
     expect(consoleErrors).toEqual([]);
@@ -463,7 +463,7 @@ test.describe("Top3Profissional - avaliação pós-serviço", () => {
     expect(rated.rating).toBe(5);
 
     await page.goto("/");
-    await page.getByRole("tab", { name: /presto serviço/i }).click();
+    await page.getByRole("tab", { name: /quero oferecer/i }).click();
     const item = page.locator(`.request-item[data-id="${id}"]`);
     await expect(item.locator(".star--filled")).toHaveCount(5);
     await expect(item).toContainText("Ótimo atendimento");
@@ -485,7 +485,7 @@ test.describe("Top3Profissional - avaliação pós-serviço", () => {
     });
 
     await page.goto("/");
-    await page.getByRole("tab", { name: /presto serviço/i }).click();
+    await page.getByRole("tab", { name: /quero oferecer/i }).click();
     const html = await page.locator("#requests-list").innerHTML();
     expect(html).not.toContain("<img");
     expect(alerts).toEqual([]);
@@ -2972,7 +2972,7 @@ test.describe("Top3Profissional - correções de UX no formulário de Publicar (
     const { request: carroRequest } = await carro.json();
 
     await page.goto("/");
-    await page.getByRole("tab", { name: /presto serviço/i }).click();
+    await page.getByRole("tab", { name: /quero oferecer/i }).click();
     await page.locator("#requests-filter-keyword").fill("TV");
     await expect(page.locator(`.request-item[data-id="${tvRequest.id}"]`)).toBeVisible();
     await expect(page.locator(`.request-item[data-id="${carroRequest.id}"]`)).toHaveCount(0);
@@ -2998,7 +2998,7 @@ test.describe("Top3Profissional - correções de UX no formulário de Publicar (
     const { request: tvRequest } = await tv.json();
 
     await page.goto("/");
-    await page.getByRole("tab", { name: /presto serviço/i }).click();
+    await page.getByRole("tab", { name: /quero oferecer/i }).click();
     await expect(page.locator(`.request-item[data-id="${tvRequest.id}"]`)).toBeVisible();
 
     // Filtro que não bate com nada cadastrado — mensagem tem que diferenciar
@@ -3020,7 +3020,7 @@ test.describe("Top3Profissional - correções de UX no formulário de Publicar (
     // vizinho na mesma barra de filtro (mesmo padrão do bug corrigido em
     // .post-field, PR #169).
     await page.goto("/");
-    await page.getByRole("tab", { name: /presto serviço/i }).click();
+    await page.getByRole("tab", { name: /quero oferecer/i }).click();
 
     const keyword = page.locator("#requests-filter-keyword");
     const type = page.locator("#requests-filter-type");
@@ -3109,9 +3109,10 @@ test.describe("Top3Profissional - correções de UX no formulário de Publicar (
     await expect(page.locator("#post-location")).toHaveValue("Preenchido na mão");
   });
 
-  test("item 4 (task-009): nav do topo foi removido — sem links 'Perguntar' nem #nav-ask-link", async ({ page }) => {
+  test("nav do topo (tema Neon Dark): 3 links de seção (Explorar, Como funciona, Top 3 da semana) e nenhum 'Perguntar'", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator(".site-nav")).toHaveCount(0);
+    const navLinks = page.locator(".site-nav .site-nav-link");
+    await expect(navLinks).toHaveText(["Explorar", "Como funciona", "Top 3 da semana"]);
     await expect(page.locator("#nav-ask-link")).toHaveCount(0);
   });
 
@@ -3125,8 +3126,8 @@ test.describe("Top3Profissional - correções de UX no formulário de Publicar (
     // Modos agora estão no hero
     const heroModeButtons = page.locator(".hero-mode-tabs .hero-mode-btn");
     await expect(heroModeButtons).toHaveCount(2);
-    await expect(heroModeButtons.nth(0)).toHaveText("Solicito serviço");
-    await expect(heroModeButtons.nth(1)).toHaveText("Presto serviço");
+    await expect(heroModeButtons.nth(0)).toHaveText("Preciso de algo");
+    await expect(heroModeButtons.nth(1)).toHaveText("Quero oferecer");
   });
 
   test("item 6a: botão do Google usa o tema oficial escuro (filled_black), não o claro (outline)", async ({ page }) => {
@@ -3146,13 +3147,14 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
     return Math.random().toString(36).slice(2, 10);
   }
 
-  test("cabeçalho: logo TOP3 + subtítulo, indicador Online real, menu com 'Mais', Entrar + Criar conta", async ({ page }) => {
+  test("cabeçalho: logo TOP3, links de seção, indicador Online real, Entrar + Cadastrar", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator(".site-header .logo")).toContainText("TOP3");
-    await expect(page.locator(".logo-subtitle")).toHaveText("Inteligência em resultados");
+    // O guia visual Neon Dark não tem subtítulo no logo
+    await expect(page.locator(".logo-subtitle")).toHaveCount(0);
 
-    // Nav de links removido — header tem apenas logo + auth
-    await expect(page.locator(".site-nav")).toHaveCount(0);
+    // Nav de seções: Explorar / Como funciona / Top 3 da semana
+    await expect(page.locator(".site-nav .site-nav-link")).toHaveCount(3);
 
     // "Online" só aparece depois de um /health real responder (item 1) —
     // não é decorativo fixo no HTML.
@@ -3161,10 +3163,9 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
     await expect(page.locator("#email-auth-toggle")).toHaveText("Entrar");
   });
 
-  test("header limpo: sem nav de links, apenas logo + auth + indicador Online", async ({ page }) => {
+  test("header limpo: logo + 3 links de seção + auth + indicador Online, sem menu 'Mais'", async ({ page }) => {
     await page.goto("/");
-    // Nav de links foi removido para deixar o header limpo
-    await expect(page.locator(".site-nav")).toHaveCount(0);
+    await expect(page.locator(".site-nav .site-nav-link")).toHaveCount(3);
     await expect(page.locator("#nav-more-toggle")).toHaveCount(0);
     // Logo, auth e indicador Online permanecem
     await expect(page.locator(".site-header .logo")).toBeVisible();
@@ -3182,7 +3183,7 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
     await page.goto("/");
     // Título removido; agora o hero mostra os tabs de modo acima da busca
     await expect(page.locator(".hero-mode-tabs")).toBeVisible();
-    await expect(page.locator(".hero-mode-btn").first()).toHaveText("Solicito serviço");
+    await expect(page.locator(".hero-mode-btn").first()).toHaveText("Preciso de algo");
     await expect(page.getByPlaceholder("O que você está procurando?")).toBeVisible();
   });
 
@@ -3284,7 +3285,7 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
     page,
   }) => {
     await page.goto("/");
-    await page.getByRole("tab", { name: /presto serviço/i }).click({ force: true }); // ver comentário no teste mobile equivalente
+    await page.getByRole("tab", { name: /quero oferecer/i }).click({ force: true }); // ver comentário no teste mobile equivalente
     await expect(page.locator("#provider-view")).toBeVisible();
     // #requests-list especificamente — .request-item sozinho também casa
     // com os cards de #groups-list (mesma classe, "group-card" só
@@ -3825,7 +3826,7 @@ test.describe("Top3Profissional - regressão (PR #108)", () => {
 
     const criarContaBtn = page.locator("#criar-conta-header-btn");
     await expect(criarContaBtn).toBeVisible();
-    await expect(criarContaBtn).toHaveText("Criar conta");
+    await expect(criarContaBtn).toHaveText("Cadastrar");
   });
 });
 
@@ -3970,5 +3971,76 @@ test.describe("Top3Profissional - regressão (Missão 6, tecnico-refrigeracao)",
       body.service,
       "'instalador de ar condicionado' não deve ser tratado como eletricista (exclusão) — deve cair em técnico de refrigeração"
     ).toBe("tecnico refrigeracao");
+  });
+});
+
+test.describe("Top3Profissional - home Neon Dark: feed Pedidos | Ofertas | Top 3", () => {
+  test("feed: Pedidos, Ofertas e Top 3 da semana aparecem com dado real, cada card com tag e preço/ação", async ({ page }) => {
+    await Promise.all([
+      page.waitForResponse((res) => res.url().includes("/api/ranking")),
+      page.waitForResponse((res) => res.url().includes("/api/requests")),
+      page.goto("/"),
+    ]);
+
+    // Pedidos: mesmo #highlights-list de sempre, agora com tag PEDIDO e valor
+    const pedidos = page.locator("#highlights-list .highlight-card");
+    await expect(pedidos.first()).toBeVisible();
+    await expect(pedidos.first().locator(".feed-tag--pedido, .feed-tag--grupo")).toBeVisible();
+    await expect(pedidos.first().locator(".highlight-price")).not.toBeEmpty();
+
+    // Ofertas: profissionais cadastrados (mesma fonte do ranking)
+    const ofertas = page.locator("#feed-ofertas .feed-card");
+    await expect(ofertas.first()).toBeVisible();
+    await expect(ofertas.first().locator(".feed-tag--oferta")).toHaveText(/oferta/i);
+    await expect(ofertas.first().locator(".feed-action")).toHaveAttribute("href", /.+/);
+
+    // Top 3 da semana: exatamente 3 itens, numerados 1, 2, 3
+    const top = page.locator("#feed-top3-list .feed-rank-item");
+    await expect(top).toHaveCount(3);
+    await expect(top.locator(".feed-rank-num")).toHaveText(["1", "2", "3"]);
+  });
+
+  test("feed: clicar no card de um pedido leva pro quadro de pedidos (modo 'Quero oferecer')", async ({ page }) => {
+    await Promise.all([page.waitForResponse((res) => res.url().includes("/api/requests")), page.goto("/")]);
+    await page.locator("#highlights-list .highlight-card").first().locator(".highlight-title, .feed-title").first().click();
+    await expect(page.locator("#provider-view")).toBeVisible();
+    await expect(page.locator('.mode-btn[data-mode="provider"]')).toHaveClass(/is-active/);
+  });
+
+  test("hero: 'Preciso de algo' e 'Quero oferecer' são as abas de modo (ativa = botão primário)", async ({ page }) => {
+    await page.goto("/");
+    const preciso = page.locator('.hero-mode-btn[data-mode="requester"]');
+    const oferecer = page.locator('.hero-mode-btn[data-mode="provider"]');
+    await expect(preciso).toHaveAttribute("aria-selected", "true");
+    await expect(oferecer).toHaveAttribute("aria-selected", "false");
+    await oferecer.click();
+    await expect(oferecer).toHaveAttribute("aria-selected", "true");
+    await expect(preciso).toHaveAttribute("aria-selected", "false");
+    // aba ativa usa o gradiente ciano do CTA (background-image), a inativa não
+    const activeBg = await oferecer.evaluate((el) => getComputedStyle(el).backgroundImage);
+    const inactiveBg = await preciso.evaluate((el) => getComputedStyle(el).backgroundImage);
+    expect(activeBg).toContain("linear-gradient");
+    expect(inactiveBg).not.toContain("linear-gradient");
+  });
+
+  test("nav do topo: 'Como funciona' rola até a faixa de passos", async ({ page }) => {
+    await page.goto("/");
+    await page.locator(".site-nav-link", { hasText: "Como funciona" }).click();
+    await expect(page.locator("#como-funciona")).toBeInViewport();
+    await expect(page.locator("#como-funciona .step")).toHaveCount(3);
+  });
+
+  test("/api/ranking aceita ?limit= (1–12, padrão 3) sem mudar a resposta padrão", async ({ request }) => {
+    const padrao = await (await request.get("/api/ranking")).json();
+    expect(padrao.top3).toHaveLength(3);
+    const seis = await (await request.get("/api/ranking?limit=6")).json();
+    expect(seis.top3.length).toBeGreaterThan(3);
+    expect(seis.top3.length).toBeLessThanOrEqual(6);
+    // os 3 primeiros continuam sendo o mesmo top 3 de sempre
+    expect(seis.top3.slice(0, 3).map((p) => p.name)).toEqual(padrao.top3.map((p) => p.name));
+    const enorme = await (await request.get("/api/ranking?limit=999")).json();
+    expect(enorme.top3.length).toBeLessThanOrEqual(12);
+    const invalido = await (await request.get("/api/ranking?limit=abc")).json();
+    expect(invalido.top3).toHaveLength(3);
   });
 });
