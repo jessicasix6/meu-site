@@ -1002,6 +1002,19 @@ function isUmamiConfigured() {
   return Boolean(process.env.UMAMI_SCRIPT_URL && process.env.UMAMI_WEBSITE_ID);
 }
 
+// Provedores sociais (via Supabase) que mostram botão no login. Padrão:
+// facebook e instagram (comportamento de sempre). Pra desligar um que não
+// funciona no Supabase, defina SUPABASE_SOCIAL_PROVIDERS=facebook (lista
+// separada por vírgula) — só aceita nomes simples, nunca texto livre.
+function enabledSocialProviders() {
+  const raw = process.env.SUPABASE_SOCIAL_PROVIDERS;
+  if (typeof raw !== "string" || !raw.trim()) return ["facebook", "instagram"];
+  return raw
+    .split(",")
+    .map((p) => p.trim().toLowerCase())
+    .filter((p) => /^[a-z][a-z0-9_-]{1,30}$/.test(p));
+}
+
 app.get("/api/auth/config", (req, res) => {
   res.json({
     googleClientId: process.env.GOOGLE_CLIENT_ID || null,
@@ -1010,6 +1023,7 @@ app.get("/api/auth/config", (req, res) => {
     umamiWebsiteId: isUmamiConfigured() ? process.env.UMAMI_WEBSITE_ID : null,
     supabaseUrl: process.env.SUPABASE_URL || null,
     supabaseAnonKey: process.env.SUPABASE_ANON_KEY || null,
+    socialProviders: enabledSocialProviders(),
   });
 });
 
