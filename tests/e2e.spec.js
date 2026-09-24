@@ -2283,10 +2283,15 @@ test.describe("Top3Profissional - busca por palavra-chave, sem IA (task-005)", (
     const carro = await request.get("/api/search?q=" + encodeURIComponent("quanto custa um carro elétrico")).then((r) => r.json());
     expect(carro.type).not.toBe("service");
 
+    // "instalador" é excluído de eletricista quando "ar condicionado" aparece
+    // na frase (SERVICO_SYNONYM_EXCLUSIONS). Desde que "ar condicionado" foi
+    // adicionado como sinônimo de "tecnico refrigeracao", a busca retorna
+    // type:"service" com service:"tecnico refrigeracao" — correto. O que
+    // importa verificar é que NÃO retorna eletricista.
     const arCondicionado = await request
       .get("/api/search?q=" + encodeURIComponent("preciso de um instalador de ar condicionado"))
       .then((r) => r.json());
-    expect(arCondicionado.type).not.toBe("service");
+    expect(arCondicionado.service).not.toBe("eletricista");
   });
 
   // A exclusão de "ar condicionado" é só pro sinônimo "instalador" — não pode
