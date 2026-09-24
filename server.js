@@ -3520,6 +3520,7 @@ app.get("/prestador/:slug", (req, res) => {
 <title>${escapeHtmlServer(provider.name)} — Top3Profissional</title>
 <meta name="description" content="${escapeHtmlServer(provider.bio)}" />
 <link rel="stylesheet" href="/assets/style.css" />
+<link rel="stylesheet" href="/assets/neon-tokens.css" />
 </head>
 <body>
 <div class="provider-page">

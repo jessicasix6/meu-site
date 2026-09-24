@@ -1,5 +1,15 @@
 const { test, expect, request: apiRequest } = require("@playwright/test");
 
+// A busca do hero fica recolhida até a pessoa tocar em "Preciso de algo" (layout do
+// guia visual Neon Dark) — testes que usam a busca ou os chips rápidos abrem antes.
+async function abrirBusca(page) {
+  const panel = page.locator("#hero-search-panel");
+  if (await panel.isHidden()) {
+    await page.locator('.hero-mode-btn[data-mode="requester"]').click();
+  }
+  await expect(panel).toBeVisible();
+}
+
 test.describe("Top3Profissional - fluxo básico", () => {
   test("carrega a página sem erros de console", async ({ page }) => {
     // Domínio de teste do Umami (task-008, ver playwright.config.js) é
@@ -23,6 +33,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
 
   test("barra de busca do hero existe e aceita texto", async ({ page }) => {
     await page.goto("/");
+    await abrirBusca(page);
     const searchInput = page.locator("#hero-search-input");
     await expect(searchInput).toBeVisible();
     await searchInput.fill("manicure amanhã em BH");
@@ -31,7 +42,8 @@ test.describe("Top3Profissional - fluxo básico", () => {
 
   test("busca central do hero (task-012) usa o mesmo motor de busca da barra flutuante", async ({ page }) => {
     await page.goto("/");
-    const heroInput = page.getByPlaceholder("O que você está procurando?");
+    await abrirBusca(page);
+    const heroInput = page.locator("#hero-search-input");
     await expect(heroInput).toBeVisible();
     // "eletricista" é um serviço cadastrado — buscar pelo hero deve rotear
     // pro ranking, igual a barra flutuante de baixo já fazia.
@@ -43,6 +55,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
 
   test("chips de categoria do hero abrem o painel inline de cada categoria", async ({ page }) => {
     await page.goto("/");
+    await abrirBusca(page);
     const panelBody = page.locator("#category-panel-body");
 
     // "Serviços" traz o ranking pra dentro do painel, sem rolar a página
@@ -60,6 +73,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
 
   test("fechar o painel devolve as seções emprestadas pra página", async ({ page }) => {
     await page.goto("/");
+    await abrirBusca(page);
     await page.locator('[data-hero-category="viagem"]').click();
     // Viagem empresta as duas fontes: corridas/entregas e caronas (grupos)
     await expect(page.locator("#category-panel-body #corridas")).toBeAttached();
@@ -107,6 +121,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
     });
 
     await page.goto("/");
+    await abrirBusca(page);
     const bottomInput = page.locator("#hero-search-input");
     const bottomSubmit = page.locator("#hero-search-form button[type=submit]");
 
@@ -335,6 +350,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
 
   test("busca por serviço cadastrado mostra o ranking filtrado — sem gastar chamada de IA", async ({ page }) => {
     await page.goto("/");
+    await abrirBusca(page);
     const searchInput = page.locator("#hero-search-input");
     await searchInput.fill("preciso de um eletricista hoje");
     await searchInput.press("Enter");
@@ -357,6 +373,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
     page,
   }) => {
     await page.goto("/");
+    await abrirBusca(page);
     const searchInput = page.locator("#hero-search-input");
     await searchInput.fill("corrida do Centro pra Rodoviária");
     await searchInput.press("Enter");
@@ -375,6 +392,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
       "precisa de SEARXNG_URL ou BRAVE_SEARCH_API_KEY pra testar a busca na web de verdade"
     );
     await page.goto("/");
+    await abrirBusca(page);
     const searchInput = page.locator("#hero-search-input");
     await searchInput.fill("terreno barato em Contagem");
     await searchInput.press("Enter");
@@ -402,7 +420,8 @@ test.describe("Top3Profissional - mobile", () => {
     });
 
     await page.goto("/");
-    await expect(page.getByPlaceholder("O que você está procurando?")).toBeVisible();
+    await abrirBusca(page);
+    await expect(page.locator("#hero-search-input")).toBeVisible();
 
     // force:true de propósito, motivo investigado a fundo (não é achado
     // escondido): com a home bem mais alta desde a task-012 (várias
@@ -745,6 +764,7 @@ test.describe("Top3Profissional - perfil profissional (pilar 4.12)", () => {
 
   test("busca por 'criar meu perfil' rola até a seção certa, sem gastar chamada de IA", async ({ page }) => {
     await page.goto("/");
+    await abrirBusca(page);
     const searchInput = page.locator("#hero-search-input");
     await searchInput.fill("quero criar meu perfil profissional");
     await searchInput.press("Enter");
@@ -776,6 +796,7 @@ test.describe("Top3Profissional - perfil profissional (pilar 4.12)", () => {
 
     const servicesResponse = page.waitForResponse((r) => r.url().includes("/api/services"));
     await page.goto("/");
+    await abrirBusca(page);
     await servicesResponse; // espera o front-end aprender sobre o serviço novo antes de buscar
 
     const searchInput = page.locator("#hero-search-input");
@@ -833,6 +854,7 @@ test.describe("Top3Profissional - perfil profissional (pilar 4.12)", () => {
     // Card no DOM mostra <img> com o src correto.
     const servicesResponse = page.waitForResponse((r) => r.url().includes("/api/services"));
     await page.goto("/");
+    await abrirBusca(page);
     await servicesResponse;
     const searchInput = page.locator("#hero-search-input");
     await searchInput.fill(`preciso de ${uniqueService} hoje`);
@@ -848,6 +870,7 @@ test.describe("Top3Profissional - perfil profissional (pilar 4.12)", () => {
   test("card sem foto continua mostrando iniciais", async ({ page, request }) => {
     // Serviço único sem foto — usa PROVIDERS mock que não têm photoUrl.
     await page.goto("/");
+    await abrirBusca(page);
     const searchInput = page.locator("#hero-search-input");
     await searchInput.fill("preciso de manicure");
     await searchInput.press("Enter");
@@ -1559,6 +1582,7 @@ test.describe("Top3Profissional - login simples por email/senha + perfil (task-0
 
   test("usar sem estar logado continua funcionando 100% — sugestão de login nunca bloqueia nada", async ({ page }) => {
     await page.goto("/");
+    await abrirBusca(page);
     const searchInput = page.locator("#hero-search-input");
     await expect(searchInput).toBeEditable();
     await page.getByRole("button", { name: "+ Criar um grupo" }).click();
@@ -2451,6 +2475,7 @@ test.describe("Top3Profissional - busca por palavra-chave, sem IA (task-005)", (
 
   test("UI: buscar um sinônimo de serviço na barra principal mostra o ranking filtrado, sem cair na busca web", async ({ page }) => {
     await page.goto("/");
+    await abrirBusca(page);
     const searchInput = page.locator("#hero-search-input");
     await searchInput.fill("preciso fazer unha amanhã");
     await searchInput.press("Enter");
@@ -2464,6 +2489,7 @@ test.describe("Top3Profissional - busca por palavra-chave, sem IA (task-005)", (
       data: { category: "frete", title: "Ofereço frete pra mudança", city: cidade, targetMembers: 2, whatsapp: "31911110000", name: "Zeca", tipo: "ofereco" },
     });
     await page.goto("/");
+    await abrirBusca(page);
     const searchInput = page.locator("#hero-search-input");
     await searchInput.fill(`mudança em ${cidade}`);
     await searchInput.press("Enter");
@@ -3181,10 +3207,11 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
 
   test("hero: modo tabs acima da busca, busca central funcional", async ({ page }) => {
     await page.goto("/");
+    await abrirBusca(page);
     // Título removido; agora o hero mostra os tabs de modo acima da busca
     await expect(page.locator(".hero-mode-tabs")).toBeVisible();
     await expect(page.locator(".hero-mode-btn").first()).toHaveText("Preciso de algo");
-    await expect(page.getByPlaceholder("O que você está procurando?")).toBeVisible();
+    await expect(page.locator("#hero-search-input")).toBeVisible();
   });
 
   test("critério de pronto: 'Números que conectam' muda quando um post novo é criado (nunca fixo, nunca arredondado)", async ({
@@ -3232,7 +3259,8 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
   test("critério de pronto: 'buscas realizadas' sobe de verdade quando alguém busca", async ({ page, request }) => {
     const before = await (await request.get("/api/home-stats")).json();
     await page.goto("/");
-    await page.getByPlaceholder("O que você está procurando?").fill(`busca teste ${uniqueSuffix()}`);
+    await abrirBusca(page);
+    await page.locator("#hero-search-input").fill(`busca teste ${uniqueSuffix()}`);
     // performSearch() dispara POST /api/search-events sem esperar (fire-
     // and-forget) — espera a resposta de verdade em vez de um sleep fixo
     // (achado do CodeRabbit, PR #78: um worker de CI lento podia ler
@@ -3295,6 +3323,7 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
 
   test("as abas de modo ficam fora do #requester-view — dá pra voltar de 'Presto' pra 'Solicito'", async ({ page }) => {
     await page.goto("/");
+    await abrirBusca(page);
     // O hero mora fora do #requester-view de propósito: se ficasse dentro,
     // setMode("provider") esconderia as abas junto e prenderia a pessoa no
     // modo prestador, sem nenhum jeito de voltar.
@@ -3313,6 +3342,7 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
 test.describe("Top3Profissional - painéis de categoria do hero", () => {
   test("Serviços: seletor de categoria filtra o ranking de verdade", async ({ page }) => {
     await page.goto("/");
+    await abrirBusca(page);
     await page.locator('[data-hero-category="servico"]').click();
     const select = page.locator("#panel-servico-select");
     await expect(select).toBeVisible();
@@ -3325,6 +3355,7 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
 
   test("Viagem: uma busca só alimenta corridas e caronas ao mesmo tempo", async ({ page }) => {
     await page.goto("/");
+    await abrirBusca(page);
     await page.locator('[data-hero-category="viagem"]').click();
 
     await page.locator("#panel-viagem-de").fill("Rua Bahia");
@@ -3340,6 +3371,7 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
 
   test("Viagem: data de uma busca anterior não fica grudada na busca seguinte", async ({ page }) => {
     await page.goto("/");
+    await abrirBusca(page);
     await page.locator('[data-hero-category="viagem"]').click();
 
     // Primeira busca com data
@@ -3367,6 +3399,7 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
     });
 
     await page.goto("/");
+    await abrirBusca(page);
     await page.locator('[data-hero-category="produto"]').click();
     await expect(page.locator("#panel-produto-list")).toBeVisible();
 
@@ -3381,6 +3414,7 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
 
   test("Produtos: resposta atrasada de um filtro antigo não sobrescreve o filtro atual", async ({ page }) => {
     await page.goto("/");
+    await abrirBusca(page);
     await page.locator('[data-hero-category="produto"]').click();
     const list = page.locator("#panel-produto-list");
     await expect(list).toBeVisible();
@@ -3432,6 +3466,7 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
     });
 
     await page.goto("/");
+    await abrirBusca(page);
     await page.locator('[data-hero-category="produto"]').click();
     const list = page.locator("#panel-produto-list");
     await expect(list.getByText(`trator caro ${suffix}`)).toBeVisible();
@@ -3451,6 +3486,7 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
 
   test("Produtos vazio convida a pessoa a publicar o que procura, com a categoria já marcada", async ({ page }) => {
     await page.goto("/");
+    await abrirBusca(page);
     // Rota forçada a vazio: a base pode ter anúncio, e o que importa aqui é a
     // tela que a pessoa vê quando não acha nada.
     await page.route("**/api/requests?*type=produto*", (route) => route.fulfill({ json: { requests: [] } }));
@@ -3475,6 +3511,7 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
 
   test("Produtos: com filtro aplicado a mensagem fala do filtro, não da categoria", async ({ page }) => {
     await page.goto("/");
+    await abrirBusca(page);
     await page.locator('[data-hero-category="produto"]').click();
     await page.locator("#panel-produto-min").fill("99999999");
     await expect(page.locator("#panel-produto-list .panel-vazio-aviso")).toHaveText(/Nenhum anúncio com esses filtros/);
@@ -3483,6 +3520,7 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
   test("alvos de toque no celular têm pelo menos 44px", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("/");
+    await abrirBusca(page);
     await page.locator('[data-hero-category="produto"]').click();
 
     // 44px é o mínimo recomendado pra dedo; abaixo disso erra o toque, e as
@@ -3496,6 +3534,7 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
   test("os botões principais da home também têm 44px no celular", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("/");
+    await abrirBusca(page);
 
     // A primeira correção cobriu só os filtros e deixou de fora justamente os
     // botões mais usados — a busca tinha 34px e os chips, 32px.
@@ -3515,6 +3554,7 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
   test("campo de busca do hero não tem zona morta no celular", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("/");
+    await abrirBusca(page);
 
     // Achado real: a correção anterior esticou só o botão "Buscar" pra 44px,
     // deixando o próprio campo de texto com a altura de linha original
@@ -3537,6 +3577,7 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
   test("nenhum botão visível fica abaixo de 44px no celular", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("/");
+    await abrirBusca(page);
     await page.locator('[data-hero-category="grupo"]').click();
     await expect(page.locator("#category-quick-panel")).toBeVisible();
 
@@ -3579,6 +3620,7 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
   test("ordenar por e 'Ver todos' do filtro de serviço têm 44px no celular", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("/");
+    await abrirBusca(page);
 
     // #ranking-sort tinha uma regra própria por ID (min-height: 40px) que,
     // por especificidade, vencia a regra de 44px do mobile aplicada aos
@@ -3598,6 +3640,7 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
 
   test("controles do painel seguem o design system (select escuro, seta própria, foco visível)", async ({ page }) => {
     await page.goto("/");
+    await abrirBusca(page);
     await page.locator('[data-hero-category="produto"]').click();
     const select = page.locator("#panel-produto-state");
 
@@ -3836,6 +3879,7 @@ test.describe("Top3Profissional - regressão (PR #107)", () => {
     // Isso garante paleta ciano/dark monocromática consistente em todo o site.
     // Também corrigiu centralização da barra de busca do hero.
     await page.goto("/");
+    await abrirBusca(page);
 
     // Validar que existem elementos SVG para ícones
     const svgIcons = page.locator("svg.icon");
@@ -4042,5 +4086,134 @@ test.describe("Top3Profissional - home Neon Dark: feed Pedidos | Ofertas | Top 3
     expect(enorme.top3.length).toBeLessThanOrEqual(12);
     const invalido = await (await request.get("/api/ranking?limit=abc")).json();
     expect(invalido.top3).toHaveLength(3);
+  });
+});
+
+test.describe("Top3Profissional - home Neon Dark: categorias, filtros, busca recolhível e navegação", () => {
+  async function abrirHome(page) {
+    await Promise.all([
+      page.waitForResponse((res) => res.url().includes("/api/ranking")),
+      page.waitForResponse((res) => res.url().includes("/api/requests")),
+      page.goto("/"),
+    ]);
+    await expect(page.locator("#highlights-list .highlight-card").first()).toBeVisible();
+  }
+
+  test("chips de categoria filtram o feed (Corridas → só corrida/entrega; Ofertas vazias)", async ({ page }) => {
+    await abrirHome(page);
+    const chips = page.locator(".cat-chip");
+    await expect(chips).toHaveCount(7);
+    await expect(chips.first()).toHaveAttribute("aria-selected", "true");
+
+    await page.locator('.cat-chip[data-cat="corridas"]').click();
+    await expect(page.locator('.cat-chip[data-cat="corridas"]')).toHaveAttribute("aria-selected", "true");
+    const tipos = await page.locator("#highlights-list .feed-tag--tipo").allTextContents();
+    expect(tipos.length).toBeGreaterThan(0);
+    for (const t of tipos) expect(t).toMatch(/corrida|entrega|carona|frete|viagem/i);
+    // profissionais cadastrados não são "corridas" → coluna de Ofertas mostra o vazio
+    await expect(page.locator("#feed-ofertas-empty")).toBeVisible();
+    // o select de categoria acompanha o chip
+    await expect(page.locator("#filter-cat")).toHaveValue("corridas");
+  });
+
+  test("subcategoria: 'Entrega' dentro de Corridas mostra só entregas", async ({ page }) => {
+    await abrirHome(page);
+    await page.locator('.cat-chip[data-cat="corridas"]').click();
+    await page.locator('.sub-pill[data-sub="Entrega"]').click();
+    await expect(page.locator('.sub-pill[data-sub="Entrega"]')).toHaveClass(/is-active/);
+    const tipos = await page.locator("#highlights-list .feed-tag--tipo").allTextContents();
+    expect(tipos.length).toBeGreaterThan(0);
+    for (const t of tipos) expect(t).toMatch(/entrega/i);
+  });
+
+  test("filtro 'Tipo' alterna as colunas e 'Faixa de preço' sem resultado mostra o vazio", async ({ page }) => {
+    await abrirHome(page);
+    await page.locator("#filter-tipo").selectOption("ofertas");
+    await expect(page.locator("#highlights-list")).toBeHidden();
+    await expect(page.locator("#feed-ofertas")).toBeVisible();
+    await page.locator("#filter-tipo").selectOption("pedidos");
+    await expect(page.locator("#feed-ofertas")).toBeHidden();
+    await expect(page.locator("#highlights-list")).toBeVisible();
+    await page.locator("#filter-tipo").selectOption("todos");
+
+    // outros testes publicam pedidos no mesmo servidor, então não dá pra garantir "zero
+    // resultados": ou aparece o vazio, ou todo card mostrado respeita a faixa (≥ R$ 500)
+    await page.locator("#filter-price").selectOption("500-");
+    const cards = page.locator("#highlights-list .highlight-price");
+    if ((await cards.count()) === 0) {
+      await expect(page.locator("#highlights-empty")).toBeVisible();
+    } else {
+      // grupos sem valor mostram "2/4 pessoas" (preço desconhecido não é filtrado) — só confere quem tem "R$ N"
+      for (const t of await cards.allTextContents()) {
+        if (/^R\$\s*\d+$/.test(t.trim())) expect(Number(t.replace(/[^0-9]/g, ""))).toBeGreaterThanOrEqual(500);
+      }
+    }
+    await page.locator("#filter-price").selectOption("");
+    await expect(page.locator("#highlights-empty")).toBeHidden();
+  });
+
+  test("'Mais filtros' abre ordenação; 'Menor preço' ordena e 'Limpar filtros' volta ao padrão", async ({ page }) => {
+    await abrirHome(page);
+    await expect(page.locator("#filter-more-panel")).toBeHidden();
+    await page.locator("#filter-more-btn").click();
+    await expect(page.locator("#filter-more-panel")).toBeVisible();
+    await page.locator("#filter-sort").selectOption("menor-preco");
+    const precos = (await page.locator("#highlights-list .highlight-price").allTextContents()).map((t) => Number(t.replace(/[^0-9]/g, "")));
+    expect(precos.length).toBeGreaterThan(1);
+    expect([...precos].sort((a, b) => a - b)).toEqual(precos);
+
+    await page.locator('.cat-chip[data-cat="imoveis"]').click();
+    await page.locator("#filter-clear-btn").click();
+    await expect(page.locator("#filter-sort")).toHaveValue("recentes");
+    await expect(page.locator("#filter-cat")).toHaveValue("todos");
+    await expect(page.locator('.cat-chip[data-cat="todos"]')).toHaveAttribute("aria-selected", "true");
+  });
+
+  test("busca do hero fica recolhida; 'Preciso de algo' abre, alterna e Esc fecha", async ({ page }) => {
+    await page.goto("/");
+    const panel = page.locator("#hero-search-panel");
+    const btn = page.locator('.hero-mode-btn[data-mode="requester"]');
+    await expect(panel).toBeHidden();
+    await btn.click();
+    await expect(panel).toBeVisible();
+    await expect(page.locator("#hero-search-input")).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(panel).toBeHidden();
+    await btn.click();
+    await btn.click();
+    await expect(panel).toBeHidden();
+  });
+
+  test("barra de navegação: Explorar/Postar/Mensagens/Meu perfil, marca o item ativo e leva às seções", async ({ page }) => {
+    await page.goto("/");
+    const items = page.locator("#bnav .bni");
+    await expect(items).toHaveText(["Explorar", "Postar", "Mensagens", "Meu perfil"]);
+    await expect(items.first()).toHaveClass(/is-active/);
+    await page.locator('#bnav .bni[data-bni="postar"]').click();
+    await expect(page.locator("#publicar")).toBeInViewport();
+    await expect(page.locator('#bnav .bni[data-bni="postar"]')).toHaveClass(/is-active/);
+    await page.locator('#bnav .bni[data-bni="mensagens"]').click();
+    await expect(page.locator("#atividade")).toBeInViewport();
+    // sem login, "Meu perfil" abre o painel de entrar
+    await page.locator('#bnav .bni[data-bni="perfil"]').click();
+    await expect(page.locator("#email-auth-panel")).toBeVisible();
+  });
+
+  test("celular: abas Pedidos/Ofertas trocam a coluna e a barra de navegação fica fixa embaixo", async ({ page }) => {
+    await page.setViewportSize({ width: 393, height: 852 });
+    await abrirHome(page);
+    await expect(page.locator(".feed-tabs")).toBeVisible();
+    await expect(page.locator("#feed-ofertas")).toBeHidden();
+    await page.locator("#feed-tab-ofertas").click();
+    await expect(page.locator("#feed-ofertas")).toBeVisible();
+    await expect(page.locator("#highlights-list")).toBeHidden();
+    await page.locator("#feed-tab-pedidos").click();
+    await expect(page.locator("#highlights-list")).toBeVisible();
+
+    const pos = await page.locator("#bnav").evaluate((el) => getComputedStyle(el).position);
+    expect(pos).toBe("fixed");
+    // chips quadrados: ícone em cima, nome embaixo
+    const dir = await page.locator(".cat-chip").first().evaluate((el) => getComputedStyle(el).flexDirection);
+    expect(dir).toBe("column");
   });
 });

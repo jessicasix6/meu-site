@@ -7,6 +7,7 @@ const SHELL_ASSETS = [
   "/",
   "/offline.html",
   "/assets/style.css",
+  "/assets/neon-tokens.css",
   "/assets/neon-home.css",
   "/assets/app.js",
   "/assets/fonts/inter-latin.woff2",
