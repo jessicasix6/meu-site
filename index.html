@@ -65,9 +65,14 @@
       <div class="container nav-inner">
         <a href="#top" class="logo">TOP<span class="logo-accent">3</span></a>
         <nav class="site-nav" aria-label="Seções do site">
-          <a href="#top" class="site-nav-link is-active" aria-current="true">Explorar</a>
           <a href="#como-funciona" class="site-nav-link">Como funciona</a>
           <a href="#top3" class="site-nav-link">Top 3 da semana</a>
+        </nav>
+        <nav class="bnav" id="bnav" aria-label="Navegação principal">
+          <a href="#top" class="bni is-active" data-bni="explorar" aria-current="page"><svg class="icon" viewBox="0 0 24 24" fill="currentColor" fill-opacity=".18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg><span>Explorar</span></a>
+          <a href="#publicar" class="bni" data-bni="postar"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg><span>Postar</span></a>
+          <a href="#atividade" class="bni" data-bni="mensagens"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-5.4A8 8 0 1 1 21 12z"/><circle cx="9" cy="12" r=".7" fill="currentColor"/><circle cx="12.5" cy="12" r=".7" fill="currentColor"/><circle cx="16" cy="12" r=".7" fill="currentColor"/></svg><span>Mensagens</span></a>
+          <a href="#criar-perfil" class="bni" data-bni="perfil" id="bni-perfil"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg><span>Meu perfil</span></a>
         </nav>
         <span id="online-indicator" class="online-indicator" hidden>
           <span class="online-dot" aria-hidden="true"></span>
@@ -79,7 +84,6 @@
             <span id="nav-location-label">Belo Horizonte - MG</span>
             <svg class="icon icon-chev" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>
           </a>
-          <a href="#atividade" class="nav-bell" aria-label="Atividade recente" title="Atividade recente"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/></svg></a>
         </div>
         <div class="google-signin-wrap">
           <div id="google-signin-slot" class="google-signin-slot"></div>
@@ -253,26 +257,17 @@
           <h1 class="hero-title">Poste o que precisa.<br /><span class="hero-title-accent">Ofereça o que tem.</span></h1>
           <p class="subtitle">Serviços, produtos, corridas, imóveis, eventos e lojas — o TOP3 conecta os dois lados com busca simples e resultado direto em Belo Horizonte.</p>
           <div class="hero-cta-row">
-          <div class="hero-mode-tabs" role="tablist" aria-label="O que você quer fazer">
-            <button type="button" class="hero-mode-btn mode-btn is-active" data-mode="requester" role="tab" aria-selected="true"><span class="btn-lead"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Preciso de algo</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-            <button type="button" class="hero-mode-btn mode-btn" data-mode="provider" role="tab" aria-selected="false"><span class="btn-lead"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 8v8M8 12h8"/></svg>Quero oferecer</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          <div class="hero-mode-tabs" aria-label="O que você quer fazer">
+            <button type="button" id="open-preciso-btn" class="hero-mode-btn hero-mode-btn--primary compose-open" data-compose-mode="requester"><span class="btn-lead"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Preciso de algo</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+            <button type="button" id="open-quero-btn" class="hero-mode-btn compose-open" data-compose-mode="provider"><span class="btn-lead"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 8v8M8 12h8"/></svg>Quero oferecer</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
           </div>
           <form id="hero-search-form" class="hero-search-form" role="search" autocomplete="off">
             <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <input id="hero-search-input" type="search" placeholder="O que você está procurando?" aria-label="Buscar" enterkeyhint="search" spellcheck="false" />
             <button type="submit" class="cta-button hero-search-submit">Buscar</button>
           </form>
-          <div class="hero-compose-btns">
-            <button type="button" id="open-solicitar-btn" class="compose-open compose-open--primary" data-compose-mode="requester">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 8v8M8 12h8"/></svg>
-              Solicitar
-            </button>
-            <button type="button" id="open-cadastrar-btn" class="compose-open compose-open--secondary" data-compose-mode="provider">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-              Cadastrar
-            </button>
           </div>
-          </div>
+          <button type="button" id="hero-panel-toggle" class="hero-panel-toggle" aria-expanded="false" aria-controls="hero-search-panel">Atalhos por categoria <span aria-hidden="true">▾</span></button>
         </div>
         <aside class="hero-aside" aria-hidden="true">
           <p class="hero-script">Conectando<br />pessoas em<br />Belo Horizonte</p>
@@ -423,12 +418,6 @@
               </article>
             </div>
           </div>
-          <nav class="bnav" id="bnav" aria-label="Navegação principal">
-            <a href="#top" class="bni is-active" data-bni="explorar" aria-current="page"><svg class="icon" viewBox="0 0 24 24" fill="currentColor" fill-opacity=".18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg><span>Explorar</span></a>
-            <a href="#publicar" class="bni" data-bni="postar"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg><span>Postar</span></a>
-            <a href="#atividade" class="bni" data-bni="mensagens"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-5.4A8 8 0 1 1 21 12z"/><circle cx="9" cy="12" r=".7" fill="currentColor"/><circle cx="12.5" cy="12" r=".7" fill="currentColor"/><circle cx="16" cy="12" r=".7" fill="currentColor"/></svg><span>Mensagens</span></a>
-            <a href="#criar-perfil" class="bni" data-bni="perfil" id="bni-perfil"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg><span>Meu perfil</span></a>
-          </nav>
         </div>
       </div>
     </section>
@@ -920,13 +909,16 @@
         <div class="container">
           <div class="offer-cta-box">
             <div>
-              <h2 class="offer-cta-title">Quero oferecer</h2>
-              <p class="offer-cta-text">Cadastre seu serviço, sua loja, um produto ou uma viagem — e apareça pra quem está procurando. Use a busca no topo pra ver o que já existe.</p>
+              <h2 class="offer-cta-title">Pedidos em aberto</h2>
+              <p class="offer-cta-text">Aceite o que fizer sentido pra você. Quer aparecer pra quem procura? Cadastre seu serviço, sua loja, um produto ou uma viagem.</p>
             </div>
-            <button type="button" id="open-oferecer-btn" class="compose-open compose-open--primary" data-compose-mode="provider">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 8v8M8 12h8"/></svg>
-              Cadastrar minha oferta
-            </button>
+            <div class="offer-cta-actions">
+              <button type="button" class="mode-btn offer-back-btn" data-mode="requester">← Voltar</button>
+              <button type="button" id="open-oferecer-btn" class="compose-open compose-open--primary" data-compose-mode="provider">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 8v8M8 12h8"/></svg>
+                Cadastrar minha oferta
+              </button>
+            </div>
           </div>
         </div>
       </section>

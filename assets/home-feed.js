@@ -471,43 +471,25 @@
     render();
   }
 
-  // ── painel de busca recolhível ("Preciso de algo") ─────────────────────
+  // ── atalhos por categoria (painel recolhido; abre pelo link discreto do hero) ──
   const searchPanel = $("hero-search-panel");
+  const panelToggle = $("hero-panel-toggle");
   function setSearchPanel(open, focus) {
     if (!searchPanel) return;
     searchPanel.hidden = !open;
-    const btn = document.querySelector('.hero-mode-btn[data-mode="requester"]');
-    if (btn) btn.setAttribute("aria-expanded", String(open));
+    if (panelToggle) panelToggle.setAttribute("aria-expanded", String(open));
     if (open && focus) {
       const first = searchPanel.querySelector(".hero-category-chips button");
       if (first) first.focus({ preventScroll: true });
     }
   }
-  let requesterWasActive = true;
-  document.addEventListener(
-    "click",
-    (e) => {
-      const btn = e.target.closest('.hero-mode-btn[data-mode="requester"]');
-      if (btn) requesterWasActive = btn.classList.contains("is-active");
-    },
-    true
-  );
-  document.addEventListener("click", (e) => {
-    const btn = e.target.closest('.hero-mode-btn[data-mode="requester"]');
-    if (!btn) return;
-    // já estava ativo: alterna; veio do modo prestador: abre
-    setSearchPanel(requesterWasActive ? searchPanel.hidden : true, true);
-  });
-  // busca disparada de outro caminho (?q=, chips rápidos, ESC) mantém o painel coerente
-  $("hero-search-form").addEventListener("submit", () => setSearchPanel(true, false));
+  if (panelToggle) panelToggle.addEventListener("click", () => setSearchPanel(searchPanel.hidden, true));
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && searchPanel && !searchPanel.hidden && document.activeElement && searchPanel.contains(document.activeElement)) {
       setSearchPanel(false, false);
-      const btn = document.querySelector('.hero-mode-btn[data-mode="requester"]');
-      if (btn) btn.focus();
+      if (panelToggle) panelToggle.focus();
     }
   });
-  if (new URLSearchParams(window.location.search).get("q")) setSearchPanel(true, false);
 
   // ── barra de navegação (Explorar | Postar | Mensagens | Meu perfil) ────
   const bnav = $("bnav");
