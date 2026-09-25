@@ -252,9 +252,26 @@
         <div class="hero-content">
           <h1 class="hero-title">Poste o que precisa.<br /><span class="hero-title-accent">Ofereça o que tem.</span></h1>
           <p class="subtitle">Serviços, produtos, corridas, imóveis, eventos e lojas — o TOP3 conecta os dois lados com busca simples e resultado direto em Belo Horizonte.</p>
+          <div class="hero-cta-row">
           <div class="hero-mode-tabs" role="tablist" aria-label="O que você quer fazer">
             <button type="button" class="hero-mode-btn mode-btn is-active" data-mode="requester" role="tab" aria-selected="true"><span class="btn-lead"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Preciso de algo</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
             <button type="button" class="hero-mode-btn mode-btn" data-mode="provider" role="tab" aria-selected="false"><span class="btn-lead"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 8v8M8 12h8"/></svg>Quero oferecer</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          </div>
+          <form id="hero-search-form" class="hero-search-form" role="search" autocomplete="off">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="hero-search-input" type="search" placeholder="O que você está procurando?" aria-label="Buscar" enterkeyhint="search" spellcheck="false" />
+            <button type="submit" class="cta-button hero-search-submit">Buscar</button>
+          </form>
+          <div class="hero-compose-btns">
+            <button type="button" id="open-solicitar-btn" class="compose-open compose-open--primary" data-compose-mode="requester">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 8v8M8 12h8"/></svg>
+              Solicitar
+            </button>
+            <button type="button" id="open-cadastrar-btn" class="compose-open compose-open--secondary" data-compose-mode="provider">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+              Cadastrar
+            </button>
+          </div>
           </div>
         </div>
         <aside class="hero-aside" aria-hidden="true">
@@ -268,11 +285,6 @@
       <div class="container hero-tools">
     <div id="hero-requester-tools">
      <div id="hero-search-panel" class="hero-search-panel" hidden>
-      <form id="hero-search-form" class="hero-search-form" role="search" autocomplete="off">
-        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input id="hero-search-input" type="search" placeholder="O que você está procurando?" aria-label="Buscar" enterkeyhint="search" spellcheck="false" />
-        <button type="submit" class="cta-button hero-search-submit">Buscar agora</button>
-      </form>
       <div class="hero-category-chips">
         <button type="button" class="example-chip" data-hero-category="servico"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94Z"/></svg> Serviços</button>
         <button type="button" class="example-chip" data-hero-category="viagem"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 11 6.5 6.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11"/><rect x="3" y="11" width="18" height="6" rx="2"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/></svg> Viagem</button>
@@ -713,6 +725,7 @@
               <option value="profissional">profissional</option>
               <option value="imovel">imóvel</option>
               <option value="produto">produto</option>
+              <option value="loja">loja</option>
               <option value="outro" selected>outro</option>
             </select>
           </div>
@@ -903,6 +916,21 @@
     </div>
 
     <div id="provider-view" hidden>
+      <section id="oferecer" class="offer-cta-section">
+        <div class="container">
+          <div class="offer-cta-box">
+            <div>
+              <h2 class="offer-cta-title">Quero oferecer</h2>
+              <p class="offer-cta-text">Cadastre seu serviço, sua loja, um produto ou uma viagem — e apareça pra quem está procurando. Use a busca no topo pra ver o que já existe.</p>
+            </div>
+            <button type="button" id="open-oferecer-btn" class="compose-open compose-open--primary" data-compose-mode="provider">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 8v8M8 12h8"/></svg>
+              Cadastrar minha oferta
+            </button>
+          </div>
+        </div>
+      </section>
+
       <section id="provider" class="provider-section">
         <div class="container">
           <p class="eyebrow">Pedidos perto de você</p>
@@ -981,11 +1009,30 @@
   </footer>
 
 
+
+  <div id="compose-dialog" class="compose-overlay" hidden>
+    <div class="compose-box" role="dialog" aria-modal="true" aria-labelledby="compose-title">
+      <div class="compose-head">
+        <h2 id="compose-title" class="compose-title">O que você precisa?</h2>
+        <button type="button" id="compose-close" class="compose-close" aria-label="Fechar">✕</button>
+      </div>
+      <div class="compose-tabs" id="compose-tabs" role="tablist" aria-label="Tipo">
+        <button type="button" class="compose-tab is-active" data-kind="servico" role="tab" aria-selected="true"><span class="compose-tab-ico" aria-hidden="true">🔧</span>Serviço</button>
+        <button type="button" class="compose-tab" data-kind="loja" role="tab" aria-selected="false"><span class="compose-tab-ico" aria-hidden="true">🏪</span>Loja</button>
+        <button type="button" class="compose-tab" data-kind="produto" role="tab" aria-selected="false"><span class="compose-tab-ico" aria-hidden="true">📦</span>Produto</button>
+        <button type="button" class="compose-tab" data-kind="viagem" role="tab" aria-selected="false"><span class="compose-tab-ico" aria-hidden="true">🚗</span>Viagem</button>
+      </div>
+      <p id="compose-hint" class="compose-hint"></p>
+      <div id="compose-body" class="compose-body"></div>
+    </div>
+  </div>
+
   <!-- ALTCHA (task-008) — anti-spam sem terceiro, servido do próprio site (ver /vendor/altcha em server.js). -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script type="module" src="/vendor/altcha/altcha.min.js"></script>
   <script src="assets/app.js"></script>
   <script src="assets/home-feed.js"></script>
+  <script src="assets/compose.js"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

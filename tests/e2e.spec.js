@@ -92,10 +92,10 @@ test.describe("Top3Profissional - fluxo básico", () => {
     await expect(searchInput).toHaveAttribute("placeholder", "O que você está procurando?");
 
     await page.locator('.mode-btn[data-mode="provider"]').click();
-    await expect(searchInput).toHaveAttribute("placeholder", /Preciso de algo/);
+    await expect(searchInput).toHaveAttribute("placeholder", /Buscar o que já foi publicado/);
 
     await page.locator('.mode-btn[data-mode="requester"]').click();
-    await expect(searchInput).toHaveAttribute("placeholder", "Descreva o que você gostaria de solicitar...");
+    await expect(searchInput).toHaveAttribute("placeholder", "O que você está procurando?");
   });
 
   test("busca: bloqueia uma segunda busca (ex: 'Chamar agora' no ranking) enquanto a primeira está em andamento", async ({
@@ -4176,7 +4176,7 @@ test.describe("Top3Profissional - home Neon Dark: categorias, filtros, busca rec
     await expect(panel).toBeHidden();
     await btn.click();
     await expect(panel).toBeVisible();
-    await expect(page.locator("#hero-search-input")).toBeFocused();
+    await expect(page.locator('.hero-category-chips [data-hero-category="servico"]')).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(panel).toBeHidden();
     await btn.click();
@@ -4215,5 +4215,128 @@ test.describe("Top3Profissional - home Neon Dark: categorias, filtros, busca rec
     // chips quadrados: ícone em cima, nome embaixo
     const dir = await page.locator(".cat-chip").first().evaluate((el) => getComputedStyle(el).flexDirection);
     expect(dir).toBe("column");
+  });
+});
+
+test.describe("Top3Profissional - busca no cabeçalho e formulários Solicitar / Oferecer", () => {
+  test("a barra de pesquisa fica ao lado dos botões do hero, sempre visível (inclusive no modo 'Quero oferecer')", async ({ page }) => {
+    await page.goto("/");
+    const form = page.locator(".hero-cta-row #hero-search-form");
+    await expect(form).toBeVisible();
+    await page.locator('.hero-mode-btn[data-mode="provider"]').click();
+    await expect(page.locator("#provider-view")).toBeVisible();
+    await expect(form).toBeVisible();
+    // buscar estando em 'Quero oferecer' volta pro modo de busca e roteia pelo mesmo motor
+    await page.locator("#hero-search-input").fill("eletricista");
+    await form.locator("button[type=submit]").click();
+    await expect(page.locator('.hero-mode-btn[data-mode="requester"]')).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator("#top3")).toBeInViewport();
+  });
+
+  test("Preciso de algo → Solicitar abre o formulário com 4 tipos e o tipo escolhido vai no pedido", async ({ page, request }) => {
+    await page.goto("/");
+    await page.locator('.hero-mode-btn[data-mode="requester"]').click();
+    await page.locator("#open-solicitar-btn").click();
+    const dialog = page.locator("#compose-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.locator(".compose-tab")).toHaveText([/Serviço/, /Loja/, /Produto/, /Viagem/]);
+    await expect(dialog.locator("#post-form")).toBeVisible();
+
+    // cada aba fixa o tipo do pedido (o campo "Tipo" fica escondido, já foi escolhido)
+    const expected = { Serviço: "profissional", Loja: "loja", Produto: "produto", Viagem: "corrida" };
+    for (const [label, value] of Object.entries(expected)) {
+      await dialog.locator(".compose-tab", { hasText: label }).click();
+      await expect(page.locator("#post-type")).toHaveValue(value);
+      await expect(page.locator("#post-type")).toBeHidden();
+    }
+
+    // publica de verdade como "Loja" e confere o tipo no servidor
+    const titulo = `loja de tintas ${Math.random().toString(36).slice(2, 8)}`;
+    await dialog.locator(".compose-tab", { hasText: "Loja" }).click();
+    await page.locator("#post-title").fill(titulo);
+    await page.locator("#post-location").fill("Centro, Belo Horizonte");
+    await page.locator("#post-whatsapp").fill("31999990077");
+    await page.locator("#post-price").fill("50");
+    await page.locator("#post-form button[type=submit]").click();
+    await expect(page.locator("#post-status")).not.toBeEmpty();
+    const { requests } = await (await request.get("/api/requests")).json();
+    const criado = requests.find((r) => r.title === titulo);
+    expect(criado, "o pedido deveria ter sido criado").toBeTruthy();
+    expect(criado.type).toBe("loja");
+  });
+
+  test("fechar (✕, Esc ou clicando fora) devolve o formulário ao lugar de origem", async ({ page }) => {
+    await page.goto("/");
+    await page.locator('.hero-mode-btn[data-mode="requester"]').click();
+    for (const how of ["x", "esc", "fora"]) {
+      await page.locator("#open-solicitar-btn").click();
+      await expect(page.locator("#compose-dialog #publicar")).toHaveCount(1);
+      if (how === "x") await page.locator("#compose-close").click();
+      if (how === "esc") await page.keyboard.press("Escape");
+      if (how === "fora") await page.locator("#compose-dialog").click({ position: { x: 5, y: 5 } });
+      await expect(page.locator("#compose-dialog")).toBeHidden();
+      await expect(page.locator("#requester-view #publicar")).toHaveCount(1);
+      await expect(page.locator("#compose-dialog #publicar")).toHaveCount(0);
+    }
+  });
+
+  test("Quero oferecer → Cadastrar minha oferta: Serviço/Loja/Produto usam o cadastro de perfil e Viagem, a carona", async ({ page }) => {
+    await page.goto("/");
+    await page.locator('.hero-mode-btn[data-mode="provider"]').click();
+    await page.locator("#open-oferecer-btn").click();
+    const dialog = page.locator("#compose-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(page.locator("#compose-title")).toHaveText("O que você quer oferecer?");
+    await expect(dialog.locator("#provider-form")).toBeVisible();
+
+    await dialog.locator(".compose-tab", { hasText: "Loja" }).click();
+    await expect(dialog.locator('label[for="provider-name"]')).toHaveText("Nome da loja");
+    await expect(page.locator("#provider-form-submit")).toHaveText("Cadastrar minha loja");
+    await dialog.locator(".compose-tab", { hasText: "Produto" }).click();
+    await expect(dialog.locator('label[for="provider-service"]')).toHaveText("O que você vende");
+    await dialog.locator(".compose-tab", { hasText: "Serviço" }).click();
+    await expect(page.locator("#provider-form-submit")).toHaveText("Criar meu perfil");
+
+    await dialog.locator(".compose-tab", { hasText: "Viagem" }).click();
+    await expect(dialog.locator("#group-form")).toBeVisible();
+    await expect(page.locator("#group-category")).toHaveValue("carona");
+    await expect(dialog.locator("#group-carona-fields")).toBeVisible();
+
+    // ao fechar, os rótulos originais voltam
+    await page.locator("#compose-close").click();
+    await expect(page.locator('label[for="provider-name"]')).toHaveText("Seu nome");
+    await expect(page.locator("#provider-form-submit")).toHaveText("Criar meu perfil");
+  });
+
+  test("celular: busca em linha própria abaixo dos botões e o diálogo abre como folha inferior", async ({ page }) => {
+    await page.setViewportSize({ width: 393, height: 852 });
+    await page.goto("/");
+    const box = await page.locator(".hero-cta-row #hero-search-form").boundingBox();
+    expect(box.width).toBeGreaterThan(300);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    await page.locator('.hero-mode-btn[data-mode="requester"]').click();
+    await page.locator("#open-solicitar-btn").click();
+    const boxD = await page.locator(".compose-box").boundingBox();
+    expect(boxD.width).toBeGreaterThan(380);
+    expect(boxD.y + boxD.height).toBeGreaterThan(800); // encostado embaixo
+  });
+});
+
+test.describe("Top3Profissional - 'Cadastrar' dentro de 'Preciso de algo'", () => {
+  test("o painel de 'Preciso de algo' tem Solicitar e Cadastrar; Cadastrar abre o formulário de oferta", async ({ page }) => {
+    await page.goto("/");
+    // sempre visíveis, na mesma linha do Buscar
+    await expect(page.locator(".hero-cta-row #open-solicitar-btn")).toBeVisible();
+    await expect(page.locator(".hero-cta-row #open-cadastrar-btn")).toBeVisible();
+    const buscar = await page.locator(".hero-cta-row .hero-search-submit").boundingBox();
+    const solicitar = await page.locator("#open-solicitar-btn").boundingBox();
+    expect(Math.abs(solicitar.y - buscar.y)).toBeLessThan(40);
+    expect(solicitar.x).toBeGreaterThan(buscar.x);
+    await expect(page.locator("#open-cadastrar-btn")).toHaveText("Cadastrar");
+
+    await page.locator("#open-cadastrar-btn").click();
+    await expect(page.locator("#compose-title")).toHaveText("O que você quer oferecer?");
+    await expect(page.locator("#compose-dialog #provider-form")).toBeVisible();
+    await expect(page.locator("#compose-dialog .compose-tab")).toHaveText([/Serviço/, /Loja/, /Produto/, /Viagem/]);
   });
 });
