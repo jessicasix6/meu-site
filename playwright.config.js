@@ -45,6 +45,10 @@ module.exports = defineConfig({
       // pensados pra abuso real (ex: 20 cadastros/hora por IP) travam a
       // própria suíte de teste, que roda tudo do mesmo IP (localhost).
       DISABLE_RATE_LIMITS: "1",
+      // Verificação do WhatsApp (Meu perfil): sem o WhatsApp Business configurado o
+      // código não tem como chegar, então o servidor de teste devolve o código na
+      // resposta. Esta env var NUNCA é definida em produção.
+      WHATSAPP_CODE_DEV_ECHO: "1",
       // Geocodificação (task-008, Nominatim público) não tem chave pra
       // "faltar" como as outras integrações opcionais — fica sempre ativa
       // por padrão. Sem desligar aqui, a suíte inteira bateria de verdade

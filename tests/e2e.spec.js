@@ -4349,8 +4349,196 @@ test.describe("Top3Profissional - busca no hero e formulários de solicitar / ca
     expect(box.width).toBeGreaterThan(300);
     expect(box.height).toBeGreaterThanOrEqual(44);
     await page.locator("#open-preciso-btn").click();
-    const boxD = await page.locator(".compose-box").boundingBox();
+    const boxD = await page.locator("#compose-dialog .compose-box").boundingBox();
     expect(boxD.width).toBeGreaterThan(380);
     expect(boxD.y + boxD.height).toBeGreaterThan(800); // encostado embaixo
+  });
+});
+
+test.describe("Top3Profissional - Meu perfil: foto e verificação do WhatsApp", () => {
+  // PNG 1x1 válido (assinatura real, não só a extensão)
+  const PNG_1X1 = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+
+  function randomEmail() {
+    return `perfil${Date.now()}${Math.floor(Math.random() * 100000)}@example.com`;
+  }
+
+  async function criarConta(request, whatsapp = "31999990000") {
+    const res = await request.post("/api/auth/signup", {
+      data: { name: "Maria Perfil", email: randomEmail(), password: "senha12345", whatsapp },
+    });
+    expect(res.status()).toBe(201);
+    return (await res.json()).user;
+  }
+
+  test("foto de perfil: envia png, serve a imagem, rejeita arquivo que não é imagem e remove", async ({ request }) => {
+    const user = await criarConta(request);
+    const sem = await request.post("/api/auth/photo", { multipart: {} });
+    expect(sem.status()).toBe(400);
+
+    const falso = await request.post("/api/auth/photo", { multipart: { photo: { name: "x.png", mimeType: "image/png", buffer: Buffer.from("isso não é uma imagem") } } });
+    expect(falso.status()).toBe(400);
+
+    const ok = await request.post("/api/auth/photo", { multipart: { photo: { name: "eu.png", mimeType: "image/png", buffer: PNG_1X1 } } });
+    expect(ok.status()).toBe(200);
+    const { user: comFoto } = await ok.json();
+    expect(comFoto.picture).toMatch(new RegExp(`^/uploads/users/${user.id}/avatar-\\d+\\.png$`));
+    const img = await request.get(comFoto.picture);
+    expect(img.status()).toBe(200);
+    expect(img.headers()["content-type"]).toContain("image/png");
+
+    const del = await request.delete("/api/auth/photo");
+    expect((await del.json()).user.picture).toBeNull();
+  });
+
+  test("foto de perfil exige login", async ({ playwright, baseURL }) => {
+    const anon = await playwright.request.newContext({ baseURL });
+    expect((await anon.post("/api/auth/photo", { multipart: { photo: { name: "a.png", mimeType: "image/png", buffer: PNG_1X1 } } })).status()).toBe(401);
+    expect((await anon.post("/api/auth/whatsapp/code")).status()).toBe(401);
+    expect((await anon.post("/api/auth/whatsapp/verify", { data: { code: "123456" } })).status()).toBe(401);
+    await anon.dispose();
+  });
+
+  test("verificação do WhatsApp: código certo verifica, errado conta tentativa, trocar o número derruba", async ({ request }) => {
+    const user = await criarConta(request);
+    expect(user.whatsappVerified).toBe(false);
+
+    const enviado = await request.post("/api/auth/whatsapp/code");
+    expect(enviado.status()).toBe(200);
+    const { devCode, maskedNumber } = await enviado.json();
+    expect(devCode).toMatch(/^\d{6}$/); // só o servidor de teste devolve o código
+    expect(maskedNumber).toMatch(/\*{5}-0000$/);
+
+    const errado = await request.post("/api/auth/whatsapp/verify", { data: { code: devCode === "000000" ? "111111" : "000000" } });
+    expect(errado.status()).toBe(400);
+    expect((await errado.json()).attemptsLeft).toBe(4);
+    expect((await request.post("/api/auth/whatsapp/verify", { data: { code: "12" } })).status()).toBe(400);
+
+    const certo = await request.post("/api/auth/whatsapp/verify", { data: { code: devCode } });
+    expect(certo.status()).toBe(200);
+    expect((await certo.json()).user.whatsappVerified).toBe(true);
+    expect((await (await request.get("/api/auth/me")).json()).user.whatsappVerified).toBe(true);
+
+    // mesmo número salvo de novo continua verificado; número diferente derruba
+    const igual = await request.put("/api/auth/profile", { data: { whatsapp: "(31) 99999-0000" } });
+    expect((await igual.json()).user.whatsappVerified).toBe(true);
+    const outro = await request.put("/api/auth/profile", { data: { whatsapp: "31988887777" } });
+    expect((await outro.json()).user.whatsappVerified).toBe(false);
+  });
+
+  test("verificação: número inválido, código vencido/sem pedido e limite de tentativas", async ({ request }) => {
+    await criarConta(request);
+    await request.put("/api/auth/profile", { data: { whatsapp: "123" } });
+    const invalido = await request.post("/api/auth/whatsapp/code");
+    expect(invalido.status()).toBe(400);
+    expect((await invalido.json()).code).toBe("invalid_number");
+
+    await request.put("/api/auth/profile", { data: { whatsapp: "31999990000" } });
+    const semCodigo = await request.post("/api/auth/whatsapp/verify", { data: { code: "123456" } });
+    expect(semCodigo.status()).toBe(400);
+    expect((await semCodigo.json()).code).toBe("no_code");
+
+    const { devCode } = await (await request.post("/api/auth/whatsapp/code")).json();
+    const errado = devCode === "999999" ? "888888" : "999999";
+    for (let i = 0; i < 5; i++) {
+      expect((await request.post("/api/auth/whatsapp/verify", { data: { code: errado } })).status()).toBe(400);
+    }
+    const bloqueado = await request.post("/api/auth/whatsapp/verify", { data: { code: devCode } });
+    expect(bloqueado.status()).toBe(429);
+    // depois de estourar, o código antigo não vale mais
+    expect((await request.post("/api/auth/whatsapp/verify", { data: { code: devCode } })).status()).toBe(400);
+  });
+
+  test("UI: 'Meu perfil' abre o diálogo com nome, foto e WhatsApp; verifica o número e troca a foto", async ({ page }) => {
+    await criarConta(page.request);
+    await page.goto("/");
+    await page.locator('#bnav .bni[data-bni="perfil"]').click();
+    const dialog = page.locator("#profile-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(page.locator("#pf-name")).toHaveValue("Maria Perfil");
+    await expect(page.locator("#pf-whatsapp")).toHaveValue("31999990000");
+    await expect(page.locator("#pf-wa-badge")).toHaveText("Não verificado");
+    await expect(page.locator("#pf-avatar")).toHaveText("MP");
+
+    // nome
+    await page.locator("#pf-name").fill("Maria Nova");
+    await page.locator("#pf-name-save").click();
+    await expect(page.locator("#pf-status")).toContainText("Nome salvo");
+    await expect(page.locator("#user-chip-toggle")).toContainText("Maria Nova");
+
+    // verificação
+    await page.locator("#pf-wa-send").click();
+    await expect(page.locator("#pf-wa-code-row")).toBeVisible();
+    const code = await page.locator("#pf-wa-code").getAttribute("data-dev-code");
+    await page.locator("#pf-wa-code").fill("000000" === code ? "111111" : "000000");
+    await page.locator("#pf-wa-confirm").click();
+    await expect(page.locator("#pf-status")).toContainText("incorreto");
+    await page.locator("#pf-wa-code").fill(code);
+    await page.locator("#pf-wa-confirm").click();
+    await expect(page.locator("#pf-wa-badge")).toHaveText("✓ Verificado");
+    await expect(page.locator("#pf-wa-send")).toBeHidden();
+
+    // trocar o número pede verificação de novo
+    await page.locator("#pf-whatsapp").fill("31977776666");
+    await page.locator("#pf-whatsapp-save").click();
+    await expect(page.locator("#pf-wa-badge")).toHaveText("Não verificado");
+
+    // foto
+    await page.locator("#pf-photo-input").setInputFiles({ name: "eu.png", mimeType: "image/png", buffer: PNG_1X1 });
+    await expect(page.locator("#pf-status")).toContainText("Foto atualizada");
+    await expect(page.locator("#pf-avatar")).toHaveClass(/has-photo/);
+    await expect(page.locator("#pf-photo-remove")).toBeVisible();
+    await page.locator("#pf-photo-remove").click();
+    await expect(page.locator("#pf-avatar")).not.toHaveClass(/has-photo/);
+
+    // motorista/horários: o formulário antigo mora aqui dentro e volta pro lugar ao fechar
+    await page.locator(".pf-more summary").click();
+    await expect(dialog.locator("#profile-edit-form")).toBeVisible();
+    await page.locator("#profile-close").click();
+    await expect(dialog).toBeHidden();
+    await expect(page.locator("#profile-edit-panel #profile-edit-form")).toHaveCount(1);
+  });
+
+  test("UI: sem a integração do WhatsApp, a verificação mostra aviso honesto e o botão fica desativado", async ({ page }) => {
+    await criarConta(page.request);
+    await page.route("**/api/auth/config", async (route) => {
+      const res = await route.fetch();
+      const cfg = await res.json();
+      await route.fulfill({ response: res, json: { ...cfg, whatsappVerification: false } });
+    });
+    await page.goto("/");
+    await page.locator('#bnav .bni[data-bni="perfil"]').click();
+    await expect(page.locator("#pf-wa-note")).toContainText("ainda não está ativa");
+    await expect(page.locator("#pf-wa-send")).toBeDisabled();
+  });
+
+  test("celular: o diálogo do perfil abre como folha inferior sem rolagem lateral", async ({ page }) => {
+    await page.setViewportSize({ width: 393, height: 852 });
+    await criarConta(page.request);
+    await page.goto("/");
+    await page.locator('#bnav .bni[data-bni="perfil"]').click();
+    const box = await page.locator(".profile-box").boundingBox();
+    expect(box.width).toBeGreaterThan(380);
+    // o diálogo cabe na tela e não tem rolagem lateral própria
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(394);
+    expect(await page.locator(".profile-scroll").evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  });
+
+  test("celular: texto longo sem espaço (local/título) não empurra a página pros lados", async ({ page, request }) => {
+    await page.setViewportSize({ width: 393, height: 852 });
+    const longo = "X".repeat(70);
+    const criado = await request.post("/api/requests", { data: { type: "produto", title: `${longo}${Date.now()}`, price: 10, whatsapp: "31999990000", location: longo } });
+    expect(criado.status()).toBe(201);
+    await Promise.all([page.waitForResponse((res) => res.url().includes("/api/requests")), page.goto("/")]);
+    await expect(page.locator("#highlights-list .highlight-card").first()).toBeVisible();
+    const largura = await page.evaluate(() => document.documentElement.scrollWidth);
+    const culpados = await page.evaluate(() =>
+      [...document.querySelectorAll("body *")]
+        .filter((e) => e.offsetParent !== null && !e.closest(".cat-row, .sub-row") && e.getBoundingClientRect().right > 394)
+        .slice(0, 6)
+        .map((e) => `${e.tagName.toLowerCase()}.${String(e.className).slice(0, 40)} (${Math.round(e.getBoundingClientRect().right)}px): ${(e.textContent || "").trim().slice(0, 40)}`)
+    );
+    expect(largura, `elementos que passam da tela: ${culpados.join(" | ")}`).toBeLessThanOrEqual(393);
   });
 });

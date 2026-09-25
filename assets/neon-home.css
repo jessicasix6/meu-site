@@ -2782,3 +2782,471 @@ body.compose-locked {
     bottom: -30px;
   }
 }
+
+/* ============================================================
+   Meu perfil (foto, nome, WhatsApp com verificação, motorista/horários)
+   ============================================================ */
+
+.profile-box {
+  width: min(680px, 100%);
+}
+
+.profile-scroll {
+  overflow-y: auto;
+  margin-top: 0.8rem;
+  padding-right: 0.2rem;
+}
+
+.pf-top {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+  padding-bottom: 1.1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.pf-avatar-col {
+  display: flex;
+  flex: 0 0 132px;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pf-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 104px;
+  height: 104px;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #2a5fa8, #0d2248) center / cover no-repeat;
+  border: 2px solid rgba(0, 229, 255, 0.7);
+  border-radius: 50%;
+  box-shadow: 0 0 22px rgba(0, 229, 255, 0.3);
+}
+
+.pf-ident {
+  flex: 1;
+  min-width: 0;
+}
+
+.pf-label,
+.pf-h3 {
+  display: block;
+  margin: 0 0 0.4rem;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--text);
+}
+
+.pf-h3 label {
+  font: inherit;
+}
+
+.pf-section {
+  margin-top: 1.1rem;
+}
+
+.pf-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+
+.pf-section-head .pf-h3 {
+  margin: 0;
+}
+
+.pf-row {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.pf-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 0.9rem;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: #f4fbff;
+  background-color: #06141d;
+  border: 1px solid rgba(30, 210, 238, 0.28);
+  border-radius: 10px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pf-input::placeholder {
+  color: var(--text-faint);
+}
+
+.pf-input:hover {
+  border-color: rgba(22, 230, 255, 0.55);
+}
+
+.pf-input:focus {
+  outline: none;
+  border-color: #16e6ff;
+  box-shadow: 0 0 0 2px rgba(22, 230, 255, 0.12);
+}
+
+.pf-select {
+  width: 100%;
+  padding-right: 2.2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1.5l5 5 5-5' stroke='%23f4fbff' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.pf-select option {
+  background: #06141d;
+  color: #f4fbff;
+}
+
+.pf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 1.1rem;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.pf-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.pf-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.pf-btn--primary {
+  color: var(--accent-ink);
+  background: var(--grad-cta);
+  border: 0;
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.35);
+}
+
+.pf-btn--primary:hover:not(:disabled) {
+  box-shadow: 0 0 26px rgba(0, 229, 255, 0.55);
+}
+
+.pf-btn--secondary {
+  color: var(--text);
+  background: rgba(6, 16, 26, 0.72);
+  border: 1.5px solid rgba(0, 229, 255, 0.6);
+}
+
+.pf-btn--secondary:hover:not(:disabled) {
+  background: rgba(0, 229, 255, 0.12);
+  border-color: var(--accent);
+}
+
+.pf-btn--danger {
+  color: #ff8a8c;
+  background: transparent;
+  border: 1.5px solid rgba(255, 77, 79, 0.55);
+}
+
+.pf-btn--danger:hover {
+  background: rgba(255, 77, 79, 0.12);
+  border-color: #ff4d4f;
+}
+
+.pf-photo-btn {
+  min-height: 40px;
+  padding: 0 0.9rem;
+  font-size: 0.8rem;
+}
+
+.pf-link {
+  min-height: 44px;
+  padding: 0 0.4rem;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  color: var(--text-soft);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.pf-link:hover {
+  color: var(--accent);
+}
+
+.pf-link:focus-visible {
+  outline: 2px solid var(--accent);
+  border-radius: 6px;
+}
+
+.pf-email {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-soft);
+}
+
+.pf-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 999px;
+}
+
+.pf-badge--ok {
+  color: #7dffa8;
+  background: rgba(0, 200, 83, 0.14);
+  border: 1px solid rgba(0, 200, 83, 0.5);
+}
+
+.pf-badge--warn {
+  color: #ffd580;
+  background: rgba(255, 200, 61, 0.1);
+  border: 1px solid rgba(255, 200, 61, 0.4);
+}
+
+.pf-verify {
+  margin-top: 0.6rem;
+}
+
+.pf-code-row {
+  margin-top: 0.6rem;
+}
+
+.pf-code-input {
+  letter-spacing: 0.3em;
+  text-align: center;
+  font-weight: 700;
+}
+
+.pf-note {
+  margin: 0.55rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-soft);
+}
+
+.pf-more {
+  margin-top: 1.1rem;
+  padding: 0.75rem 0.9rem;
+  background: rgba(6, 16, 26, 0.5);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+}
+
+.pf-more summary {
+  min-height: 32px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.pf-more summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* o formulário "Meus dados" embutido: sem o cartão flutuante e sem os campos que o diálogo já tem */
+.profile-box #profile-edit-form.pf-embedded {
+  margin-top: 0.8rem;
+}
+
+.profile-box #profile-edit-form .post-field:has(#profile-whatsapp),
+.profile-box #profile-edit-form .post-field:has(#profile-tipo-uso) {
+  display: none;
+}
+
+.pf-activity {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.pf-act-block strong {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.8rem;
+}
+
+.pf-act-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pf-act-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.3rem 0;
+  font-size: 0.78rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.pf-act-list em {
+  font-style: normal;
+  color: var(--text-dim);
+}
+
+.pf-act-list a {
+  color: var(--accent);
+}
+
+.pf-act-empty {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.pf-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.2rem;
+}
+
+.pf-status {
+  min-height: 1.2rem;
+  margin: 0.7rem 0 0;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 960px) {
+  .pf-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .pf-avatar-col {
+    flex-direction: row;
+    flex: none;
+    justify-content: flex-start;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .pf-avatar {
+    width: 84px;
+    height: 84px;
+    font-size: 1.6rem;
+  }
+  .pf-row {
+    flex-wrap: wrap;
+  }
+  .pf-row .pf-btn {
+    flex: 1 1 100%;
+  }
+  .pf-activity {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .profile-box {
+    width: 100%;
+  }
+}
+
+/* formulário "Meus dados" dentro do perfil: uma coluna, sem transbordar */
+.profile-box #profile-edit-form.pf-embedded {
+  display: block;
+}
+
+.profile-box #profile-edit-form.pf-embedded fieldset {
+  width: 100%;
+  min-width: 0;
+  margin: 0 0 0.9rem;
+  padding: 0.7rem 0.9rem 0.9rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+}
+
+.profile-box #profile-edit-form.pf-embedded legend {
+  padding: 0 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.profile-box #profile-edit-form.pf-embedded .profile-availability-row {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.profile-box #profile-edit-form.pf-embedded .profile-availability-row input {
+  width: 100%;
+  min-width: 0;
+}
+
+.profile-box #profile-edit-form.pf-embedded .post-field {
+  margin-bottom: 0.6rem;
+}
+
+/* textos longos sem espaço (local, título, atividade) quebram em vez de empurrar a página */
+.feed-title,
+.feed-where,
+.feed-who,
+.feed-body,
+.activity-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.feed-where {
+  white-space: normal;
+}
+
+.activity-item {
+  min-width: 0;
+}
+
+/* cartões de pedido/grupo no celular: a área de ações quebra linha em vez de vazar da tela */
+@media (max-width: 960px) {
+  .request-item {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .request-item .request-info {
+    flex: 1 1 200px;
+    min-width: 0;
+  }
+  .request-item .request-action,
+  .request-item .group-action {
+    flex: 1 1 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .request-item .group-review-btn {
+    max-width: 100%;
+    white-space: normal;
+    text-align: center;
+  }
+}
+
+/* rede de segurança no celular: palavra longa sem espaço quebra em qualquer cartão (títulos de pedido, produto, atividade…) */
+@media (max-width: 960px) {
+  main,
+  .site-footer {
+    overflow-wrap: anywhere;
+  }
+}
