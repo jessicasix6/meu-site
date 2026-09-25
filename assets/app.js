@@ -454,8 +454,8 @@ const modeButtons = document.querySelectorAll(".mode-btn[data-mode]");
 let requestsLoaded = false;
 
 const SEARCH_PLACEHOLDER_BY_MODE = {
-  requester: "Descreva o que você gostaria de solicitar...",
-  provider: "Buscar um serviço, ou toque em 'Preciso de algo' pra pedir algo",
+  requester: "O que você está procurando?",
+  provider: "Buscar o que já foi publicado",
 };
 
 function setMode(mode) {

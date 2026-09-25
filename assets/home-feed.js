@@ -479,8 +479,8 @@
     const btn = document.querySelector('.hero-mode-btn[data-mode="requester"]');
     if (btn) btn.setAttribute("aria-expanded", String(open));
     if (open && focus) {
-      const input = $("hero-search-input");
-      if (input) input.focus({ preventScroll: true });
+      const first = searchPanel.querySelector(".hero-category-chips button");
+      if (first) first.focus({ preventScroll: true });
     }
   }
   let requesterWasActive = true;
@@ -568,5 +568,6 @@
   });
 
   syncControls();
+  window.reloadHomeFeed = load;
   load();
 })();
