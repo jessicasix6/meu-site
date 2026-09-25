@@ -1,13 +1,20 @@
 const { test, expect, request: apiRequest } = require("@playwright/test");
 
-// A busca do hero fica recolhida até a pessoa tocar em "Preciso de algo" (layout do
-// guia visual Neon Dark) — testes que usam a busca ou os chips rápidos abrem antes.
+// Os atalhos por categoria do hero (Serviços, Viagem, Grupo, Produtos) ficam recolhidos
+// atrás do link "Atalhos por categoria"; testes que usam esses chips abrem antes.
 async function abrirBusca(page) {
   const panel = page.locator("#hero-search-panel");
   if (await panel.isHidden()) {
-    await page.locator('.hero-mode-btn[data-mode="requester"]').click();
+    await page.locator("#hero-panel-toggle").click();
   }
   await expect(panel).toBeVisible();
+}
+
+// "Quero oferecer" agora abre o formulário de cadastro; a lista de pedidos em aberto
+// (modo prestador) abre por "Ver opções →" nos cards ou por setMode — os testes vão direto.
+async function entrarModoPrestador(page) {
+  await page.evaluate(() => setMode("provider"));
+  await expect(page.locator("#provider-view")).toBeVisible();
 }
 
 test.describe("Top3Profissional - fluxo básico", () => {
@@ -91,7 +98,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
     const searchInput = page.locator("#hero-search-input");
     await expect(searchInput).toHaveAttribute("placeholder", "O que você está procurando?");
 
-    await page.locator('.mode-btn[data-mode="provider"]').click();
+    await entrarModoPrestador(page);
     await expect(searchInput).toHaveAttribute("placeholder", /Buscar o que já foi publicado/);
 
     await page.locator('.mode-btn[data-mode="requester"]').click();
@@ -196,7 +203,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
 
   test('alternar para "presto um serviço" mostra pedidos em aberto', async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("tab", { name: /quero oferecer/i }).click();
+    await entrarModoPrestador(page);
     const requests = page.locator(".request-item");
     await expect(requests.first()).toBeVisible();
   });
@@ -262,7 +269,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
     expect(created.type).toBe("terreno");
 
     await page.goto("/");
-    await page.getByRole("tab", { name: /quero oferecer/i }).click();
+    await entrarModoPrestador(page);
     await expect(page.locator(".request-badge", { hasText: "terreno" }).first()).toBeVisible();
   });
 
@@ -296,7 +303,7 @@ test.describe("Top3Profissional - fluxo básico", () => {
     });
 
     await page.goto("/");
-    await page.getByRole("tab", { name: /quero oferecer/i }).click();
+    await entrarModoPrestador(page);
     await expect(page.locator(".request-item").first()).toBeVisible();
 
     const html = await page.locator("#requests-list").innerHTML();
@@ -337,14 +344,14 @@ test.describe("Top3Profissional - fluxo básico", () => {
     const id = created.request.id;
 
     await page.goto("/");
-    await page.getByRole("tab", { name: /quero oferecer/i }).click();
+    await entrarModoPrestador(page);
     const item = page.locator(`.request-item[data-id="${id}"]`);
     await expect(item).toContainText("Barreiro, Belo Horizonte");
     await expect(item).not.toContainText("31988887777");
 
     await request.post(`/api/requests/${id}/accept`, { data: { provider: "Prestador Teste" } });
     await page.reload();
-    await page.getByRole("tab", { name: /quero oferecer/i }).click();
+    await entrarModoPrestador(page);
     await expect(item).toContainText("31988887777");
   });
 
@@ -436,7 +443,7 @@ test.describe("Top3Profissional - mobile", () => {
     // prévia do Playwright que fica instável nesse cenário específico
     // (viewport mobile + touch + página alta), não um bug real de
     // sobreposição visual.
-    await page.getByRole("tab", { name: /quero oferecer/i }).click({ force: true });
+    await entrarModoPrestador(page);
     await expect(page.locator(".request-item").first()).toBeVisible();
 
     expect(consoleErrors).toEqual([]);
@@ -482,7 +489,7 @@ test.describe("Top3Profissional - avaliação pós-serviço", () => {
     expect(rated.rating).toBe(5);
 
     await page.goto("/");
-    await page.getByRole("tab", { name: /quero oferecer/i }).click();
+    await entrarModoPrestador(page);
     const item = page.locator(`.request-item[data-id="${id}"]`);
     await expect(item.locator(".star--filled")).toHaveCount(5);
     await expect(item).toContainText("Ótimo atendimento");
@@ -504,7 +511,7 @@ test.describe("Top3Profissional - avaliação pós-serviço", () => {
     });
 
     await page.goto("/");
-    await page.getByRole("tab", { name: /quero oferecer/i }).click();
+    await entrarModoPrestador(page);
     const html = await page.locator("#requests-list").innerHTML();
     expect(html).not.toContain("<img");
     expect(alerts).toEqual([]);
@@ -931,7 +938,7 @@ test.describe("Top3Profissional - sinal de demanda não publicada (pilar 4.2)", 
     await request.post("/api/chat", { data: { message: `quero um carro usado em ${uniqueCity}` } });
 
     await page.goto("/");
-    await page.locator('.mode-btn[data-mode="provider"]').click();
+    await entrarModoPrestador(page);
     await expect(page.locator("#demand-signals-list")).toContainText(uniqueCity);
     await expect(page.locator("#demand-signals")).toBeVisible();
   });
@@ -1589,13 +1596,13 @@ test.describe("Top3Profissional - login simples por email/senha + perfil (task-0
     await expect(page.locator("#group-form")).toBeVisible();
   });
 
-  test("modal de login não desmarca o toggle Solicito/Presto serviço da barra de busca", async ({ page }) => {
+  test("modal de login não troca o modo da página", async ({ page }) => {
     await page.goto("/");
     await page.locator("#email-auth-toggle").click();
     await expect(page.locator("#email-auth-panel")).toBeVisible();
-    // Abrir o painel de login não deve desmarcar o modo ativo
-    await expect(page.locator('.mode-btn[data-mode="requester"]')).toHaveClass(/is-active/);
+    // Abrir o painel de login não deve trocar de modo
     await expect(page.locator("#requester-view")).toBeVisible();
+    await expect(page.locator("#provider-view")).toBeHidden();
   });
 
   test("editar perfil pela interface: abre pré-preenchido, salva, e reabre com os novos dados", async ({ page }) => {
@@ -2998,7 +3005,7 @@ test.describe("Top3Profissional - correções de UX no formulário de Publicar (
     const { request: carroRequest } = await carro.json();
 
     await page.goto("/");
-    await page.getByRole("tab", { name: /quero oferecer/i }).click();
+    await entrarModoPrestador(page);
     await page.locator("#requests-filter-keyword").fill("TV");
     await expect(page.locator(`.request-item[data-id="${tvRequest.id}"]`)).toBeVisible();
     await expect(page.locator(`.request-item[data-id="${carroRequest.id}"]`)).toHaveCount(0);
@@ -3024,7 +3031,7 @@ test.describe("Top3Profissional - correções de UX no formulário de Publicar (
     const { request: tvRequest } = await tv.json();
 
     await page.goto("/");
-    await page.getByRole("tab", { name: /quero oferecer/i }).click();
+    await entrarModoPrestador(page);
     await expect(page.locator(`.request-item[data-id="${tvRequest.id}"]`)).toBeVisible();
 
     // Filtro que não bate com nada cadastrado — mensagem tem que diferenciar
@@ -3046,7 +3053,7 @@ test.describe("Top3Profissional - correções de UX no formulário de Publicar (
     // vizinho na mesma barra de filtro (mesmo padrão do bug corrigido em
     // .post-field, PR #169).
     await page.goto("/");
-    await page.getByRole("tab", { name: /quero oferecer/i }).click();
+    await entrarModoPrestador(page);
 
     const keyword = page.locator("#requests-filter-keyword");
     const type = page.locator("#requests-filter-type");
@@ -3138,7 +3145,7 @@ test.describe("Top3Profissional - correções de UX no formulário de Publicar (
   test("nav do topo (tema Neon Dark): 3 links de seção (Explorar, Como funciona, Top 3 da semana) e nenhum 'Perguntar'", async ({ page }) => {
     await page.goto("/");
     const navLinks = page.locator(".site-nav .site-nav-link");
-    await expect(navLinks).toHaveText(["Explorar", "Como funciona", "Top 3 da semana"]);
+    await expect(navLinks).toHaveText(["Como funciona", "Top 3 da semana"]);
     await expect(page.locator("#nav-ask-link")).toHaveCount(0);
   });
 
@@ -3180,7 +3187,7 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
     await expect(page.locator(".logo-subtitle")).toHaveCount(0);
 
     // Nav de seções: Explorar / Como funciona / Top 3 da semana
-    await expect(page.locator(".site-nav .site-nav-link")).toHaveCount(3);
+    await expect(page.locator(".site-nav .site-nav-link")).toHaveCount(2);
 
     // "Online" só aparece depois de um /health real responder (item 1) —
     // não é decorativo fixo no HTML.
@@ -3191,7 +3198,7 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
 
   test("header limpo: logo + 3 links de seção + auth + indicador Online, sem menu 'Mais'", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator(".site-nav .site-nav-link")).toHaveCount(3);
+    await expect(page.locator(".site-nav .site-nav-link")).toHaveCount(2);
     await expect(page.locator("#nav-more-toggle")).toHaveCount(0);
     // Logo, auth e indicador Online permanecem
     await expect(page.locator(".site-header .logo")).toBeVisible();
@@ -3313,7 +3320,7 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
     page,
   }) => {
     await page.goto("/");
-    await page.getByRole("tab", { name: /quero oferecer/i }).click({ force: true }); // ver comentário no teste mobile equivalente
+    await entrarModoPrestador(page);
     await expect(page.locator("#provider-view")).toBeVisible();
     // #requests-list especificamente — .request-item sozinho também casa
     // com os cards de #groups-list (mesma classe, "group-card" só
@@ -3321,13 +3328,13 @@ test.describe("Top3Profissional - nova home TOP3 SYSTEM, dado sempre real (task-
     await expect(page.locator("#requests-list .request-item").first()).toBeVisible();
   });
 
-  test("as abas de modo ficam fora do #requester-view — dá pra voltar de 'Presto' pra 'Solicito'", async ({ page }) => {
+  test("no modo prestador o botão Voltar leva de volta pra home de busca", async ({ page }) => {
     await page.goto("/");
     await abrirBusca(page);
     // O hero mora fora do #requester-view de propósito: se ficasse dentro,
     // setMode("provider") esconderia as abas junto e prenderia a pessoa no
     // modo prestador, sem nenhum jeito de voltar.
-    await page.locator('.mode-btn[data-mode="provider"]').click();
+    await entrarModoPrestador(page);
     await expect(page.locator("#provider-view")).toBeVisible();
     await expect(page.locator('.mode-btn[data-mode="requester"]')).toBeVisible();
     // Busca e chips somem nesse modo, só as abas ficam
@@ -3540,8 +3547,8 @@ test.describe("Top3Profissional - painéis de categoria do hero", () => {
     // botões mais usados — a busca tinha 34px e os chips, 32px.
     const principais = [
       ".hero-search-submit",
-      '.hero-mode-btn[data-mode="requester"]',
-      '.hero-mode-btn[data-mode="provider"]',
+      "#open-preciso-btn",
+      "#open-quero-btn",
       '[data-hero-category="servico"]',
       '[data-hero-category="produto"]',
     ];
@@ -4044,30 +4051,41 @@ test.describe("Top3Profissional - home Neon Dark: feed Pedidos | Ofertas | Top 3
     await expect(top.locator(".feed-rank-num")).toHaveText(["1", "2", "3"]);
   });
 
-  test("feed: clicar no card de um pedido leva pro quadro de pedidos (modo 'Quero oferecer')", async ({ page }) => {
+  test("feed: clicar no card de um pedido leva pro quadro de pedidos em aberto", async ({ page }) => {
     await Promise.all([page.waitForResponse((res) => res.url().includes("/api/requests")), page.goto("/")]);
     await page.locator("#highlights-list .highlight-card").first().locator(".highlight-title, .feed-title").first().click();
     await expect(page.locator("#provider-view")).toBeVisible();
-    await expect(page.locator('.mode-btn[data-mode="provider"]')).toHaveClass(/is-active/);
+    await expect(page.locator("#requester-view")).toBeHidden();
   });
 
-  test("hero: 'Preciso de algo' e 'Quero oferecer' são as abas de modo (ativa = botão primário)", async ({ page }) => {
+  test("hero: 'Preciso de algo' abre o formulário de solicitar e 'Quero oferecer' o de cadastrar, sem trocar de página", async ({ page }) => {
     await page.goto("/");
-    const preciso = page.locator('.hero-mode-btn[data-mode="requester"]');
-    const oferecer = page.locator('.hero-mode-btn[data-mode="provider"]');
-    await expect(preciso).toHaveAttribute("aria-selected", "true");
-    await expect(oferecer).toHaveAttribute("aria-selected", "false");
-    await oferecer.click();
-    await expect(oferecer).toHaveAttribute("aria-selected", "true");
-    await expect(preciso).toHaveAttribute("aria-selected", "false");
-    // aba ativa usa o gradiente ciano do CTA (background-image), a inativa não
-    const activeBg = await oferecer.evaluate((el) => getComputedStyle(el).backgroundImage);
-    const inactiveBg = await preciso.evaluate((el) => getComputedStyle(el).backgroundImage);
-    expect(activeBg).toContain("linear-gradient");
-    expect(inactiveBg).not.toContain("linear-gradient");
+    const preciso = page.locator("#open-preciso-btn");
+    const quero = page.locator("#open-quero-btn");
+    await expect(preciso).toHaveText("Preciso de algo");
+    await expect(quero).toHaveText("Quero oferecer");
+    // "Preciso de algo" é o botão primário (gradiente ciano), "Quero oferecer" o secundário
+    expect(await preciso.evaluate((el) => getComputedStyle(el).backgroundImage)).toContain("linear-gradient");
+    expect(await quero.evaluate((el) => getComputedStyle(el).backgroundImage)).not.toContain("linear-gradient");
+
+    await preciso.click();
+    await expect(page.locator("#compose-title")).toHaveText("O que você precisa?");
+    await expect(page.locator("#compose-dialog #post-form")).toBeVisible();
+    await page.locator("#compose-close").click();
+    await expect(page.locator("#compose-dialog")).toBeHidden();
+
+    await quero.click();
+    await expect(page.locator("#compose-title")).toHaveText("O que você quer oferecer?");
+    await expect(page.locator("#compose-dialog #provider-form")).toBeVisible();
+    await page.locator("#compose-close").click();
+    // continua na home de busca
+    await expect(page.locator("#requester-view")).toBeVisible();
+    await expect(page.locator("#provider-view")).toBeHidden();
   });
 
   test("nav do topo: 'Como funciona' rola até a faixa de passos", async ({ page }) => {
+    // abaixo de 1360px os links de texto somem (só ficam os 4 botões da barra)
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/");
     await page.locator(".site-nav-link", { hasText: "Como funciona" }).click();
     await expect(page.locator("#como-funciona")).toBeInViewport();
@@ -4169,18 +4187,20 @@ test.describe("Top3Profissional - home Neon Dark: categorias, filtros, busca rec
     await expect(page.locator('.cat-chip[data-cat="todos"]')).toHaveAttribute("aria-selected", "true");
   });
 
-  test("busca do hero fica recolhida; 'Preciso de algo' abre, alterna e Esc fecha", async ({ page }) => {
+  test("atalhos por categoria ficam recolhidos; o link abre, alterna e Esc fecha", async ({ page }) => {
     await page.goto("/");
     const panel = page.locator("#hero-search-panel");
-    const btn = page.locator('.hero-mode-btn[data-mode="requester"]');
+    const toggle = page.locator("#hero-panel-toggle");
     await expect(panel).toBeHidden();
-    await btn.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await toggle.click();
     await expect(panel).toBeVisible();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
     await expect(page.locator('.hero-category-chips [data-hero-category="servico"]')).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(panel).toBeHidden();
-    await btn.click();
-    await btn.click();
+    await toggle.click();
+    await toggle.click();
     await expect(panel).toBeHidden();
   });
 
@@ -4218,25 +4238,30 @@ test.describe("Top3Profissional - home Neon Dark: categorias, filtros, busca rec
   });
 });
 
-test.describe("Top3Profissional - busca no cabeçalho e formulários Solicitar / Oferecer", () => {
-  test("a barra de pesquisa fica ao lado dos botões do hero, sempre visível (inclusive no modo 'Quero oferecer')", async ({ page }) => {
+test.describe("Top3Profissional - busca no hero e formulários de solicitar / cadastrar", () => {
+  test("a barra de pesquisa fica ao lado dos botões do hero e continua visível no modo prestador", async ({ page }) => {
     await page.goto("/");
     const form = page.locator(".hero-cta-row #hero-search-form");
     await expect(form).toBeVisible();
-    await page.locator('.hero-mode-btn[data-mode="provider"]').click();
-    await expect(page.locator("#provider-view")).toBeVisible();
+    const preciso = await page.locator("#open-preciso-btn").boundingBox();
+    const quero = await page.locator("#open-quero-btn").boundingBox();
+    const busca = await form.boundingBox();
+    expect(Math.abs(busca.y - quero.y)).toBeLessThan(40);
+    expect(busca.x).toBeGreaterThan(quero.x + quero.width - 5);
+    expect(quero.x).toBeGreaterThan(preciso.x);
+
+    await entrarModoPrestador(page);
     await expect(form).toBeVisible();
-    // buscar estando em 'Quero oferecer' volta pro modo de busca e roteia pelo mesmo motor
+    // buscar estando na lista de pedidos volta pra home de busca e roteia pelo mesmo motor
     await page.locator("#hero-search-input").fill("eletricista");
     await form.locator("button[type=submit]").click();
-    await expect(page.locator('.hero-mode-btn[data-mode="requester"]')).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator("#requester-view")).toBeVisible();
     await expect(page.locator("#top3")).toBeInViewport();
   });
 
-  test("Preciso de algo → Solicitar abre o formulário com 4 tipos e o tipo escolhido vai no pedido", async ({ page, request }) => {
+  test("Preciso de algo abre o formulário com 4 tipos e o tipo escolhido vai no pedido", async ({ page, request }) => {
     await page.goto("/");
-    await page.locator('.hero-mode-btn[data-mode="requester"]').click();
-    await page.locator("#open-solicitar-btn").click();
+    await page.locator("#open-preciso-btn").click();
     const dialog = page.locator("#compose-dialog");
     await expect(dialog).toBeVisible();
     await expect(dialog.locator(".compose-tab")).toHaveText([/Serviço/, /Loja/, /Produto/, /Viagem/]);
@@ -4267,9 +4292,8 @@ test.describe("Top3Profissional - busca no cabeçalho e formulários Solicitar /
 
   test("fechar (✕, Esc ou clicando fora) devolve o formulário ao lugar de origem", async ({ page }) => {
     await page.goto("/");
-    await page.locator('.hero-mode-btn[data-mode="requester"]').click();
     for (const how of ["x", "esc", "fora"]) {
-      await page.locator("#open-solicitar-btn").click();
+      await page.locator("#open-preciso-btn").click();
       await expect(page.locator("#compose-dialog #publicar")).toHaveCount(1);
       if (how === "x") await page.locator("#compose-close").click();
       if (how === "esc") await page.keyboard.press("Escape");
@@ -4280,10 +4304,9 @@ test.describe("Top3Profissional - busca no cabeçalho e formulários Solicitar /
     }
   });
 
-  test("Quero oferecer → Cadastrar minha oferta: Serviço/Loja/Produto usam o cadastro de perfil e Viagem, a carona", async ({ page }) => {
+  test("Quero oferecer: Serviço/Loja/Produto usam o cadastro de perfil e Viagem, a carona", async ({ page }) => {
     await page.goto("/");
-    await page.locator('.hero-mode-btn[data-mode="provider"]').click();
-    await page.locator("#open-oferecer-btn").click();
+    await page.locator("#open-quero-btn").click();
     const dialog = page.locator("#compose-dialog");
     await expect(dialog).toBeVisible();
     await expect(page.locator("#compose-title")).toHaveText("O que você quer oferecer?");
@@ -4308,35 +4331,26 @@ test.describe("Top3Profissional - busca no cabeçalho e formulários Solicitar /
     await expect(page.locator("#provider-form-submit")).toHaveText("Criar meu perfil");
   });
 
+  test("modo prestador (Ver opções nos cards) mostra 'Cadastrar minha oferta' e o botão Voltar", async ({ page }) => {
+    await page.goto("/");
+    await entrarModoPrestador(page);
+    await expect(page.locator("#open-oferecer-btn")).toBeVisible();
+    await page.locator("#open-oferecer-btn").click();
+    await expect(page.locator("#compose-dialog #provider-form")).toBeVisible();
+    await page.locator("#compose-close").click();
+    await page.locator('.mode-btn[data-mode="requester"]').click();
+    await expect(page.locator("#requester-view")).toBeVisible();
+  });
+
   test("celular: busca em linha própria abaixo dos botões e o diálogo abre como folha inferior", async ({ page }) => {
     await page.setViewportSize({ width: 393, height: 852 });
     await page.goto("/");
     const box = await page.locator(".hero-cta-row #hero-search-form").boundingBox();
     expect(box.width).toBeGreaterThan(300);
     expect(box.height).toBeGreaterThanOrEqual(44);
-    await page.locator('.hero-mode-btn[data-mode="requester"]').click();
-    await page.locator("#open-solicitar-btn").click();
+    await page.locator("#open-preciso-btn").click();
     const boxD = await page.locator(".compose-box").boundingBox();
     expect(boxD.width).toBeGreaterThan(380);
     expect(boxD.y + boxD.height).toBeGreaterThan(800); // encostado embaixo
-  });
-});
-
-test.describe("Top3Profissional - 'Cadastrar' dentro de 'Preciso de algo'", () => {
-  test("o painel de 'Preciso de algo' tem Solicitar e Cadastrar; Cadastrar abre o formulário de oferta", async ({ page }) => {
-    await page.goto("/");
-    // sempre visíveis, na mesma linha do Buscar
-    await expect(page.locator(".hero-cta-row #open-solicitar-btn")).toBeVisible();
-    await expect(page.locator(".hero-cta-row #open-cadastrar-btn")).toBeVisible();
-    const buscar = await page.locator(".hero-cta-row .hero-search-submit").boundingBox();
-    const solicitar = await page.locator("#open-solicitar-btn").boundingBox();
-    expect(Math.abs(solicitar.y - buscar.y)).toBeLessThan(40);
-    expect(solicitar.x).toBeGreaterThan(buscar.x);
-    await expect(page.locator("#open-cadastrar-btn")).toHaveText("Cadastrar");
-
-    await page.locator("#open-cadastrar-btn").click();
-    await expect(page.locator("#compose-title")).toHaveText("O que você quer oferecer?");
-    await expect(page.locator("#compose-dialog #provider-form")).toBeVisible();
-    await expect(page.locator("#compose-dialog .compose-tab")).toHaveText([/Serviço/, /Loja/, /Produto/, /Viagem/]);
   });
 });
