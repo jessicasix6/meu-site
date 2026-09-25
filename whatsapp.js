@@ -28,8 +28,8 @@ function isConfigured() {
 
 async function sendWhatsAppMessage(to, text) {
   if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_NUMBER_ID) {
-    console.warn(`[whatsapp] credenciais ausentes — mensagem não enviada para ${to}: "${text}"`);
-    return;
+    console.warn(`[whatsapp] credenciais ausentes — mensagem não enviada para ${to}`);
+    return false;
   }
 
   const url = `https://graph.facebook.com/v21.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
@@ -50,7 +50,9 @@ async function sendWhatsAppMessage(to, text) {
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     console.error(`[whatsapp] falha ao enviar mensagem (${res.status}):`, body);
+    return false;
   }
+  return true;
 }
 
 // searchWeb: (query: string) => Promise<string>
@@ -139,4 +141,4 @@ function registerWhatsAppRoutes(app, { searchWeb, acceptRequest, completeRequest
   });
 }
 
-module.exports = { registerWhatsAppRoutes, isConfigured };
+module.exports = { registerWhatsAppRoutes, isConfigured, sendWhatsAppMessage };

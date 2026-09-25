@@ -506,13 +506,11 @@
     if (!link) return;
     setBni(link.dataset.bni);
     if (link.dataset.bni === "perfil") {
-      // logada: abre "Meus dados"; senão, o painel de entrar
-      const chip = $("user-chip-toggle");
-      if (chip) {
-        e.preventDefault();
-        chip.click();
+      e.preventDefault();
+      // logada: abre o "Meu perfil"; senão, o painel de entrar
+      if (typeof currentUserProfile !== "undefined" && currentUserProfile && typeof window.openProfile === "function") {
+        window.openProfile(link);
       } else {
-        e.preventDefault();
         $("email-auth-toggle").click();
         $("email-auth-toggle").scrollIntoView({ behavior: "smooth", block: "center" });
       }

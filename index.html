@@ -1019,12 +1019,85 @@
     </div>
   </div>
 
+
+  <div id="profile-dialog" class="compose-overlay profile-overlay" hidden>
+    <div class="compose-box profile-box" role="dialog" aria-modal="true" aria-labelledby="profile-title">
+      <div class="compose-head">
+        <h2 id="profile-title" class="compose-title">Meu perfil</h2>
+        <button type="button" id="profile-close" class="compose-close" aria-label="Fechar">✕</button>
+      </div>
+      <div class="profile-scroll">
+        <section class="pf-top">
+          <div class="pf-avatar-col">
+            <div id="pf-avatar" class="pf-avatar" role="img" aria-label="Sua foto"></div>
+            <label for="pf-photo-input" class="pf-btn pf-btn--secondary pf-photo-btn">Trocar foto</label>
+            <input id="pf-photo-input" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+            <button type="button" id="pf-photo-remove" class="pf-link">Remover foto</button>
+          </div>
+          <div class="pf-ident">
+            <label class="pf-label" for="pf-name">Nome</label>
+            <div class="pf-row">
+              <input id="pf-name" class="pf-input" type="text" maxlength="60" autocomplete="name" />
+              <button type="button" id="pf-name-save" class="pf-btn pf-btn--secondary">Salvar</button>
+            </div>
+            <p id="pf-email" class="pf-email"></p>
+          </div>
+        </section>
+
+        <section class="pf-section" aria-labelledby="pf-wa-title">
+          <div class="pf-section-head">
+            <h3 id="pf-wa-title" class="pf-h3">WhatsApp</h3>
+            <span id="pf-wa-badge" class="pf-badge"></span>
+          </div>
+          <div class="pf-row">
+            <input id="pf-whatsapp" class="pf-input" type="tel" inputmode="tel" placeholder="ex: (31) 99999-0000" autocomplete="tel" aria-label="Seu WhatsApp" />
+            <button type="button" id="pf-whatsapp-save" class="pf-btn pf-btn--secondary">Salvar número</button>
+          </div>
+          <div id="pf-wa-verify" class="pf-verify">
+            <button type="button" id="pf-wa-send" class="pf-btn pf-btn--primary">Verificar número</button>
+            <div id="pf-wa-code-row" class="pf-row pf-code-row" hidden>
+              <input id="pf-wa-code" class="pf-input pf-code-input" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="código de 6 dígitos" aria-label="Código de verificação" />
+              <button type="button" id="pf-wa-confirm" class="pf-btn pf-btn--primary">Confirmar</button>
+            </div>
+          </div>
+          <p id="pf-wa-note" class="pf-note"></p>
+        </section>
+
+        <section class="pf-section">
+          <h3 class="pf-h3"><label for="pf-tipo">Como você usa o site</label></h3>
+          <select id="pf-tipo" class="pf-input pf-select">
+            <option value="">Não informado</option>
+            <option value="solicitante">Só solicito serviços</option>
+            <option value="prestador">Só presto serviços</option>
+            <option value="ambos">Solicito e presto</option>
+          </select>
+        </section>
+
+        <details class="pf-more">
+          <summary>Motorista e horários de atendimento</summary>
+          <div id="pf-more-slot"></div>
+        </details>
+
+        <section class="pf-section">
+          <h3 class="pf-h3">Minha atividade</h3>
+          <div id="pf-activity" class="pf-activity"></div>
+        </section>
+
+        <div class="pf-foot">
+          <button type="button" id="pf-logout" class="pf-btn pf-btn--danger">Sair da conta</button>
+        </div>
+      </div>
+      <p id="pf-status" class="post-status pf-status" aria-live="polite"></p>
+    </div>
+  </div>
+
   <!-- ALTCHA (task-008) — anti-spam sem terceiro, servido do próprio site (ver /vendor/altcha em server.js). -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script type="module" src="/vendor/altcha/altcha.min.js"></script>
   <script src="assets/app.js"></script>
   <script src="assets/home-feed.js"></script>
   <script src="assets/compose.js"></script>
+  <script src="assets/profile.js"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

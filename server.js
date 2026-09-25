@@ -16,7 +16,7 @@ const { createChallenge: createAltchaChallenge, verifySolution: verifyAltchaSolu
 const sharp = require("sharp");
 const ort = require("onnxruntime-node");
 const { BackgroundRemover } = require("@tugrul/rembg");
-const { registerWhatsAppRoutes, isConfigured: isWhatsAppConfigured } = require("./whatsapp");
+const { registerWhatsAppRoutes, isConfigured: isWhatsAppConfigured, sendWhatsAppMessage } = require("./whatsapp");
 const { SERVICO_SYNONYMS, SERVICO_SYNONYM_EXCLUSIONS, GROUP_CATEGORY_SYNONYMS, CITY_SYNONYMS } = require("./keywords");
 
 const PROVIDERS = [
@@ -596,6 +596,7 @@ if (minioBucketReady) minioBucketReady.catch(() => {});
 if (!minioClient) {
   fs.mkdirSync(path.join(UPLOADS_DIR, "providers"), { recursive: true });
   fs.mkdirSync(path.join(UPLOADS_DIR, "requests"), { recursive: true });
+  fs.mkdirSync(path.join(UPLOADS_DIR, "users"), { recursive: true });
   console.warn("MINIO_ENDPOINT não definida — fotos de perfil ficam salvas em disco local (uploads/), como antes.");
 }
 
@@ -728,6 +729,23 @@ if (minioClient) {
     try {
       await minioBucketReady;
       const key = `providers/${req.params.id}/${req.params.filename}`;
+      const stream = await minioClient.getObject(MINIO_BUCKET, key);
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", "private, max-age=3600");
+      stream.on("error", () => res.status(404).end());
+      stream.pipe(res);
+    } catch (err) {
+      res.status(404).end();
+    }
+  });
+  // Mesma coisa, pra foto de perfil da pessoa (ver POST /api/auth/photo).
+  app.get("/uploads/users/:id/:filename", async (req, res) => {
+    const ext = path.extname(req.params.filename).toLowerCase();
+    const contentType = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : ext === ".jpg" ? "image/jpeg" : null;
+    if (!contentType) return res.status(404).end();
+    try {
+      await minioBucketReady;
+      const key = `users/${req.params.id}/${req.params.filename}`;
       const stream = await minioClient.getObject(MINIO_BUCKET, key);
       res.setHeader("Content-Type", contentType);
       res.setHeader("Cache-Control", "private, max-age=3600");
@@ -911,6 +929,22 @@ function startSession(req, res, user) {
 
 // Só os campos seguros pra devolver ao cliente — nunca passwordHash, nunca
 // reputacaoScore numérico (interno, task-004).
+// WhatsApp verificado = houve confirmação por código E o número atual é o
+// mesmo que foi confirmado. Trocar o número derruba a verificação sozinho, por
+// qualquer caminho que altere user.whatsapp (perfil, cadastro, etc.).
+function normalizeBrPhone(raw) {
+  const digits = String(raw || "").replace(/\D/g, "");
+  const national = digits.startsWith("55") && digits.length >= 12 ? digits.slice(2) : digits;
+  // DDD (11–99) + celular de 9 dígitos começando com 9 — WhatsApp de verdade
+  if (!/^[1-9][1-9]9\d{8}$/.test(national)) return null;
+  return `55${national}`;
+}
+
+function isWhatsappVerified(user) {
+  const current = normalizeBrPhone(user.whatsapp);
+  return Boolean(user.whatsappVerified && current && user.whatsappVerifiedNumber === current);
+}
+
 function publicUserFields(user) {
   return {
     // id nunca foi sensível — já é exposto publicamente em GET
@@ -922,6 +956,7 @@ function publicUserFields(user) {
     email: user.email,
     picture: user.picture,
     whatsapp: user.whatsapp,
+    whatsappVerified: isWhatsappVerified(user),
     tipoUso: user.tipoUso,
     motorista: user.motorista,
     disponibilidade: user.disponibilidade,
@@ -1010,6 +1045,7 @@ app.get("/api/auth/config", (req, res) => {
     umamiWebsiteId: isUmamiConfigured() ? process.env.UMAMI_WEBSITE_ID : null,
     supabaseUrl: process.env.SUPABASE_URL || null,
     supabaseAnonKey: process.env.SUPABASE_ANON_KEY || null,
+    whatsappVerification: isWhatsAppVerificationAvailable(),
   });
 });
 
@@ -1261,6 +1297,118 @@ app.put("/api/auth/profile", async (req, res) => {
   if (motorista !== undefined) user.motorista = motoristaResult.value;
   if (disponibilidade !== undefined) user.disponibilidade = disponibilidadeResult.value;
 
+  res.json({ user: publicUserFields(user) });
+});
+
+// ── Meu perfil: foto e verificação do WhatsApp ─────────────────────────────
+
+// Foto de perfil: a pessoa troca por uma imagem enviada (png/jpg/webp, até
+// 8MB, assinatura do arquivo conferida). O arquivo antigo não é apagado aqui.
+app.post("/api/auth/photo", uploadRequestPhoto, async (req, res) => {
+  const user = getCurrentUser(req);
+  if (!user) return res.status(401).json({ error: "não autenticado" });
+  const file = req.file;
+  if (!file) return res.status(400).json({ error: "envie uma imagem (png, jpg ou webp)" });
+  if (!matchesImageSignature(file.buffer, file.mimetype)) {
+    return res.status(400).json({ error: "o arquivo não parece uma imagem válida" });
+  }
+  try {
+    const ext = file.mimetype === "image/png" ? "png" : file.mimetype === "image/webp" ? "webp" : "jpg";
+    const dir = path.join(UPLOADS_DIR, "users", user.id);
+    if (!minioClient) fs.mkdirSync(dir, { recursive: true });
+    user.picture = await storePhoto(file.buffer, dir, user.id, `avatar-${Date.now()}.${ext}`, file.mimetype, "users");
+    persistUsersAndSessions();
+    res.json({ user: publicUserFields(user) });
+  } catch (err) {
+    console.error("[perfil] falha ao guardar a foto:", err.message);
+    res.status(500).json({ error: "não consegui guardar a foto agora" });
+  }
+});
+
+app.delete("/api/auth/photo", (req, res) => {
+  const user = getCurrentUser(req);
+  if (!user) return res.status(401).json({ error: "não autenticado" });
+  user.picture = null;
+  persistUsersAndSessions();
+  res.json({ user: publicUserFields(user) });
+});
+
+// Verificação do WhatsApp por código de 6 dígitos mandado pelo próprio
+// WhatsApp do site. Só existe com a integração do WhatsApp Business configurada
+// (ver /health → whatsappConfigured); sem ela, o botão avisa que ainda não está
+// ativo — nunca "verifica" sem confirmar de verdade. WHATSAPP_CODE_DEV_ECHO=1
+// devolve o código na resposta e existe SÓ pro servidor de teste do Playwright.
+const WHATSAPP_CODE_TTL_MS = 10 * 60 * 1000;
+const WHATSAPP_CODE_RESEND_MS = 60 * 1000;
+const WHATSAPP_CODE_MAX_ATTEMPTS = 5;
+const WHATSAPP_CODES = new Map(); // userId -> { hash, number, expiresAt, attempts, sentAt }
+const isWhatsappCodeRateLimited = makeHourlyRateLimiter(8);
+
+function isWhatsAppVerificationAvailable() {
+  return process.env.WHATSAPP_CODE_DEV_ECHO === "1" || isWhatsAppConfigured();
+}
+
+function hashWhatsappCode(userId, code) {
+  return crypto.createHash("sha256").update(`${userId}:${code}:${process.env.ADMIN_SECRET || "top3"}`).digest("hex");
+}
+
+app.post("/api/auth/whatsapp/code", async (req, res) => {
+  const user = getCurrentUser(req);
+  if (!user) return res.status(401).json({ error: "não autenticado" });
+  if (!isWhatsAppVerificationAvailable()) {
+    return res.status(503).json({ error: "a verificação por WhatsApp ainda não está ativa neste site", code: "unavailable" });
+  }
+  const number = normalizeBrPhone(user.whatsapp);
+  if (!number) {
+    return res.status(400).json({ error: "salve um número de celular válido, com DDD (ex: 31 99999-0000)", code: "invalid_number" });
+  }
+  if (isWhatsappVerified(user)) return res.json({ user: publicUserFields(user), alreadyVerified: true });
+  if (isWhatsappCodeRateLimited(`${req.ip}:${user.id}`)) {
+    return res.status(429).json({ error: "muitos códigos pedidos — tente de novo mais tarde" });
+  }
+  const previous = WHATSAPP_CODES.get(user.id);
+  if (previous && previous.number === number && Date.now() - previous.sentAt < WHATSAPP_CODE_RESEND_MS && process.env.DISABLE_RATE_LIMITS !== "1") {
+    const wait = Math.ceil((WHATSAPP_CODE_RESEND_MS - (Date.now() - previous.sentAt)) / 1000);
+    return res.status(429).json({ error: `espere ${wait}s pra pedir outro código`, code: "cooldown", retryAfter: wait });
+  }
+  const code = String(crypto.randomInt(0, 1000000)).padStart(6, "0");
+  const devEcho = process.env.WHATSAPP_CODE_DEV_ECHO === "1";
+  if (!devEcho) {
+    const sent = await sendWhatsAppMessage(number, `Seu código de verificação do TOP3 é ${code}. Vale por 10 minutos. Se não foi você, ignore esta mensagem.`);
+    if (!sent) return res.status(502).json({ error: "não consegui enviar o código pelo WhatsApp agora — tente de novo em instantes", code: "send_failed" });
+  }
+  WHATSAPP_CODES.set(user.id, { hash: hashWhatsappCode(user.id, code), number, expiresAt: Date.now() + WHATSAPP_CODE_TTL_MS, attempts: 0, sentAt: Date.now() });
+  res.json({ sent: true, maskedNumber: `+${number.slice(0, 2)} ${number.slice(2, 4)} *****-${number.slice(-4)}`, ...(devEcho ? { devCode: code } : {}) });
+});
+
+app.post("/api/auth/whatsapp/verify", (req, res) => {
+  const user = getCurrentUser(req);
+  if (!user) return res.status(401).json({ error: "não autenticado" });
+  const code = typeof (req.body || {}).code === "string" ? req.body.code.replace(/\D/g, "") : "";
+  if (code.length !== 6) return res.status(400).json({ error: "digite o código de 6 dígitos" });
+  const entry = WHATSAPP_CODES.get(user.id);
+  const number = normalizeBrPhone(user.whatsapp);
+  if (!entry || !number || entry.number !== number) {
+    return res.status(400).json({ error: "peça um código novo pra esse número", code: "no_code" });
+  }
+  if (Date.now() > entry.expiresAt) {
+    WHATSAPP_CODES.delete(user.id);
+    return res.status(400).json({ error: "o código venceu — peça outro", code: "expired" });
+  }
+  if (entry.attempts >= WHATSAPP_CODE_MAX_ATTEMPTS) {
+    WHATSAPP_CODES.delete(user.id);
+    return res.status(429).json({ error: "muitas tentativas — peça um código novo", code: "too_many_attempts" });
+  }
+  entry.attempts += 1;
+  const expected = Buffer.from(entry.hash, "hex");
+  const given = Buffer.from(hashWhatsappCode(user.id, code), "hex");
+  if (expected.length !== given.length || !crypto.timingSafeEqual(expected, given)) {
+    return res.status(400).json({ error: "código incorreto", code: "wrong_code", attemptsLeft: WHATSAPP_CODE_MAX_ATTEMPTS - entry.attempts });
+  }
+  WHATSAPP_CODES.delete(user.id);
+  user.whatsappVerified = true;
+  user.whatsappVerifiedNumber = number;
+  persistUsersAndSessions();
   res.json({ user: publicUserFields(user) });
 });
 
